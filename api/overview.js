@@ -1,30 +1,22 @@
-import axios from 'axios';
-
-const FACEBOOK_API_BASE = 'https://graph.facebook.com/v18.0';
-
-async function callFacebookAPI(endpoint, params = {}) {
-  const url = `${FACEBOOK_API_BASE}/${endpoint}`;
-  const response = await axios.get(url, {
-    params: {
-      access_token: process.env.FACEBOOK_ACCESS_TOKEN,
-      ...params
-    },
-    timeout: 10000
-  });
-  return response.data;
-}
-
 export default async function handler(req, res) {
   try {
     const { date_preset = 'last_30d' } = req.query;
     
-    const accountInsights = await callFacebookAPI(`act_${process.env.AD_ACCOUNT_ID}/insights`, {
-      fields: 'spend,impressions,clicks,ctr,cpc,cpm,conversions,conversion_values,cost_per_conversion',
-      date_preset,
-      level: 'account'
-    });
+    // Facebook API call for account insights
+    const url = `https://graph.facebook.com/v18.0/act_${process.env.AD_ACCOUNT_ID}/insights?fields=spend,impressions,clicks,ctr,cpc,cpm,conversions,conversion_values,cost_per_conversion&date_preset=${date_preset}&level=account&access_token=${process.env.FACEBOOK_ACCESS_TOKEN}`;
+    
+    const response = await fetch(url);
+    const result = await response.json();
+    
+    if (!response.ok) {
+      return res.status(500).json({
+        success: false,
+        error: result.error?.message || 'Facebook API Error',
+        facebookError: result
+      });
+    }
 
-    const data = accountInsights.data && accountInsights.data[0] ? accountInsights.data[0] : {};
+    const data = result.data && result.data[0] ? result.data[0] : {};
     
     const overview = {
       totalSpend: parseFloat(data.spend || 0),
@@ -38,11 +30,14 @@ export default async function handler(req, res) {
       averageCPA: parseFloat(data.cost_per_conversion || 0)
     };
 
+    // Calculate ROAS
     overview.totalROAS = overview.totalRevenue > 0 ? overview.totalRevenue / overview.totalSpend : 0;
 
     res.json(overview);
   } catch (error) {
-    console.error('Error fetching account overview:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      stack: error.stack 
+    });
   }
 }
