@@ -1,423 +1,268 @@
-<!-- Add this to your dashboard after the Creative Analysis tab content -->
-
-<!-- Video Hook Analysis Tab Content -->
-<div id="videoAnalysisContent" class="tab-content hidden">
-    <!-- Video Performance Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Hook Rate</p>
-                    <p class="text-2xl font-bold text-gray-900" id="videoHookRate">0.0%</p>
-                    <p class="text-sm text-gray-500" id="videoHookGrade">Grade: -</p>
-                </div>
-                <div class="text-red-500 text-3xl">🎣</div>
-            </div>
-        </div>
-        
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">25% Retention</p>
-                    <p class="text-2xl font-bold text-gray-900" id="videoRetention25">0.0%</p>
-                    <p class="text-sm text-gray-500" id="videoRetentionGrade">Grade: -</p>
-                </div>
-                <div class="text-orange-500 text-3xl">📊</div>
-            </div>
-        </div>
-        
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Completion Rate</p>
-                    <p class="text-2xl font-bold text-gray-900" id="videoCompletion">0.0%</p>
-                    <p class="text-sm text-gray-500" id="videoCompletionGrade">Grade: -</p>
-                </div>
-                <div class="text-green-500 text-3xl">✅</div>
-            </div>
-        </div>
-        
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-600">Overall Score</p>
-                    <p class="text-2xl font-bold text-gray-900" id="videoOverallScore">0</p>
-                    <p class="text-sm text-gray-500">out of 100</p>
-                </div>
-                <div class="text-purple-500 text-3xl">🏆</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Video Selection -->
-    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Select Video for Analysis</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="videoSelector">
-            <!-- Video selection cards will be inserted here -->
-        </div>
-    </div>
-
-    <!-- Hook Timeline Analysis -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Retention Curve -->
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Retention Timeline</h3>
-            <div class="relative h-64" id="retentionChart">
-                <!-- Retention chart will be drawn here -->
-                <canvas id="retentionCanvas" width="400" height="200" class="w-full h-full"></canvas>
-            </div>
-        </div>
-
-        <!-- Performance Breakdown -->
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Hook Performance Breakdown</h3>
-            <div class="space-y-4" id="hookBreakdown">
-                <!-- Hook breakdown items will be inserted here -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Video Element Analysis -->
-    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Video Element Performance</h3>
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead>
-                    <tr class="border-b border-gray-200">
-                        <th class="text-left py-3 px-4 font-medium text-gray-700">Element</th>
-                        <th class="text-left py-3 px-4 font-medium text-gray-700">Timestamp</th>
-                        <th class="text-left py-3 px-4 font-medium text-gray-700">Impact</th>
-                        <th class="text-left py-3 px-4 font-medium text-gray-700">Insight</th>
-                    </tr>
-                </thead>
-                <tbody id="elementAnalysisTable">
-                    <!-- Element analysis rows will be inserted here -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Optimization Recommendations -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- What's Working in This Video -->
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div class="flex items-center gap-2 mb-4">
-                <span class="text-green-500 text-xl">🎯</span>
-                <h3 class="text-lg font-semibold text-gray-900">What's Working</h3>
-            </div>
-            <div id="videoWhatsWorking" class="space-y-3">
-                <p class="text-gray-500">Select a video to see analysis...</p>
-            </div>
-        </div>
-
-        <!-- Optimization Opportunities -->
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div class="flex items-center gap-2 mb-4">
-                <span class="text-blue-500 text-xl">💡</span>
-                <h3 class="text-lg font-semibold text-gray-900">Optimization Tips</h3>
-            </div>
-            <div id="videoOptimizationTips" class="space-y-3">
-                <p class="text-gray-500">Select a video to see recommendations...</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-// Add this JavaScript to your existing dashboard script
-
-let videoAnalysisData = null;
-
-// Add video analysis tab to existing tab functionality
-function addVideoAnalysisTab() {
-    // Add tab button after creative analysis tab
-    const creativesTab = document.getElementById('creativesTab');
-    const videoTab = document.createElement('button');
-    videoTab.id = 'videoAnalysisTab';
-    videoTab.className = 'tab-button text-gray-500 hover:text-gray-700 px-4 py-2 rounded-md text-sm font-medium';
-    videoTab.textContent = 'Video Hook Analysis';
-    creativesTab.parentNode.insertBefore(videoTab, creativesTab.nextSibling);
+// api/video-analysis.js - Video Hook Analysis Endpoint
+export default async function handler(req, res) {
+  try {
+    const { video_id, ad_id } = req.query;
     
-    // Add event listener
-    videoTab.addEventListener('click', () => switchTab('videoAnalysis'));
-}
-
-// Update switchTab function to include video analysis
-const originalSwitchTab = switchTab;
-function switchTab(tabName) {
-    // Call original function
-    originalSwitchTab(tabName);
+    if (!video_id && !ad_id) {
+      return res.status(400).json({ error: 'video_id or ad_id is required' });
+    }
     
-    // Handle video analysis tab
-    if (tabName === 'videoAnalysis') {
-        document.getElementById('videoAnalysisContent').classList.remove('hidden');
-        document.getElementById('videoAnalysisTab').classList.add('bg-white', 'text-blue-600');
-        document.getElementById('videoAnalysisTab').classList.remove('text-gray-500', 'hover:text-gray-700');
-        
-        // Load video analysis if not already loaded
-        if (!videoAnalysisData) {
-            loadVideoAnalysis();
+    // Get video insights from Facebook
+    let videoInsights = {};
+    if (video_id) {
+      const videoUrl = `https://graph.facebook.com/v18.0/${video_id}?fields=title,description,length,thumbnails,insights{video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_30_sec_watched_actions,video_avg_time_watched_actions,video_thruplay_watched_actions}&access_token=${process.env.FACEBOOK_ACCESS_TOKEN}`;
+      
+      const response = await fetch(videoUrl);
+      const result = await response.json();
+      
+      if (response.ok) {
+        videoInsights = result;
+      }
+    }
+    
+    // Get ad performance data
+    let adPerformance = {};
+    if (ad_id) {
+      const adUrl = `https://graph.facebook.com/v18.0/${ad_id}?fields=creative{video_id},insights{impressions,clicks,ctr,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_30_sec_watched_actions,video_avg_time_watched_actions,video_thruplay_watched_actions}&access_token=${process.env.FACEBOOK_ACCESS_TOKEN}`;
+      
+      const response = await fetch(adUrl);
+      const result = await response.json();
+      
+      if (response.ok) {
+        adPerformance = result;
+        if (!video_id && result.creative?.video_id) {
+          video_id = result.creative.video_id;
         }
-    }
-}
-
-async function fetchVideoAnalysis(adId) {
-    const response = await fetch(`${API_BASE}/api/video-analysis?ad_id=${adId}`);
-    if (!response.ok) throw new Error('Failed to fetch video analysis');
-    return response.json();
-}
-
-function loadVideoAnalysis() {
-    // Create video selector from existing creatives
-    const videoSelector = document.getElementById('videoSelector');
-    videoSelector.innerHTML = '';
-    
-    const videoCreatives = creatives.filter(c => c.creative_type === 'video');
-    
-    if (videoCreatives.length === 0) {
-        videoSelector.innerHTML = '<p class="text-gray-500 col-span-3">No video creatives found. Make sure you have video ads in your selected date range.</p>';
-        return;
+      }
     }
     
-    videoCreatives.forEach(creative => {
-        const card = document.createElement('div');
-        card.className = 'border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-blue-500 transition-colors';
-        card.onclick = () => analyzeSpecificVideo(creative.id);
-        
-        card.innerHTML = `
-            <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium text-sm text-gray-900 truncate">${creative.name}</h4>
-                <span class="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">Video</span>
-            </div>
-            <div class="text-xs text-gray-600 space-y-1">
-                <div>CTR: ${creative.ctr.toFixed(2)}%</div>
-                <div>Hook Rate: ${creative.hook_rate.toFixed(1)}%</div>
-                <div>Performance: ${creative.performance_score.toFixed(0)}/100</div>
-            </div>
-        `;
-        
-        videoSelector.appendChild(card);
-    });
-}
-
-async function analyzeSpecificVideo(adId) {
-    try {
-        // Show loading state
-        document.getElementById('videoHookRate').textContent = 'Loading...';
-        document.getElementById('videoRetention25').textContent = 'Loading...';
-        document.getElementById('videoCompletion').textContent = 'Loading...';
-        document.getElementById('videoOverallScore').textContent = 'Loading...';
-        
-        // Fetch video analysis
-        videoAnalysisData = await fetchVideoAnalysis(adId);
-        
-        // Update summary cards
-        document.getElementById('videoHookRate').textContent = `${videoAnalysisData.hook_analysis.initial_hook.toFixed(1)}%`;
-        document.getElementById('videoHookGrade').textContent = `Grade: ${videoAnalysisData.performance_grades.hook}`;
-        document.getElementById('videoRetention25').textContent = `${videoAnalysisData.hook_analysis.retention_25pct.toFixed(1)}%`;
-        document.getElementById('videoRetentionGrade').textContent = `Grade: ${videoAnalysisData.performance_grades.retention}`;
-        document.getElementById('videoCompletion').textContent = `${videoAnalysisData.hook_analysis.completion_rate.toFixed(1)}%`;
-        document.getElementById('videoCompletionGrade').textContent = `Grade: ${videoAnalysisData.performance_grades.completion}`;
-        document.getElementById('videoOverallScore').textContent = videoAnalysisData.overall_score;
-        
-        // Draw retention chart
-        drawRetentionChart(videoAnalysisData.hook_analysis);
-        
-        // Update hook breakdown
-        updateHookBreakdown(videoAnalysisData.hook_analysis);
-        
-        // Update element analysis table
-        updateElementAnalysisTable(videoAnalysisData.element_performance);
-        
-        // Update insights and tips
-        updateVideoInsights(videoAnalysisData.insights, videoAnalysisData.optimization_tips);
-        
-    } catch (error) {
-        console.error('Error analyzing video:', error);
-        document.getElementById('videoHookRate').textContent = 'Error';
-        document.getElementById('videoRetention25').textContent = 'Error';
-        document.getElementById('videoCompletion').textContent = 'Error';
-        document.getElementById('videoOverallScore').textContent = 'Error';
-    }
-}
-
-function drawRetentionChart(hookAnalysis) {
-    const canvas = document.getElementById('retentionCanvas');
-    const ctx = canvas.getContext('2d');
+    // Calculate hook performance metrics
+    const insights = adPerformance.insights?.data[0] || {};
+    const impressions = parseInt(insights.impressions || 0);
+    const clicks = parseInt(insights.clicks || 0);
+    const ctr = parseFloat(insights.ctr || 0);
     
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Video engagement breakdown
+    const videoViews = parseInt(insights.video_30_sec_watched_actions?.[0]?.value || 0);
+    const p25Views = parseInt(insights.video_p25_watched_actions?.[0]?.value || 0);
+    const p50Views = parseInt(insights.video_p50_watched_actions?.[0]?.value || 0);
+    const p75Views = parseInt(insights.video_p75_watched_actions?.[0]?.value || 0);
+    const p100Views = parseInt(insights.video_p100_watched_actions?.[0]?.value || 0);
+    const thruPlays = parseInt(insights.video_thruplay_watched_actions?.[0]?.value || 0);
+    const avgWatchTime = parseFloat(insights.video_avg_time_watched_actions?.[0]?.value || 0);
     
-    // Set up chart dimensions
-    const padding = 40;
-    const chartWidth = canvas.width - padding * 2;
-    const chartHeight = canvas.height - padding * 2;
+    // Calculate hook rates by time segments
+    const hookAnalysis = {
+      initial_hook: impressions > 0 ? (videoViews / impressions) * 100 : 0,
+      retention_3sec: videoViews > 0 ? (p25Views / videoViews) * 100 : 0,
+      retention_25pct: videoViews > 0 ? (p25Views / videoViews) * 100 : 0,
+      retention_50pct: videoViews > 0 ? (p50Views / videoViews) * 100 : 0,
+      retention_75pct: videoViews > 0 ? (p75Views / videoViews) * 100 : 0,
+      completion_rate: videoViews > 0 ? (p100Views / videoViews) * 100 : 0,
+      thruplay_rate: videoViews > 0 ? (thruPlays / videoViews) * 100 : 0
+    };
     
-    // Data points for retention curve
-    const dataPoints = [
-        { x: 0, y: 100, label: 'Start' },
-        { x: 0.03, y: hookAnalysis.initial_hook, label: '3sec Hook' },
-        { x: 0.25, y: hookAnalysis.retention_25pct, label: '25%' },
-        { x: 0.5, y: hookAnalysis.retention_50pct, label: '50%' },
-        { x: 0.75, y: hookAnalysis.retention_75pct, label: '75%' },
-        { x: 1.0, y: hookAnalysis.completion_rate, label: 'End' }
-    ];
+    // Analyze hook performance patterns
+    const hookInsights = [];
     
-    // Draw axes
-    ctx.strokeStyle = '#e5e7eb';
-    ctx.lineWidth = 1;
-    
-    // Y-axis
-    ctx.beginPath();
-    ctx.moveTo(padding, padding);
-    ctx.lineTo(padding, padding + chartHeight);
-    ctx.stroke();
-    
-    // X-axis
-    ctx.beginPath();
-    ctx.moveTo(padding, padding + chartHeight);
-    ctx.lineTo(padding + chartWidth, padding + chartHeight);
-    ctx.stroke();
-    
-    // Draw retention curve
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    
-    dataPoints.forEach((point, index) => {
-        const x = padding + (point.x * chartWidth);
-        const y = padding + ((100 - point.y) / 100 * chartHeight);
-        
-        if (index === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    ctx.stroke();
-    
-    // Draw data points
-    ctx.fillStyle = '#3b82f6';
-    dataPoints.forEach(point => {
-        const x = padding + (point.x * chartWidth);
-        const y = padding + ((100 - point.y) / 100 * chartHeight);
-        
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, 2 * Math.PI);
-        ctx.fill();
-    });
-    
-    // Add labels
-    ctx.fillStyle = '#374151';
-    ctx.font = '12px sans-serif';
-    ctx.textAlign = 'center';
-    
-    dataPoints.forEach(point => {
-        const x = padding + (point.x * chartWidth);
-        const y = padding + ((100 - point.y) / 100 * chartHeight);
-        
-        ctx.fillText(`${point.y.toFixed(0)}%`, x, y - 10);
-        ctx.fillText(point.label, x, padding + chartHeight + 20);
-    });
-}
-
-function updateHookBreakdown(hookAnalysis) {
-    const breakdown = document.getElementById('hookBreakdown');
-    breakdown.innerHTML = '';
-    
-    const metrics = [
-        { label: 'Initial Hook (0-3s)', value: hookAnalysis.initial_hook, benchmark: 'Above 10% is good' },
-        { label: 'Early Retention (25%)', value: hookAnalysis.retention_25pct, benchmark: 'Above 60% is good' },
-        { label: 'Mid Retention (50%)', value: hookAnalysis.retention_50pct, benchmark: 'Above 40% is good' },
-        { label: 'Completion Rate', value: hookAnalysis.completion_rate, benchmark: 'Above 25% is good' }
-    ];
-    
-    metrics.forEach(metric => {
-        const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
-        
-        const isGood = metric.value >= parseFloat(metric.benchmark.match(/\d+/)[0]);
-        const color = isGood ? 'text-green-600' : 'text-orange-600';
-        
-        item.innerHTML = `
-            <div>
-                <div class="font-medium text-gray-900">${metric.label}</div>
-                <div class="text-sm text-gray-600">${metric.benchmark}</div>
-            </div>
-            <div class="text-xl font-bold ${color}">${metric.value.toFixed(1)}%</div>
-        `;
-        
-        breakdown.appendChild(item);
-    });
-}
-
-function updateElementAnalysisTable(elementPerformance) {
-    const table = document.getElementById('elementAnalysisTable');
-    table.innerHTML = '';
-    
-    elementPerformance.forEach(element => {
-        const row = document.createElement('tr');
-        row.className = 'border-b border-gray-100';
-        
-        const impactColor = element.performance_impact === 'positive' ? 'text-green-600 bg-green-50' :
-                           element.performance_impact === 'negative' ? 'text-red-600 bg-red-50' :
-                           'text-yellow-600 bg-yellow-50';
-        
-        row.innerHTML = `
-            <td class="py-3 px-4 font-medium text-gray-900">${element.element}</td>
-            <td class="py-3 px-4 text-gray-600">${element.timestamp}s</td>
-            <td class="py-3 px-4">
-                <span class="px-2 py-1 rounded-full text-xs font-medium ${impactColor}">
-                    ${element.performance_impact}
-                </span>
-            </td>
-            <td class="py-3 px-4 text-sm text-gray-600">${element.insight}</td>
-        `;
-        
-        table.appendChild(row);
-    });
-}
-
-function updateVideoInsights(insights, optimizationTips) {
-    // Update what's working
-    const whatsWorking = document.getElementById('videoWhatsWorking');
-    const successInsights = insights.filter(insight => insight.type === 'success');
-    
-    if (successInsights.length === 0) {
-        whatsWorking.innerHTML = '<p class="text-gray-500">No standout elements identified in this video.</p>';
-    } else {
-        whatsWorking.innerHTML = successInsights.map(insight => `
-            <div class="p-3 bg-green-50 rounded-lg">
-                <p class="text-sm font-medium text-green-800">${insight.category.charAt(0).toUpperCase() + insight.category.slice(1)}</p>
-                <p class="text-xs text-green-600">${insight.message}</p>
-                ${insight.recommendation ? `<p class="text-xs text-green-700 mt-1"><strong>Action:</strong> ${insight.recommendation}</p>` : ''}
-            </div>
-        `).join('');
+    // Strong hook analysis
+    if (hookAnalysis.initial_hook >= 15) {
+      hookInsights.push({
+        type: 'success',
+        category: 'hook',
+        message: `Strong initial hook (${hookAnalysis.initial_hook.toFixed(1)}%) - Video immediately captures attention`,
+        recommendation: 'Use similar opening elements in other creatives'
+      });
+    } else if (hookAnalysis.initial_hook < 5) {
+      hookInsights.push({
+        type: 'error',
+        category: 'hook',
+        message: `Weak initial hook (${hookAnalysis.initial_hook.toFixed(1)}%) - First frame needs improvement`,
+        recommendation: 'Test stronger opening visuals, text hooks, or immediate action'
+      });
     }
     
-    // Update optimization tips
-    const optimizationDiv = document.getElementById('videoOptimizationTips');
-    
-    if (optimizationTips.length === 0) {
-        optimizationDiv.innerHTML = '<p class="text-gray-500">This video is performing well across all metrics!</p>';
-    } else {
-        optimizationDiv.innerHTML = optimizationTips.map(tip => `
-            <div class="p-3 bg-blue-50 rounded-lg">
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="px-2 py-1 text-xs font-medium ${tip.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'} rounded">
-                        ${tip.priority} priority
-                    </span>
-                    <p class="text-sm font-medium text-blue-800">${tip.tip}</p>
-                </div>
-                <p class="text-xs text-blue-600">Examples: ${tip.examples.join(', ')}</p>
-            </div>
-        `).join('');
+    // Retention analysis
+    if (hookAnalysis.retention_25pct >= 70) {
+      hookInsights.push({
+        type: 'success',
+        category: 'retention',
+        message: `Excellent early retention (${hookAnalysis.retention_25pct.toFixed(1)}%) - Content keeps viewers engaged`,
+        recommendation: 'Analyze what happens in first 25% and replicate'
+      });
+    } else if (hookAnalysis.retention_25pct < 40) {
+      hookInsights.push({
+        type: 'warning',
+        category: 'retention',
+        message: `Poor early retention (${hookAnalysis.retention_25pct.toFixed(1)}%) - Viewers lose interest quickly`,
+        recommendation: 'Front-load most compelling content earlier in video'
+      });
     }
+    
+    // Mid-video analysis
+    if (hookAnalysis.retention_50pct < hookAnalysis.retention_25pct * 0.6) {
+      hookInsights.push({
+        type: 'warning',
+        category: 'retention',
+        message: 'Significant drop-off at mid-point - Content may be too long or lose focus',
+        recommendation: 'Consider shorter format or stronger mid-video hook'
+      });
+    }
+    
+    // Completion analysis
+    if (hookAnalysis.completion_rate >= 50) {
+      hookInsights.push({
+        type: 'success',
+        category: 'completion',
+        message: `High completion rate (${hookAnalysis.completion_rate.toFixed(1)}%) - Strong storytelling throughout`,
+        recommendation: 'Use this video structure as template for others'
+      });
+    } else if (hookAnalysis.completion_rate < 15) {
+      hookInsights.push({
+        type: 'error',
+        category: 'completion',
+        message: `Low completion rate (${hookAnalysis.completion_rate.toFixed(1)}%) - Video may be too long or lack payoff`,
+        recommendation: 'Test shorter versions or stronger conclusion'
+      });
+    }
+    
+    // CTR correlation analysis
+    if (ctr >= 2 && hookAnalysis.initial_hook >= 10) {
+      hookInsights.push({
+        type: 'success',
+        category: 'correlation',
+        message: 'Strong hook correlates with high CTR - This creative style is working',
+        recommendation: 'Scale this creative and test variations'
+      });
+    }
+    
+    // Simulate video content analysis (in real implementation, you'd use computer vision)
+    const mockVideoAnalysis = {
+      duration: avgWatchTime > 0 ? Math.max(avgWatchTime, 15) : 30,
+      detected_elements: [
+        { element: 'Text Overlay', timestamp: 0, confidence: 0.9, description: 'Bold text appears in first 2 seconds' },
+        { element: 'Human Face', timestamp: 1, confidence: 0.85, description: 'Person speaking to camera' },
+        { element: 'Product Shot', timestamp: 5, confidence: 0.8, description: 'Product shown prominently' },
+        { element: 'Call to Action', timestamp: 20, confidence: 0.75, description: 'CTA text overlay appears' }
+      ],
+      audio_analysis: {
+        has_voiceover: true,
+        has_music: true,
+        audio_peaks: [0, 3, 8, 15], // Timestamps of audio emphasis
+        silence_periods: [] // No significant silence
+      },
+      visual_analysis: {
+        scene_changes: [0, 5, 12, 20], // When scenes change
+        color_palette: ['#FF6B6B', '#4ECDC4', '#45B7D1'], // Dominant colors
+        movement_intensity: 'high', // Camera movement/action level
+        text_overlays: [
+          { text: 'Amazing Results!', timestamp: 0, duration: 3 },
+          { text: 'Order Now', timestamp: 20, duration: 5 }
+        ]
+      }
+    };
+    
+    // Correlate video elements with performance
+    const elementPerformance = mockVideoAnalysis.detected_elements.map(element => {
+      let performance_impact = 'neutral';
+      let insight = '';
+      
+      if (element.element === 'Text Overlay' && element.timestamp <= 2) {
+        performance_impact = hookAnalysis.initial_hook >= 10 ? 'positive' : 'negative';
+        insight = hookAnalysis.initial_hook >= 10 ? 
+          'Early text overlay correlates with strong hook' : 
+          'Text overlay not capturing attention effectively';
+      } else if (element.element === 'Human Face' && element.timestamp <= 3) {
+        performance_impact = hookAnalysis.retention_25pct >= 60 ? 'positive' : 'neutral';
+        insight = hookAnalysis.retention_25pct >= 60 ? 
+          'Human presenter helps maintain early engagement' : 
+          'Consider more dynamic presenter or different approach';
+      } else if (element.element === 'Product Shot') {
+        performance_impact = hookAnalysis.retention_50pct >= 50 ? 'positive' : 'negative';
+        insight = hookAnalysis.retention_50pct >= 50 ? 
+          'Product reveal timing works well' : 
+          'Product shown too late or not compelling enough';
+      }
+      
+      return {
+        ...element,
+        performance_impact,
+        insight
+      };
+    });
+    
+    // Generate hook optimization recommendations
+    const optimizationTips = [];
+    
+    if (hookAnalysis.initial_hook < 10) {
+      optimizationTips.push({
+        priority: 'high',
+        category: 'first_frame',
+        tip: 'Use pattern interrupt in first frame',
+        examples: ['Unexpected visual', 'Bold statement', 'Question that creates curiosity']
+      });
+    }
+    
+    if (hookAnalysis.retention_25pct < 50) {
+      optimizationTips.push({
+        priority: 'high',
+        category: 'early_content',
+        tip: 'Front-load your most compelling content',
+        examples: ['Show the result first', 'Start with the problem', 'Use testimonial quote']
+      });
+    }
+    
+    if (hookAnalysis.completion_rate < 30) {
+      optimizationTips.push({
+        priority: 'medium',
+        category: 'video_length',
+        tip: 'Consider shorter format',
+        examples: ['15-second version', 'Cut to highlights only', 'Multiple shorter videos']
+      });
+    }
+    
+    // Performance benchmarking
+    const benchmarks = {
+      hook_rate: { excellent: 15, good: 8, poor: 3 },
+      retention_25: { excellent: 70, good: 50, poor: 30 },
+      retention_50: { excellent: 50, good: 35, poor: 20 },
+      completion: { excellent: 50, good: 25, poor: 10 }
+    };
+    
+    const performanceGrade = {
+      hook: hookAnalysis.initial_hook >= benchmarks.hook_rate.excellent ? 'A' :
+            hookAnalysis.initial_hook >= benchmarks.hook_rate.good ? 'B' :
+            hookAnalysis.initial_hook >= benchmarks.hook_rate.poor ? 'C' : 'D',
+      retention: hookAnalysis.retention_25pct >= benchmarks.retention_25.excellent ? 'A' :
+                hookAnalysis.retention_25pct >= benchmarks.retention_25.good ? 'B' :
+                hookAnalysis.retention_25pct >= benchmarks.retention_25.poor ? 'C' : 'D',
+      completion: hookAnalysis.completion_rate >= benchmarks.completion.excellent ? 'A' :
+                 hookAnalysis.completion_rate >= benchmarks.completion.good ? 'B' :
+                 hookAnalysis.completion_rate >= benchmarks.completion.poor ? 'C' : 'D'
+    };
+    
+    res.json({
+      video_id,
+      ad_id,
+      hook_analysis: hookAnalysis,
+      performance_grades: performanceGrade,
+      video_content: mockVideoAnalysis,
+      element_performance: elementPerformance,
+      insights: hookInsights,
+      optimization_tips: optimizationTips,
+      benchmarks,
+      overall_score: Math.round((
+        (hookAnalysis.initial_hook / benchmarks.hook_rate.excellent * 25) +
+        (hookAnalysis.retention_25pct / benchmarks.retention_25.excellent * 25) +
+        (hookAnalysis.retention_50pct / benchmarks.retention_50.excellent * 25) +
+        (hookAnalysis.completion_rate / benchmarks.completion.excellent * 25)
+      ))
+    });
+    
+  } catch (error) {
+    console.error('Error in video analysis:', error);
+    res.status(500).json({ 
+      error: error.message 
+    });
+  }
 }
-
-// Initialize video analysis tab when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Add a delay to ensure other elements are loaded first
-    setTimeout(addVideoAnalysisTab, 1000);
-});
-</script>
