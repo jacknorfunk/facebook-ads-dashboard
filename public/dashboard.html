@@ -347,6 +347,11 @@
                 if (tabName === 'video-analysis' && creatives.length > 0) {
                     loadVideoAnalysis();
                 }
+                
+                // Load AI scripts when that tab is clicked
+                if (tabName === 'ai-scripts' && creatives.length > 0) {
+                    loadAIScriptGenerator();
+                }
             });
         });
 
@@ -649,6 +654,252 @@
 
             panel.classList.remove('hidden');
             panel.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function loadAIScriptGenerator() {
+            showDebug('Loading AI Script Generator');
+            const videoCreatives = creatives.filter(c => c.creative_type === 'video');
+            
+            if (videoCreatives.length === 0) {
+                document.getElementById('ai-scripts-content').innerHTML = `
+                    <div class="text-center py-20">
+                        <div class="text-gray-400 text-6xl mb-4">🤖</div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">No Video Creatives Found</h3>
+                        <p class="text-gray-600">AI script generation requires video creatives to analyze.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Populate creative selector
+            const selector = document.getElementById('scriptCreativeSelect');
+            selector.innerHTML = '<option value="">Select a video creative...</option>';
+            
+            for (const creative of videoCreatives) {
+                const option = document.createElement('option');
+                option.value = creative.id;
+                option.textContent = `Creative #${creative.id.slice(-6)} - ${creative.ctr.toFixed(2)}% CTR - £${creative.spend.toLocaleString()} spend`;
+                selector.appendChild(option);
+            }
+
+            // Enable generate button when creative is selected
+            selector.addEventListener('change', () => {
+                const generateBtn = document.getElementById('generateScriptsBtn');
+                generateBtn.disabled = !selector.value;
+            });
+
+            // Generate scripts functionality
+            document.getElementById('generateScriptsBtn').addEventListener('click', async () => {
+                const creativeId = selector.value;
+                const scriptType = document.getElementById('scriptType').value;
+                
+                if (!creativeId) return;
+
+                try {
+                    showDebug(`Generating scripts for creative ${creativeId}`);
+                    document.getElementById('scriptGeneration').classList.remove('hidden');
+                    
+                    // Get video analysis for the selected creative
+                    const analysis = await fetchVideoAnalysis(creativeId);
+                    
+                    // Generate scripts using AI
+                    const scripts = await generateAIScripts(creativeId, analysis, scriptType);
+                    
+                    // Display generated scripts
+                    displayGeneratedScripts(scripts);
+                    
+                    document.getElementById('scriptGeneration').classList.add('hidden');
+                    showDebug('Scripts generated successfully');
+                } catch (error) {
+                    showDebug(`Error generating scripts: ${error.message}`);
+                    document.getElementById('scriptGeneration').classList.add('hidden');
+                    alert('Error generating scripts: ' + error.message);
+                }
+            });
+        }
+
+        async function generateAIScripts(creativeId, analysis, scriptType) {
+            showDebug(`Calling AI script generator API for ${creativeId}`);
+            
+            const response = await fetch(`${API_BASE}/api/ai-script-generator`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    creative_id: creativeId,
+                    analysis_data: analysis,
+                    script_type: scriptType
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`AI script generation failed: ${response.status} - ${errorText}`);
+            }
+
+            return response.json();
+        }
+
+        function displayGeneratedScripts(scriptData) {
+            showDebug('Displaying generated scripts');
+            const container = document.getElementById('generatedScripts');
+            const researchContainer = document.getElementById('researchInsights');
+            const researchContent = document.getElementById('researchContent');
+
+            // Display research insights
+            researchContent.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Hook Research -->
+                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <h4 class="font-semibold text-blue-900 mb-3">🎣 Hook Rate Research</h4>
+                        <div class="space-y-2">
+                            ${scriptData.research_insights.hook_research.map(research => `
+                                <div class="bg-white p-3 rounded border">
+                                    <div class="font-medium text-blue-800">${research.finding}</div>
+                                    <div class="text-sm text-blue-600 mt-1">${research.research}</div>
+                                    <div class="text-xs text-blue-500 mt-1">Source: ${research.source} (${Math.round(research.confidence * 100)}% confidence)</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Retention Research -->
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <h4 class="font-semibold text-green-900 mb-3">📈 Retention Research</h4>
+                        <div class="space-y-2">
+                            ${scriptData.research_insights.retention_research.map(research => `
+                                <div class="bg-white p-3 rounded border">
+                                    <div class="font-medium text-green-800">${research.finding}</div>
+                                    <div class="text-sm text-green-600 mt-1">${research.research}</div>
+                                    <div class="text-xs text-green-500 mt-1">Source: ${research.source} (${Math.round(research.confidence * 100)}% confidence)</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommended Strategies -->
+                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <h4 class="font-semibold text-purple-900 mb-3">💡 AI-Recommended Strategies</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${scriptData.research_insights.recommended_strategies.map(strategy => `
+                            <div class="bg-white p-4 rounded border">
+                                <div class="font-medium text-purple-800">${strategy.strategy}</div>
+                                <div class="text-sm text-purple-600 mt-1">${strategy.description}</div>
+                                <div class="text-xs text-purple-500 mt-2">
+                                    <strong>Examples:</strong> ${strategy.examples.join(' • ')}
+                                </div>
+                                <div class="text-xs font-medium text-purple-700 mt-2">
+                                    Expected: ${strategy.expected_improvement}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            researchContainer.classList.remove('hidden');
+
+            // Display generated scripts
+            container.innerHTML = scriptData.generated_scripts.map((script, index) => `
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-900">${script.title}</h3>
+                        <div class="flex items-center gap-2">
+                            <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">${script.focus}</span>
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">${script.estimated_improvement}</span>
+                        </div>
+                    </div>
+
+                    <!-- Script Sections -->
+                    <div class="space-y-4 mb-6">
+                        ${Object.entries(script.script_sections).map(([sectionName, section]) => `
+                            <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-semibold text-gray-800 capitalize">${sectionName.replace('_', ' ')}</h4>
+                                    <span class="text-sm text-gray-500">${section.timestamp}</span>
+                                </div>
+                                
+                                <div class="space-y-2 mb-3">
+                                    ${section.content.map(line => `
+                                        <div class="bg-gray-50 p-3 rounded border-l-4 border-purple-400">
+                                            <div class="font-medium text-gray-800">${line}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                
+                                <div class="text-sm text-gray-600 mb-2">
+                                    <strong>Visual Notes:</strong> ${section.visual_notes}
+                                </div>
+                                
+                                <div class="text-sm text-blue-600">
+                                    <strong>Rationale:</strong> ${section.rationale}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Performance Prediction -->
+                    <div class="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border">
+                        <h4 class="font-semibold text-gray-800 mb-3">📊 Predicted Performance Improvements</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            ${Object.entries(script.performance_prediction).map(([metric, value]) => `
+                                <div class="text-center">
+                                    <div class="font-bold text-lg text-gray-900">${value}</div>
+                                    <div class="text-sm text-gray-600 capitalize">${metric.replace('_', ' ')}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="copyScript(${index})" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            📋 Copy Script
+                        </button>
+                        <button onclick="exportScript(${index})" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                            📄 Export PDF
+                        </button>
+                        <button onclick="generateVariations(${index})" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                            🔄 Generate Variations
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Store scripts globally for copy/export functions
+            window.generatedScripts = scriptData.generated_scripts;
+        }
+
+        // Utility functions for script actions
+        function copyScript(scriptIndex) {
+            const script = window.generatedScripts[scriptIndex];
+            let scriptText = `${script.title}\n${script.focus}\n\n`;
+            
+            Object.entries(script.script_sections).forEach(([sectionName, section]) => {
+                scriptText += `${sectionName.toUpperCase()} (${section.timestamp}):\n`;
+                section.content.forEach(line => {
+                    scriptText += `- ${line}\n`;
+                });
+                scriptText += `Visual Notes: ${section.visual_notes}\n\n`;
+            });
+
+            navigator.clipboard.writeText(scriptText).then(() => {
+                showDebug(`Script ${scriptIndex + 1} copied to clipboard`);
+                alert('Script copied to clipboard!');
+            });
+        }
+
+        function exportScript(scriptIndex) {
+            showDebug(`Exporting script ${scriptIndex + 1} as PDF`);
+            // This would integrate with a PDF generation service
+            alert('PDF export feature coming soon!');
+        }
+
+        function generateVariations(scriptIndex) {
+            showDebug(`Generating variations for script ${scriptIndex + 1}`);
+            // This would call the AI API again with variation parameters
+            alert('Script variations feature coming soon!');
         }
 
         async function fetchCampaigns(dateRange) {
