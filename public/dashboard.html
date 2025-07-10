@@ -49,7 +49,10 @@
         <div id="debugPanel" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="text-sm font-semibold text-yellow-800">Debug Information</h3>
-                <button id="hideDebugBtn" class="text-xs text-yellow-600 hover:text-yellow-800">Hide</button>
+                <div class="flex gap-2">
+                    <button id="runDiagnosticBtn" class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">🔍 Run Facebook API Diagnostic</button>
+                    <button id="hideDebugBtn" class="text-xs text-yellow-600 hover:text-yellow-800">Hide</button>
+                </div>
             </div>
             <div id="debugInfo" class="debug-info text-yellow-700">
                 <div>Dashboard loaded. Waiting for data...</div>
@@ -325,6 +328,48 @@
         // Hide debug panel
         document.getElementById('hideDebugBtn').addEventListener('click', function() {
             document.getElementById('debugPanel').style.display = 'none';
+        });
+
+        // Run Facebook API diagnostic
+        document.getElementById('runDiagnosticBtn').addEventListener('click', async function() {
+            this.disabled = true;
+            this.textContent = '🔍 Running Diagnostic...';
+            
+            try {
+                debugLog('Running Facebook API diagnostic...');
+                const response = await fetch('/api/facebook-diagnostic');
+                const diagnostic = await response.json();
+                
+                debugLog('=== FACEBOOK API DIAGNOSTIC RESULTS ===');
+                debugLog(`Overall Status: ${diagnostic.overall_status}`);
+                debugLog(`Summary: ${diagnostic.summary}`);
+                
+                if (diagnostic.tests) {
+                    diagnostic.tests.forEach(test => {
+                        const status = test.status === 'PASSED' ? '✅' : test.status === 'FAILED' ? '❌' : '⚠️';
+                        debugLog(`${status} ${test.test}: ${test.status}`);
+                        if (test.error) debugLog(`   Error: ${test.error}`);
+                        if (test.solution) debugLog(`   Solution: ${test.solution}`);
+                    });
+                }
+                
+                // Show specific recommendations
+                if (diagnostic.overall_status === 'ISSUES_FOUND') {
+                    debugLog('=== RECOMMENDED FIXES ===');
+                    const failedTests = diagnostic.tests.filter(t => t.status === 'FAILED' || t.status === 'ERROR');
+                    failedTests.forEach(test => {
+                        if (test.solution) {
+                            debugLog(`• ${test.solution}`);
+                        }
+                    });
+                }
+                
+            } catch (error) {
+                debugLog(`ERROR running diagnostic: ${error.message}`);
+            } finally {
+                this.disabled = false;
+                this.textContent = '🔍 Run Facebook API Diagnostic';
+            }
         });
 
         // Tab switching
