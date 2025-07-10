@@ -458,26 +458,65 @@
 
         function updateOverviewUI(data) {
             debugLog('Updating overview UI...');
+            debugLog('Raw overview data received:', JSON.stringify(data));
             
-            // Update spending and metrics
-            const spend = data.spend || 0;
-            const revenue = data.revenue || 0;
+            // Handle different possible data structures from Facebook API
+            let spend = 0;
+            let revenue = 0;
+            let clicks = 0;
+            let impressions = 0;
+            let conversions = 0;
+            
+            // Try multiple possible data structures
+            if (data) {
+                // Direct properties
+                spend = parseFloat(data.spend) || parseFloat(data.amount_spent) || 0;
+                revenue = parseFloat(data.revenue) || parseFloat(data.purchase_roas) || 0;
+                clicks = parseInt(data.clicks) || parseInt(data.link_clicks) || 0;
+                impressions = parseInt(data.impressions) || 0;
+                conversions = parseInt(data.conversions) || parseInt(data.actions) || 0;
+                
+                // If data is in 'data' array (Facebook Insights format)
+                if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                    const insights = data.data[0];
+                    spend = parseFloat(insights.spend) || parseFloat(insights.amount_spent) || spend;
+                    revenue = parseFloat(insights.revenue) || parseFloat(insights.purchase_roas) || revenue;
+                    clicks = parseInt(insights.clicks) || parseInt(insights.link_clicks) || clicks;
+                    impressions = parseInt(insights.impressions) || impressions;
+                    conversions = parseInt(insights.conversions) || parseInt(insights.actions) || conversions;
+                }
+                
+                // If data has aggregated totals
+                if (data.total_spend) spend = parseFloat(data.total_spend);
+                if (data.total_revenue) revenue = parseFloat(data.total_revenue);
+                if (data.total_clicks) clicks = parseInt(data.total_clicks);
+                if (data.total_impressions) impressions = parseInt(data.total_impressions);
+                if (data.total_conversions) conversions = parseInt(data.total_conversions);
+            }
+            
+            // Calculate derived metrics
             const roas = revenue > 0 ? (revenue / spend).toFixed(2) : '0.00';
+            const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0.00';
+            const cpc = clicks > 0 ? (spend / clicks).toFixed(2) : '0.00';
+            const cpm = impressions > 0 ? ((spend / impressions) * 1000).toFixed(2) : '0.00';
             
+            debugLog(`Processed metrics - Spend: £${spend}, Revenue: £${revenue}, Clicks: ${clicks}, Impressions: ${impressions}`);
+            
+            // Update UI elements
             document.getElementById('totalSpend').textContent = `£${spend.toFixed(2)}`;
             document.getElementById('totalRevenue').textContent = `£${revenue.toFixed(2)}`;
             document.getElementById('roas').textContent = `${roas}x`;
-            document.getElementById('conversions').textContent = data.conversions || 0;
-            document.getElementById('totalClicks').textContent = data.clicks || 0;
-            document.getElementById('ctr').textContent = `${(data.ctr || 0).toFixed(2)}%`;
-            document.getElementById('cpc').textContent = `£${(data.cpc || 0).toFixed(2)}`;
-            document.getElementById('cpm').textContent = `£${(data.cpm || 0).toFixed(2)}`;
+            document.getElementById('conversions').textContent = conversions;
+            document.getElementById('totalClicks').textContent = clicks;
+            document.getElementById('ctr').textContent = `${ctr}%`;
+            document.getElementById('cpc').textContent = `£${cpc}`;
+            document.getElementById('cpm').textContent = `£${cpm}`;
             
             // Update status sections
             const whatsWorking = document.getElementById('whatsWorking');
             const needsImprovement = document.getElementById('needsImprovement');
             
-            if (data.conversions > 0) {
+            if (conversions > 0) {
                 whatsWorking.innerHTML = '<p class="text-green-600">✅ Generating conversions with good CTR</p>';
             } else {
                 whatsWorking.innerHTML = '<p class="text-gray-600">Set up conversion tracking to see winning campaigns!</p>';
@@ -487,7 +526,7 @@
             needsImprovement.innerHTML = '';
             if (campaigns.length > 0) {
                 campaigns.forEach(campaign => {
-                    if (campaign.status === 'PAUSED' || campaign.conversions === 0) {
+                    if (campaign.status === 'PAUSED' || (campaign.conversions || 0) === 0) {
                         const campaignDiv = document.createElement('div');
                         campaignDiv.className = 'text-orange-600 mb-2';
                         campaignDiv.innerHTML = `
@@ -511,6 +550,8 @@
                 return;
             }
             
+            debugLog('Campaign data structure:', JSON.stringify(campaigns[0]));
+            
             let html = `
                 <div class="overflow-x-auto">
                     <table class="w-full">
@@ -528,17 +569,24 @@
             `;
             
             campaigns.forEach(campaign => {
-                const roas = campaign.revenue > 0 ? (campaign.revenue / campaign.spend).toFixed(2) : '0.00';
+                // Handle different possible field names from Facebook API
+                const spend = parseFloat(campaign.spend) || parseFloat(campaign.amount_spent) || 0;
+                const revenue = parseFloat(campaign.revenue) || parseFloat(campaign.purchase_roas) || 0;
+                const conversions = parseInt(campaign.conversions) || parseInt(campaign.actions) || 0;
+                const clicks = parseInt(campaign.clicks) || parseInt(campaign.link_clicks) || 0;
+                const impressions = parseInt(campaign.impressions) || 0;
+                const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0.00';
+                const roas = revenue > 0 ? (revenue / spend).toFixed(2) : '0.00';
                 const statusColor = campaign.status === 'ACTIVE' ? 'text-green-600' : 'text-red-600';
                 
                 html += `
                     <tr class="border-b border-gray-100">
                         <td class="py-3 px-4 font-medium">${campaign.name}</td>
                         <td class="py-3 px-4 ${statusColor}">${campaign.status}</td>
-                        <td class="py-3 px-4">£${campaign.spend.toFixed(2)}</td>
-                        <td class="py-3 px-4">${campaign.conversions}</td>
+                        <td class="py-3 px-4">£${spend.toFixed(2)}</td>
+                        <td class="py-3 px-4">${conversions}</td>
                         <td class="py-3 px-4">${roas}x</td>
-                        <td class="py-3 px-4">${campaign.ctr.toFixed(2)}%</td>
+                        <td class="py-3 px-4">${ctr}%</td>
                     </tr>
                 `;
             });
@@ -555,6 +603,8 @@
                 table.innerHTML = '<p class="text-gray-600">No creatives found.</p>';
                 return;
             }
+            
+            debugLog('Creative data structure:', JSON.stringify(creatives[0]));
             
             let html = `
                 <div class="overflow-x-auto">
@@ -573,14 +623,25 @@
             `;
             
             creatives.forEach(creative => {
+                // Handle different possible field names from Facebook API
+                const impressions = parseInt(creative.impressions) || 0;
+                const clicks = parseInt(creative.clicks) || parseInt(creative.link_clicks) || 0;
+                const spend = parseFloat(creative.spend) || parseFloat(creative.amount_spent) || 0;
+                const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0.00';
+                
+                // Determine creative type
+                let type = creative.type || 'unknown';
+                if (creative.video_id || creative.video_url) type = 'video';
+                else if (creative.image_url || creative.image_hash) type = 'image';
+                
                 html += `
                     <tr class="border-b border-gray-100">
                         <td class="py-3 px-4 font-medium">${creative.name}</td>
-                        <td class="py-3 px-4">${creative.type}</td>
-                        <td class="py-3 px-4">${creative.impressions.toLocaleString()}</td>
-                        <td class="py-3 px-4">${creative.clicks}</td>
-                        <td class="py-3 px-4">${creative.ctr.toFixed(2)}%</td>
-                        <td class="py-3 px-4">£${creative.spend.toFixed(2)}</td>
+                        <td class="py-3 px-4">${type}</td>
+                        <td class="py-3 px-4">${impressions.toLocaleString()}</td>
+                        <td class="py-3 px-4">${clicks}</td>
+                        <td class="py-3 px-4">${ctr}%</td>
+                        <td class="py-3 px-4">£${spend.toFixed(2)}</td>
                     </tr>
                 `;
             });
