@@ -2,14 +2,8 @@ export default async function handler(req, res) {
   try {
     const { date_preset = 'last_30d', campaign_id } = req.query;
     
-    let url;
-    if (campaign_id) {
-      // Get creatives for specific campaign
-      url = `https://graph.facebook.com/v18.0/${campaign_id}/ads?fields=name,status,creative{object_story_spec,image_url,video_id,thumbnail_url,title,body,call_to_action},insights{spend,impressions,clicks,ctr,cpc,cpm,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_30_sec_watched_actions,video_avg_time_watched_actions,video_thruplay_watched_actions}&date_preset=${date_preset}&access_token=${process.env.FACEBOOK_ACCESS_TOKEN}`;
-    } else {
-      // Get all creatives from account
-      url = `https://graph.facebook.com/v18.0/act_${process.env.AD_ACCOUNT_ID}/ads?fields=name,status,campaign_id,creative{object_story_spec,image_url,video_id,thumbnail_url,title,body,call_to_action},insights{spend,impressions,clicks,ctr,cpc,cpm,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_30_sec_watched_actions,video_avg_time_watched_actions,video_thruplay_watched_actions}&date_preset=${date_preset}&limit=50&access_token=${process.env.FACEBOOK_ACCESS_TOKEN}`;
-    }
+    // Get all ads from account
+    const url = `https://graph.facebook.com/v18.0/act_${process.env.AD_ACCOUNT_ID}/ads?fields=name,status,campaign_id,creative{object_story_spec,image_url,video_id,thumbnail_url,title,body,call_to_action,object_type},insights{spend,impressions,clicks,ctr,cpc,cpm,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_30_sec_watched_actions,video_avg_time_watched_actions,video_thruplay_watched_actions}&date_preset=${date_preset}&limit=50&access_token=${process.env.FACEBOOK_ACCESS_TOKEN}`;
     
     const response = await fetch(url);
     const result = await response.json();
@@ -46,9 +40,14 @@ export default async function handler(req, res) {
         // Calculate completion rate
         const completionRate = videoViews > 0 ? (thruPlays / videoViews) * 100 : 0;
         
-        // Determine creative type
-        const isVideo = creative.video_id || creative.object_story_spec?.video_data;
-        const creativeType = isVideo ? 'video' : 'image';
+        // Determine creative type - improved detection
+        const hasVideo = creative.video_id || 
+                         creative.object_story_spec?.video_data || 
+                         creative.object_type === 'VIDEO' ||
+                         videoViews > 0 ||
+                         avgWatchTime > 0;
+        
+        const creativeType = hasVideo ? 'video' : 'image';
         
         // Get creative content
         const imageUrl = creative.image_url || creative.thumbnail_url;
@@ -80,14 +79,14 @@ export default async function handler(req, res) {
           });
         }
         
-        if (hookRate < 10 && isVideo) {
+        if (hookRate < 10 && hasVideo) {
           insights_recommendations.push({
             type: 'warning',
             message: 'Low hook rate - First 3 seconds need improvement'
           });
         }
         
-        if (completionRate < 50 && isVideo) {
+        if (completionRate < 50 && hasVideo) {
           insights_recommendations.push({
             type: 'warning',
             message: 'Low completion rate - Video content may not be engaging enough'
@@ -131,7 +130,14 @@ export default async function handler(req, res) {
           video_views: videoViews,
           thru_plays: thruPlays,
           performance_score: performanceScore,
-          insights: insights_recommendations
+          insights: insights_recommendations,
+          debug_info: {
+            has_video_id: !!creative.video_id,
+            has_video_data: !!creative.object_story_spec?.video_data,
+            object_type: creative.object_type,
+            video_views: videoViews,
+            avg_watch_time: avgWatchTime
+          }
         });
       } catch (error) {
         console.error(`Error processing ad ${ad.id}:`, error.message);
