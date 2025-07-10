@@ -2,7 +2,6 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -13,19 +12,24 @@ app.use(express.json());
 
 // Facebook API configuration
 const FACEBOOK_API_BASE = 'https://graph.facebook.com/v18.0';
-const ACCESS_TOKEN = process.env.FACEBOOK_ACCESS_TOKEN || 'EAAKNO5oUGRgBPPvhsVTmELZBZATafVxtFooqtErXjwaJssMMyDoyyt735wdZCtSVyoYTItvmJRcZB0xz2xHxuHUC2mV2bSJDvgsT4K9LOV34vZBxOcTgBrbYxE3vhEyI2zZB6BWSTpt4BmjEKZAth1b53Ot8EXc3CheIhHRalfnmDfr1hFlZC2arY0PoBpQKTFPsaT6hWo6v';
-const AD_ACCOUNT_ID = process.env.AD_ACCOUNT_ID || '24320487237555069';
+const ACCESS_TOKEN = process.env.FACEBOOK_ACCESS_TOKEN;
+const AD_ACCOUNT_ID = process.env.AD_ACCOUNT_ID;
 
 // Facebook API helper function
 async function callFacebookAPI(endpoint, params = {}) {
   try {
     const url = `${FACEBOOK_API_BASE}/${endpoint}`;
+    console.log('Calling Facebook API:', url);
+    
     const response = await axios.get(url, {
       params: {
         access_token: ACCESS_TOKEN,
         ...params
-      }
+      },
+      timeout: 10000 // 10 second timeout
     });
+    
+    console.log('Facebook API Response:', response.status);
     return response.data;
   } catch (error) {
     console.error('Facebook API Error:', error.response?.data || error.message);
@@ -33,10 +37,62 @@ async function callFacebookAPI(endpoint, params = {}) {
   }
 }
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    env: {
+      hasAccessToken: !!ACCESS_TOKEN,
+      hasAccountId: !!AD_ACCOUNT_ID,
+      accessTokenLength: ACCESS_TOKEN ? ACCESS_TOKEN.length : 0
+    }
+  });
+});
+
+// Test Facebook API connection
+app.get('/api/test-connection', async (req, res) => {
+  try {
+    console.log('Testing Facebook API connection...');
+    
+    if (!ACCESS_TOKEN) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Facebook Access Token not found in environment variables' 
+      });
+    }
+    
+    if (!AD_ACCOUNT_ID) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Ad Account ID not found in environment variables' 
+      });
+    }
+    
+    const response = await callFacebookAPI(`act_${AD_ACCOUNT_ID}`, {
+      fields: 'name,account_status,currency'
+    });
+    
+    res.json({ 
+      success: true, 
+      account: response,
+      message: 'Successfully connected to Facebook API'
+    });
+  } catch (error) {
+    console.error('Connection test failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 // Get account overview
 app.get('/api/account-overview', async (req, res) => {
   try {
     const { date_preset = 'last_30d' } = req.query;
+    
+    console.log('Fetching account overview...');
     
     // Get account insights
     const accountInsights = await callFacebookAPI(`act_${AD_ACCOUNT_ID}/insights`, {
@@ -45,7 +101,7 @@ app.get('/api/account-overview', async (req, res) => {
       level: 'account'
     });
 
-    const data = accountInsights.data[0] || {};
+    const data = accountInsights.data && accountInsights.data[0] ? accountInsights.data[0] : {};
     
     const overview = {
       totalSpend: parseFloat(data.spend || 0),
@@ -62,6 +118,7 @@ app.get('/api/account-overview', async (req, res) => {
     // Calculate ROAS
     overview.totalROAS = overview.totalRevenue > 0 ? overview.totalRevenue / overview.totalSpend : 0;
 
+    console.log('Account overview fetched successfully');
     res.json(overview);
   } catch (error) {
     console.error('Error fetching account overview:', error);
@@ -74,48 +131,63 @@ app.get('/api/campaigns', async (req, res) => {
   try {
     const { date_preset = 'last_30d' } = req.query;
     
+    console.log('Fetching campaigns...');
+    
     // Get campaigns with insights
     const campaigns = await callFacebookAPI(`act_${AD_ACCOUNT_ID}/campaigns`, {
-      fields: 'name,status,objective,insights{spend,impressions,clicks,ctr,cpc,cpm,conversions,conversion_values,cost_per_conversion}',
-      date_preset,
+      fields: 'name,status,objective',
       limit: 50
     });
 
-    const campaignData = campaigns.data.map(campaign => {
-      const insights = campaign.insights?.data[0] || {};
-      
-      const spend = parseFloat(insights.spend || 0);
-      const revenue = parseFloat(insights.conversion_values || 0);
-      const conversions = parseInt(insights.conversions || 0);
-      const clicks = parseInt(insights.clicks || 0);
-      const roas = revenue > 0 ? revenue / spend : 0;
-      const ctr = parseFloat(insights.ctr || 0);
-      const cpc = parseFloat(insights.cpc || 0);
-      
-      // Determine status based on performance
-      let status = 'neutral';
-      if (roas >= 2.5) status = 'winning';
-      else if (roas < 1.5) status = 'losing';
-      
-      return {
-        id: campaign.id,
-        name: campaign.name,
-        spend,
-        revenue,
-        roas,
-        conversions,
-        clicks,
-        ctr,
-        cpc,
-        status,
-        objective: campaign.objective,
-        campaignStatus: campaign.status
-      };
-    });
+    // Get insights for each campaign separately to avoid timeout
+    const campaignData = [];
+    
+    for (const campaign of campaigns.data || []) {
+      try {
+        const insights = await callFacebookAPI(`${campaign.id}/insights`, {
+          fields: 'spend,impressions,clicks,ctr,cpc,cpm,conversions,conversion_values,cost_per_conversion',
+          date_preset
+        });
+        
+        const insightData = insights.data && insights.data[0] ? insights.data[0] : {};
+        
+        const spend = parseFloat(insightData.spend || 0);
+        const revenue = parseFloat(insightData.conversion_values || 0);
+        const conversions = parseInt(insightData.conversions || 0);
+        const clicks = parseInt(insightData.clicks || 0);
+        const roas = revenue > 0 && spend > 0 ? revenue / spend : 0;
+        const ctr = parseFloat(insightData.ctr || 0);
+        const cpc = parseFloat(insightData.cpc || 0);
+        
+        // Determine status based on performance
+        let status = 'neutral';
+        if (roas >= 2.5) status = 'winning';
+        else if (roas < 1.5 && spend > 0) status = 'losing';
+        
+        campaignData.push({
+          id: campaign.id,
+          name: campaign.name,
+          spend,
+          revenue,
+          roas,
+          conversions,
+          clicks,
+          ctr,
+          cpc,
+          status,
+          objective: campaign.objective,
+          campaignStatus: campaign.status
+        });
+      } catch (campaignError) {
+        console.error(`Error fetching insights for campaign ${campaign.id}:`, campaignError.message);
+        // Continue with next campaign
+      }
+    }
 
     // Sort by spend descending
     campaignData.sort((a, b) => b.spend - a.spend);
 
+    console.log(`Fetched ${campaignData.length} campaigns`);
     res.json(campaignData);
   } catch (error) {
     console.error('Error fetching campaigns:', error);
@@ -126,8 +198,12 @@ app.get('/api/campaigns', async (req, res) => {
 // Get insights and recommendations
 app.get('/api/insights', async (req, res) => {
   try {
-    // Get campaign data first
-    const campaignsResponse = await axios.get(`http://localhost:${PORT}/api/campaigns`);
+    console.log('Generating insights...');
+    
+    // Get campaign data first from our own API
+    const campaignsResponse = await axios.get(`https://facebook-ads-dashboard-git-main-jacks-projects-e0e84f4f.vercel.app/api/campaigns`, {
+      timeout: 15000
+    });
     const campaigns = campaignsResponse.data;
     
     const insights = {
@@ -146,15 +222,18 @@ app.get('/api/insights', async (req, res) => {
     });
 
     // Find best CTR
-    const bestCTR = campaigns.reduce((best, current) => 
-      current.ctr > best.ctr ? current : best, campaigns[0]);
-    
-    if (bestCTR && bestCTR.ctr > 2) {
-      insights.whatsWorking.push({
-        title: `High CTR: ${bestCTR.name}`,
-        description: `${bestCTR.ctr}% CTR - Your ads are very relevant to this audience.`,
-        metric: `${bestCTR.ctr}% CTR`
-      });
+    const validCampaigns = campaigns.filter(c => c.clicks > 0);
+    if (validCampaigns.length > 0) {
+      const bestCTR = validCampaigns.reduce((best, current) => 
+        current.ctr > best.ctr ? current : best, validCampaigns[0]);
+      
+      if (bestCTR && bestCTR.ctr > 2) {
+        insights.whatsWorking.push({
+          title: `High CTR: ${bestCTR.name}`,
+          description: `${bestCTR.ctr.toFixed(1)}% CTR - Your ads are very relevant to this audience.`,
+          metric: `${bestCTR.ctr.toFixed(1)}% CTR`
+        });
+      }
     }
 
     // Analyze what needs improvement
@@ -170,15 +249,16 @@ app.get('/api/insights', async (req, res) => {
 
     // Find low CTR campaigns
     const lowCTRCampaigns = campaigns.filter(c => c.ctr < 1.5 && c.clicks > 100);
-    lowCTRCampaigns.forEach(campaign => {
+    lowCTRCampaigns.slice(0, 2).forEach(campaign => {
       insights.needsImprovement.push({
         title: `Low CTR: ${campaign.name}`,
-        description: `${campaign.ctr}% CTR - Your ads may not be relevant enough to this audience.`,
-        metric: `${campaign.ctr}% CTR`,
+        description: `${campaign.ctr.toFixed(1)}% CTR - Your ads may not be relevant enough to this audience.`,
+        metric: `${campaign.ctr.toFixed(1)}% CTR`,
         severity: 'low'
       });
     });
 
+    console.log('Insights generated successfully');
     res.json(insights);
   } catch (error) {
     console.error('Error generating insights:', error);
@@ -186,32 +266,30 @@ app.get('/api/insights', async (req, res) => {
   }
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+// Default route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Facebook Ads API Server',
+    endpoints: [
+      '/api/health',
+      '/api/test-connection',
+      '/api/account-overview',
+      '/api/campaigns',
+      '/api/insights'
+    ]
+  });
 });
 
-// Test Facebook API connection
-app.get('/api/test-connection', async (req, res) => {
-  try {
-    const response = await callFacebookAPI(`act_${AD_ACCOUNT_ID}`, {
-      fields: 'name,account_status'
-    });
-    res.json({ 
-      success: true, 
-      account: response,
-      message: 'Successfully connected to Facebook API'
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
+// Handle all other routes
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Endpoint not found' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Facebook Ad Account ID: ${AD_ACCOUNT_ID}`);
-  console.log(`🔗 Test connection: http://localhost:${PORT}/api/test-connection`);
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error('Unhandled error:', error);
+  res.status(500).json({ error: 'Internal server error' });
 });
+
+// Export for Vercel
+module.exports = app;
