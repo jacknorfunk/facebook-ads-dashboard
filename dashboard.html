@@ -4,326 +4,1577 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Facebook Ads Dashboard</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.js"></script>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grade-A { @apply bg-green-100 text-green-800 border-green-200; }
+        .grade-B { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .grade-C { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        .grade-D { @apply bg-red-100 text-red-800 border-red-200; }
+        .performance-high { @apply bg-green-50 border-l-4 border-green-400; }
+        .performance-medium { @apply bg-yellow-50 border-l-4 border-yellow-400; }
+        .performance-low { @apply bg-red-50 border-l-4 border-red-400; }
+    </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-gray-50">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900 mb-2">Facebook Ads Performance</h1>
+                        <p class="text-gray-600">Live data from your Facebook advertising campaigns</p>
+                    </div>
+                    <button id="refreshBtn" class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                        <span id="refreshIcon">🔄</span>
+                        Refresh Data
+                    </button>
+                </div>
+            </div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } = Recharts;
-        const { TrendingUp, TrendingDown, DollarSign, Target, AlertCircle, CheckCircle, Eye, MousePointer, RefreshCw } = lucide;
+            <!-- Video Intelligence Tab -->
+            <div id="video-intelligence-content" class="tab-content hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-lg mb-6">
+                    <h2 class="text-2xl font-bold mb-2">🎬 Video Intelligence Analysis</h2>
+                    <p class="text-indigo-100">Deep frame-by-frame analysis with audio transcription and visual scene detection</p>
+                </div>
 
-        const ConnectedFacebookDashboard = () => {
-            const [dateRange, setDateRange] = useState('last_30d');
-            const [loading, setLoading] = useState(true);
-            const [error, setError] = useState(null);
-            const [accountData, setAccountData] = useState(null);
-            const [campaigns, setCampaigns] = useState([]);
-            const [insights, setInsights] = useState(null);
+                <!-- Analysis Controls -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Analyze Video Content</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <select id="intelligenceCreativeSelect" class="px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="">Select a video creative...</option>
+                        </select>
+                        <select id="analysisType" class="px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="full">Full Analysis</option>
+                            <option value="audio_only">Audio Transcription Only</option>
+                            <option value="visual_only">Visual Analysis Only</option>
+                            <option value="frame_by_frame">Frame-by-Frame Deep Dive</option>
+                        </select>
+                        <button id="analyzeVideoBtn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300" disabled>
+                            🎬 Analyze Video
+                        </button>
+                    </div>
+                    <div id="videoAnalysisProgress" class="hidden">
+                        <div class="flex items-center gap-2 text-indigo-600 mb-2">
+                            <div class="loading inline-block w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                            <span id="analysisStatusText">Downloading and analyzing video...</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="analysisProgressBar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
 
-            const API_BASE = 'https://facebook-ads-dashboard-git-main-jacks-projects-e0e84f4f.vercel.app';
+                <!-- Analysis Results Container -->
+                <div id="videoIntelligenceResults" class="space-y-6">
+                    <!-- Results will be inserted here -->
+                </div>
+            </div>
 
-            const fetchAccountData = async () => {
-                try {
-                    const response = await fetch(`${API_BASE}/api/overview?date_preset=${dateRange}`);
-                    if (!response.ok) throw new Error('Failed to fetch account data');
-                    const data = await response.json();
-                    setAccountData(data);
-                } catch (err) {
-                    console.error('Error fetching account data:', err);
-                    setError(err.message);
+            <!-- Debug Info -->
+            <div id="debugInfo" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="font-semibold text-yellow-800">Debug Information</h3>
+                    <button id="hideDebug" class="text-yellow-600 hover:text-yellow-800 text-sm px-2 py-1 rounded">Hide</button>
+                </div>
+                <div id="debugContent" class="text-sm text-yellow-700 max-h-60 overflow-y-auto"></div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex space-x-8 mb-6">
+                <button class="tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600" data-tab="overview">Overview</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="campaigns">Campaigns</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="creatives">Creative Analysis</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="video-analysis">Video Hook Analysis</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="ai-scripts">AI Script Generator</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="video-intelligence">Video Intelligence</button>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex flex-wrap gap-4 mb-6">
+                <select id="dateRange" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="yesterday">Yesterday</option>
+                    <option value="last_7d">Last 7 days</option>
+                    <option value="last_30d" selected>Last 30 days</option>
+                    <option value="last_90d">Last 90 days</option>
+                </select>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="text-center py-20">
+                <div class="loading inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                <p class="text-gray-600 mt-4">Loading your Facebook Ads data...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="hidden text-center py-20">
+                <div class="text-red-500 text-6xl mb-4">⚠️</div>
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">Connection Error</h2>
+                <p class="text-gray-600 mb-4" id="errorMessage"></p>
+                <button onclick="loadData()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Try Again</button>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overview-content" class="tab-content">
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Spend</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalSpend">£0</p>
+                            </div>
+                            <div class="text-blue-500 text-3xl">💰</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Revenue</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalRevenue">£0</p>
+                            </div>
+                            <div class="text-green-500 text-3xl">📈</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">ROAS</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalROAS">0.00x</p>
+                            </div>
+                            <div class="text-purple-500 text-3xl">🎯</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Conversions</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalConversions">0</p>
+                            </div>
+                            <div class="text-orange-500 text-3xl">🎯</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Secondary KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">Total Clicks</p>
+                        <p class="text-xl font-bold text-gray-900" id="totalClicks">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">CTR</p>
+                        <p class="text-xl font-bold text-gray-900" id="averageCTR">0.00%</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">CPC</p>
+                        <p class="text-xl font-bold text-gray-900" id="averageCPC">£0.00</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">CPM</p>
+                        <p class="text-xl font-bold text-gray-900" id="averageCPM">£0.00</p>
+                    </div>
+                </div>
+
+                <!-- Insights Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-green-500 text-xl">✅</span>
+                            <h3 class="text-lg font-semibold text-gray-900">What's Working</h3>
+                        </div>
+                        <div id="whatsWorking" class="space-y-3">
+                            <p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-red-500 text-xl">⚠️</span>
+                            <h3 class="text-lg font-semibold text-gray-900">Needs Improvement</h3>
+                        </div>
+                        <div id="needsImprovement" class="space-y-3">
+                            <p class="text-gray-500">Loading recommendations...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Script Generator Tab -->
+            <div id="ai-scripts-content" class="tab-content hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-purple-500 to-blue-600 text-white p-6 rounded-lg mb-6">
+                    <h2 class="text-2xl font-bold mb-2">🤖 AI Video Script Generator</h2>
+                    <p class="text-purple-100">Generate optimized video scripts based on your performance data and AI research</p>
+                </div>
+
+                <!-- Script Generation Controls -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate New Scripts</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <select id="scriptCreativeSelect" class="px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="">Select a video creative...</option>
+                        </select>
+                        <select id="scriptType" class="px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="improvement">Performance Improvement</option>
+                            <option value="hook">Hook Rate Focus</option>
+                            <option value="retention">Retention Focus</option>
+                            <option value="completion">Completion Focus</option>
+                        </select>
+                        <button id="generateScriptsBtn" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300" disabled>
+                            Generate Scripts
+                        </button>
+                    </div>
+                    <div id="scriptGeneration" class="hidden">
+                        <div class="flex items-center gap-2 text-purple-600">
+                            <div class="loading inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></div>
+                            <span>AI is researching and generating optimized scripts...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated Scripts Container -->
+                <div id="generatedScripts" class="space-y-6">
+                    <!-- Scripts will be inserted here -->
+                </div>
+
+                <!-- Research Insights -->
+                <div id="researchInsights" class="hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">🔬 AI Research Insights</h3>
+                    <div id="researchContent">
+                        <!-- Research insights will be inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Campaigns Tab -->
+            <div id="campaigns-content" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Campaign Performance Analysis</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 font-medium text-gray-700">Campaign</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Spend</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Revenue</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">ROAS</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Conversions</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">CTR</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">CPC</th>
+                                    <th class="text-center py-3 px-4 font-medium text-gray-700">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="campaignTable">
+                                <!-- Campaign rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Creative Analysis Tab -->
+            <div id="creatives-content" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Creative Performance Analysis</h3>
+                    <div id="creativesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Creative cards will be inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video Hook Analysis Tab -->
+            <div id="video-analysis-content" class="tab-content hidden">
+                <!-- Performance Overview Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-600">Average Hook Rate</h4>
+                            <span class="text-2xl">🎣</span>
+                        </div>
+                        <div id="avgHookRate" class="text-2xl font-bold text-gray-900">0.0%</div>
+                        <div id="avgHookGrade" class="text-sm font-medium mt-1">Grade: -</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-600">Average Retention</h4>
+                            <span class="text-2xl">📈</span>
+                        </div>
+                        <div id="avgRetention" class="text-2xl font-bold text-gray-900">0.0%</div>
+                        <div id="avgRetentionGrade" class="text-sm font-medium mt-1">Grade: -</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-600">Average Completion</h4>
+                            <span class="text-2xl">✅</span>
+                        </div>
+                        <div id="avgCompletion" class="text-2xl font-bold text-gray-900">0.0%</div>
+                        <div id="avgCompletionGrade" class="text-sm font-medium mt-1">Grade: -</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-600">Overall Score</h4>
+                            <span class="text-2xl">🏆</span>
+                        </div>
+                        <div id="overallVideoScore" class="text-2xl font-bold text-gray-900">0</div>
+                        <div class="text-sm text-gray-600 mt-1">out of 100</div>
+                    </div>
+                </div>
+
+                <!-- Video Cards -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Select Video for Analysis</h3>
+                    <div id="videoCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Video cards will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Detailed Analysis Panel -->
+                <div id="videoAnalysisPanel" class="hidden">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Detailed Video Analysis</h3>
+                        <div id="videoAnalysisContent">
+                            <!-- Detailed analysis will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://facebook-ads-dashboard-git-main-jacks-projects-e0e84f4f.vercel.app';
+        let accountData = null;
+        let campaigns = [];
+        let creatives = [];
+        let videoAnalyses = new Map();
+
+        // Debug function
+        function showDebug(message) {
+            console.log('DEBUG:', message);
+            const debugInfo = document.getElementById('debugInfo');
+            const debugContent = document.getElementById('debugContent');
+            debugContent.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            debugInfo.classList.remove('hidden');
+        }
+
+        // Hide debug panel
+        document.getElementById('hideDebug').addEventListener('click', () => {
+            document.getElementById('debugInfo').classList.add('hidden');
+        });
+
+        // Tab Management
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.tab;
+                
+                showDebug(`Switching to tab: ${tabName}`);
+                
+                // Update button styles
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.className = 'tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700';
+                });
+                e.target.className = 'tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600';
+                
+                // Show/hide content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`${tabName}-content`).classList.remove('hidden');
+                
+                // Load video analysis when that tab is clicked
+                if (tabName === 'video-analysis' && creatives.length > 0) {
+                    loadVideoAnalysis();
                 }
-            };
-
-            const fetchCampaigns = async () => {
-                try {
-                    const response = await fetch(`${API_BASE}/api/campaigns?date_preset=${dateRange}`);
-                    if (!response.ok) throw new Error('Failed to fetch campaigns');
-                    const data = await response.json();
-                    setCampaigns(data);
-                } catch (err) {
-                    console.error('Error fetching campaigns:', err);
-                    setError(err.message);
+                
+                // Load AI scripts when that tab is clicked
+                if (tabName === 'ai-scripts' && creatives.length > 0) {
+                    loadAIScriptGenerator();
                 }
-            };
-
-            const fetchInsights = async () => {
-                try {
-                    const winningCampaigns = campaigns.filter(c => c.status === 'winning').slice(0, 3);
-                    const losingCampaigns = campaigns.filter(c => c.status === 'losing').slice(0, 3);
-                    
-                    const insights = {
-                        whatsWorking: winningCampaigns.map(campaign => ({
-                            title: campaign.name,
-                            description: `${campaign.roas.toFixed(2)}x ROAS - Strong performer! Consider scaling up budget.`,
-                            metric: `${campaign.roas.toFixed(2)}x ROAS`
-                        })),
-                        needsImprovement: losingCampaigns.map(campaign => ({
-                            title: campaign.name,
-                            description: `${campaign.roas.toFixed(2)}x ROAS - ${campaign.roas < 1 ? 'Losing money! Consider pausing.' : 'Below target, review targeting and creatives.'}`,
-                            metric: `${campaign.roas.toFixed(2)}x ROAS`,
-                            severity: campaign.roas < 1 ? 'high' : 'medium'
-                        }))
-                    };
-                    
-                    setInsights(insights);
-                } catch (err) {
-                    console.error('Error generating insights:', err);
-                    setError(err.message);
+                
+                // Load video intelligence when that tab is clicked
+                if (tabName === 'video-intelligence' && creatives.length > 0) {
+                    loadVideoIntelligence();
                 }
-            };
+            });
+        });
 
-            const loadData = async () => {
-                setLoading(true);
-                setError(null);
-                try {
-                    await fetchAccountData();
-                    await fetchCampaigns();
-                    setTimeout(() => {
-                        fetchInsights();
-                    }, 1000);
-                } catch (err) {
-                    setError('Failed to load data');
-                } finally {
-                    setLoading(false);
-                }
-            };
+        async function fetchAccountData(dateRange) {
+            showDebug(`Fetching account data for ${dateRange}`);
+            const url = `${API_BASE}/api/overview?date_preset=${dateRange}`;
+            showDebug(`Account URL: ${url}`);
+            
+            const response = await fetch(url);
+            showDebug(`Account response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                showDebug(`Account error: ${errorText}`);
+                throw new Error(`Failed to fetch account data: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            showDebug(`Account data received: ${JSON.stringify(data).substring(0, 200)}...`);
+            return data;
+        }
 
-            useEffect(() => {
-                loadData();
-            }, [dateRange]);
+        async function fetchVideoAnalysis(adId) {
+            showDebug(`Fetching video analysis for ad ${adId}`);
+            
+            if (videoAnalyses.has(adId)) {
+                showDebug(`Using cached analysis for ad ${adId}`);
+                return videoAnalyses.get(adId);
+            }
+            
+            const url = `${API_BASE}/api/video-analysis?ad_id=${adId}`;
+            showDebug(`Video analysis URL: ${url}`);
+            
+            const response = await fetch(url);
+            showDebug(`Video analysis response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                showDebug(`Video analysis error: ${errorText}`);
+                throw new Error(`Failed to fetch video analysis: ${response.status} - ${errorText}`);
+            }
+            
+            const analysis = await response.json();
+            videoAnalyses.set(adId, analysis);
+            showDebug(`Video analysis received for ad ${adId}`);
+            return analysis;
+        }
 
-            useEffect(() => {
-                const testConnection = async () => {
+        async function loadVideoAnalysis() {
+            showDebug('Loading video analysis');
+            const videoCreatives = creatives.filter(c => c.creative_type === 'video');
+            
+            if (videoCreatives.length === 0) {
+                showDebug('No video creatives found');
+                document.getElementById('video-analysis-content').innerHTML = `
+                    <div class="text-center py-20">
+                        <div class="text-gray-400 text-6xl mb-4">🎬</div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">No Video Creatives Found</h3>
+                        <p class="text-gray-600">Your campaigns don't appear to have video ads. Video hook analysis requires video creatives.</p>
+                        <p class="text-gray-500 text-sm mt-4">Found ${creatives.length} total creatives: ${creatives.map(c => c.creative_type).join(', ')}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            showDebug(`Found ${videoCreatives.length} video creatives`);
+
+            try {
+                // Calculate overview metrics
+                let totalHookRate = 0;
+                let totalRetention = 0;
+                let totalCompletion = 0;
+                let totalScore = 0;
+                let successfulAnalyses = 0;
+                
+                for (const creative of videoCreatives) {
                     try {
-                        const response = await fetch(`${API_BASE}/api/connection`);
-                        const result = await response.json();
-                        if (!result.success) {
-                            setError(`API Connection Error: ${result.error}`);
-                        }
-                    } catch (err) {
-                        setError('Cannot connect to backend API. Make sure the server is running.');
+                        const analysis = await fetchVideoAnalysis(creative.id);
+                        totalHookRate += analysis.hook_analysis.initial_hook;
+                        totalRetention += analysis.hook_analysis.retention_25pct;
+                        totalCompletion += analysis.hook_analysis.completion_rate;
+                        totalScore += analysis.overall_score;
+                        successfulAnalyses++;
+                    } catch (error) {
+                        showDebug(`Error fetching analysis for creative ${creative.id}: ${error.message}`);
                     }
-                };
-                testConnection();
-            }, []);
-
-            const getStatusColor = (status) => {
-                switch(status) {
-                    case 'winning': return 'text-green-600 bg-green-50';
-                    case 'losing': return 'text-red-600 bg-red-50';
-                    default: return 'text-yellow-600 bg-yellow-50';
                 }
-            };
 
-            const getStatusIcon = (status) => {
-                switch(status) {
-                    case 'winning': return React.createElement(CheckCircle, { className: "w-4 h-4" });
-                    case 'losing': return React.createElement(AlertCircle, { className: "w-4 h-4" });
-                    default: return React.createElement(Eye, { className: "w-4 h-4" });
+                if (successfulAnalyses === 0) {
+                    showDebug('No successful video analyses');
+                    document.getElementById('avgHookRate').textContent = 'Error';
+                    document.getElementById('avgRetention').textContent = 'Error';
+                    document.getElementById('avgCompletion').textContent = 'Error';
+                    document.getElementById('overallVideoScore').textContent = 'Error';
+                    return;
                 }
-            };
 
-            const chartData = campaigns.slice(0, 6).map(campaign => ({
-                name: campaign.name.length > 20 ? campaign.name.substring(0, 20) + '...' : campaign.name,
-                spend: campaign.spend,
-                revenue: campaign.revenue,
-                roas: campaign.roas
-            }));
+                const avgHookRate = totalHookRate / successfulAnalyses;
+                const avgRetention = totalRetention / successfulAnalyses;
+                const avgCompletion = totalCompletion / successfulAnalyses;
+                const avgScore = totalScore / successfulAnalyses;
 
-            const pieData = campaigns.slice(0, 5).map(campaign => ({
-                name: campaign.name.length > 15 ? campaign.name.substring(0, 15) + '...' : campaign.name,
-                value: campaign.spend
-            }));
+                // Update overview cards
+                document.getElementById('avgHookRate').textContent = `${avgHookRate.toFixed(1)}%`;
+                document.getElementById('avgRetention').textContent = `${avgRetention.toFixed(1)}%`;
+                document.getElementById('avgCompletion').textContent = `${avgCompletion.toFixed(1)}%`;
+                document.getElementById('overallVideoScore').textContent = Math.round(avgScore);
 
-            const COLORS = ['#1877F2', '#42B883', '#F59E0B', '#EF4444', '#8B5CF6'];
+                // Update grades
+                const hookGrade = avgHookRate >= 15 ? 'A' : avgHookRate >= 8 ? 'B' : avgHookRate >= 4 ? 'C' : 'D';
+                const retentionGrade = avgRetention >= 70 ? 'A' : avgRetention >= 50 ? 'B' : avgRetention >= 30 ? 'C' : 'D';
+                const completionGrade = avgCompletion >= 40 ? 'A' : avgCompletion >= 20 ? 'B' : avgCompletion >= 10 ? 'C' : 'D';
 
-            if (loading) {
-                return React.createElement('div', { className: "min-h-screen bg-gray-50 flex items-center justify-center" },
-                    React.createElement('div', { className: "text-center" },
-                        React.createElement(RefreshCw, { className: "w-8 h-8 text-blue-500 animate-spin mx-auto mb-4" }),
-                        React.createElement('p', { className: "text-gray-600" }, "Loading your Facebook Ads data...")
-                    )
-                );
+                document.getElementById('avgHookGrade').textContent = `Grade: ${hookGrade}`;
+                document.getElementById('avgRetentionGrade').textContent = `Grade: ${retentionGrade}`;
+                document.getElementById('avgCompletionGrade').textContent = `Grade: ${completionGrade}`;
+
+                // Create video cards
+                await updateVideoCards(videoCreatives);
+
+                showDebug('Video analysis loaded successfully');
+            } catch (error) {
+                showDebug(`Error in loadVideoAnalysis: ${error.message}`);
+            }
+        }
+
+        async function updateVideoCards(videoCreatives) {
+            showDebug('Updating video cards');
+            const videoCards = document.getElementById('videoCards');
+            videoCards.innerHTML = '';
+
+            for (const creative of videoCreatives) {
+                try {
+                    const analysis = await fetchVideoAnalysis(creative.id);
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow';
+                    
+                    const hookGrade = analysis.performance_grades.hook;
+                    const hookColor = hookGrade === 'A' ? 'text-green-600' :
+                                     hookGrade === 'B' ? 'text-blue-600' :
+                                     hookGrade === 'C' ? 'text-yellow-600' : 'text-red-600';
+
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">Video</span>
+                                <span class="text-sm font-medium text-gray-900">Creative #${creative.id.slice(-6)}</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-lg font-bold ${hookColor}">${analysis.overall_score}/100</div>
+                                <div class="text-xs text-gray-500">Score</div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-3 text-sm mb-4">
+                            <div class="text-center">
+                                <div class="text-lg font-bold ${hookColor}">${analysis.hook_analysis.initial_hook.toFixed(1)}%</div>
+                                <div class="text-xs text-gray-600">Hook Rate</div>
+                                <div class="text-xs font-medium grade-${hookGrade} px-1 rounded">Grade ${hookGrade}</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-gray-900">${analysis.hook_analysis.retention_25pct.toFixed(1)}%</div>
+                                <div class="text-xs text-gray-600">Retention</div>
+                                <div class="text-xs font-medium grade-${analysis.performance_grades.retention} px-1 rounded">Grade ${analysis.performance_grades.retention}</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-gray-900">${analysis.hook_analysis.completion_rate.toFixed(1)}%</div>
+                                <div class="text-xs text-gray-600">Completion</div>
+                                <div class="text-xs font-medium grade-${analysis.performance_grades.completion} px-1 rounded">Grade ${analysis.performance_grades.completion}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-xs text-gray-500 mb-2">Performance Metrics:</div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>CTR: ${creative.ctr.toFixed(2)}%</div>
+                            <div>CPC: £${creative.cpc.toFixed(2)}</div>
+                            <div>Spend: £${creative.spend.toLocaleString()}</div>
+                            <div>Clicks: ${creative.clicks}</div>
+                        </div>
+                    `;
+
+                    card.addEventListener('click', () => showDetailedAnalysis(creative.id, analysis));
+                    videoCards.appendChild(card);
+                } catch (error) {
+                    showDebug(`Error creating video card for ${creative.id}: ${error.message}`);
+                    
+                    // Create error card
+                    const errorCard = document.createElement('div');
+                    errorCard.className = 'bg-red-50 p-4 rounded-lg border border-red-200';
+                    errorCard.innerHTML = `
+                        <div class="text-red-800 font-medium">Error Loading Video</div>
+                        <div class="text-red-600 text-sm">Creative #${creative.id.slice(-6)}</div>
+                        <div class="text-red-500 text-xs mt-2">${error.message}</div>
+                    `;
+                    videoCards.appendChild(errorCard);
+                }
+            }
+        }
+
+        function showDetailedAnalysis(creativeId, analysis) {
+            showDebug(`Showing detailed analysis for ${creativeId}`);
+            const panel = document.getElementById('videoAnalysisPanel');
+            const content = document.getElementById('videoAnalysisContent');
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Hook Performance -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-gray-900 mb-4">Hook Performance</h4>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Initial Hook (0-3s)</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold">${analysis.hook_analysis.initial_hook.toFixed(1)}%</span>
+                                    <span class="grade-${analysis.performance_grades.hook} px-2 py-1 rounded text-xs">${analysis.performance_grades.hook}</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">25% Retention</span>
+                                <span class="font-bold">${analysis.hook_analysis.retention_25pct.toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">50% Retention</span>
+                                <span class="font-bold">${analysis.hook_analysis.retention_50pct.toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Completion Rate</span>
+                                <span class="font-bold">${analysis.hook_analysis.completion_rate.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Raw Data -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-gray-900 mb-4">Raw Data</h4>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <div class="text-gray-600">Impressions</div>
+                                <div class="font-bold">${analysis.hook_analysis.raw_data.impressions.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600">Video Views</div>
+                                <div class="font-bold">${analysis.hook_analysis.raw_data.video_views.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600">25% Views</div>
+                                <div class="font-bold">${analysis.hook_analysis.raw_data.p25_views.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600">Completions</div>
+                                <div class="font-bold">${analysis.hook_analysis.raw_data.p100_views.toLocaleString()}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insights -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- What's Working -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-green-500 text-xl">✅</span>
+                            <h4 class="font-semibold text-gray-900">What's Working</h4>
+                        </div>
+                        <div class="space-y-3">
+                            ${analysis.insights.filter(insight => insight.type === 'success').map(insight => `
+                                <div class="p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
+                                    <p class="text-sm font-medium text-green-800">${insight.message}</p>
+                                    <p class="text-xs text-green-600 mt-1">${insight.recommendation}</p>
+                                </div>
+                            `).join('') || '<p class="text-gray-500 text-sm">No strong performers identified.</p>'}
+                        </div>
+                    </div>
+
+                    <!-- Optimization Tips -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-orange-500 text-xl">💡</span>
+                            <h4 class="font-semibold text-gray-900">Optimization Tips</h4>
+                        </div>
+                        <div class="space-y-3">
+                            ${analysis.optimization_tips.map(tip => `
+                                <div class="p-3 bg-orange-50 rounded-lg border-l-4 border-orange-400">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <p class="text-sm font-medium text-orange-800">${tip.tip}</p>
+                                        <span class="px-2 py-1 bg-orange-200 text-orange-800 text-xs rounded">${tip.priority}</span>
+                                    </div>
+                                    <div class="text-xs text-orange-600 mb-2">
+                                        <strong>Expected Impact:</strong> ${tip.expected_impact}
+                                    </div>
+                                    <div class="text-xs text-orange-700">
+                                        <strong>Try:</strong> ${tip.specific_actions.join(' • ')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            panel.classList.remove('hidden');
+            panel.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function loadAIScriptGenerator() {
+            showDebug('Loading AI Script Generator');
+            const videoCreatives = creatives.filter(c => c.creative_type === 'video');
+            
+            if (videoCreatives.length === 0) {
+                document.getElementById('ai-scripts-content').innerHTML = `
+                    <div class="text-center py-20">
+                        <div class="text-gray-400 text-6xl mb-4">🤖</div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">No Video Creatives Found</h3>
+                        <p class="text-gray-600">AI script generation requires video creatives to analyze.</p>
+                    </div>
+                `;
+                return;
             }
 
-            if (error) {
-                return React.createElement('div', { className: "min-h-screen bg-gray-50 flex items-center justify-center" },
-                    React.createElement('div', { className: "text-center max-w-md" },
-                        React.createElement(AlertCircle, { className: "w-8 h-8 text-red-500 mx-auto mb-4" }),
-                        React.createElement('h2', { className: "text-xl font-semibold text-gray-900 mb-2" }, "Connection Error"),
-                        React.createElement('p', { className: "text-gray-600 mb-4" }, error),
-                        React.createElement('button', { 
-                            onClick: loadData,
-                            className: "px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                        }, "Try Again")
-                    )
-                );
+            // Populate creative selector
+            const selector = document.getElementById('scriptCreativeSelect');
+            selector.innerHTML = '<option value="">Select a video creative...</option>';
+            
+            for (const creative of videoCreatives) {
+                const option = document.createElement('option');
+                option.value = creative.id;
+                option.textContent = `Creative #${creative.id.slice(-6)} - ${creative.ctr.toFixed(2)}% CTR - £${creative.spend.toLocaleString()} spend`;
+                selector.appendChild(option);
             }
 
-            return React.createElement('div', { className: "min-h-screen bg-gray-50 p-6" },
-                React.createElement('div', { className: "max-w-7xl mx-auto" },
-                    // Header
-                    React.createElement('div', { className: "mb-8" },
-                        React.createElement('div', { className: "flex items-center justify-between" },
-                            React.createElement('div', null,
-                                React.createElement('h1', { className: "text-3xl font-bold text-gray-900 mb-2" }, "Facebook Ads Performance"),
-                                React.createElement('p', { className: "text-gray-600" }, "Live data from your Facebook advertising campaigns")
-                            ),
-                            React.createElement('button', { 
-                                onClick: loadData,
-                                className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                            },
-                                React.createElement(RefreshCw, { className: "w-4 h-4" }),
-                                "Refresh Data"
-                            )
-                        )
-                    ),
+            // Enable generate button when creative is selected
+            selector.addEventListener('change', () => {
+                const generateBtn = document.getElementById('generateScriptsBtn');
+                generateBtn.disabled = !selector.value;
+            });
 
-                    // Controls
-                    React.createElement('div', { className: "flex flex-wrap gap-4 mb-6" },
-                        React.createElement('select', { 
-                            value: dateRange, 
-                            onChange: (e) => setDateRange(e.target.value),
-                            className: "px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        },
-                            React.createElement('option', { value: "yesterday" }, "Yesterday"),
-                            React.createElement('option', { value: "last_7d" }, "Last 7 days"),
-                            React.createElement('option', { value: "last_30d" }, "Last 30 days"),
-                            React.createElement('option', { value: "last_90d" }, "Last 90 days"),
-                            React.createElement('option', { value: "this_month" }, "This month"),
-                            React.createElement('option', { value: "last_month" }, "Last month")
-                        )
-                    ),
+            // Generate scripts functionality
+            document.getElementById('generateScriptsBtn').addEventListener('click', async () => {
+                const creativeId = selector.value;
+                const scriptType = document.getElementById('scriptType').value;
+                
+                if (!creativeId) return;
 
-                    // KPI Cards
-                    accountData && React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" },
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center justify-between" },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: "text-sm font-medium text-gray-600" }, "Total Spend"),
-                                    React.createElement('p', { className: "text-2xl font-bold text-gray-900" }, `£${accountData.totalSpend.toLocaleString()}`)
-                                ),
-                                React.createElement(DollarSign, { className: "w-8 h-8 text-blue-500" })
-                            )
-                        ),
+                try {
+                    showDebug(`Generating scripts for creative ${creativeId}`);
+                    document.getElementById('scriptGeneration').classList.remove('hidden');
+                    
+                    // Get video analysis for the selected creative
+                    const analysis = await fetchVideoAnalysis(creativeId);
+                    
+                    // Generate scripts using AI
+                    const scripts = await generateAIScripts(creativeId, analysis, scriptType);
+                    
+                    // Display generated scripts
+                    displayGeneratedScripts(scripts);
+                    
+                    document.getElementById('scriptGeneration').classList.add('hidden');
+                    showDebug('Scripts generated successfully');
+                } catch (error) {
+                    showDebug(`Error generating scripts: ${error.message}`);
+                    document.getElementById('scriptGeneration').classList.add('hidden');
+                    alert('Error generating scripts: ' + error.message);
+                }
+            });
+        }
+
+        async function generateAIScripts(creativeId, analysis, scriptType) {
+            showDebug(`Calling AI script generator API for ${creativeId}`);
+            
+            const response = await fetch(`${API_BASE}/api/ai-script-generator`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    creative_id: creativeId,
+                    analysis_data: analysis,
+                    script_type: scriptType
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`AI script generation failed: ${response.status} - ${errorText}`);
+            }
+
+            return response.json();
+        }
+
+        function displayGeneratedScripts(scriptData) {
+            showDebug('Displaying generated scripts');
+            const container = document.getElementById('generatedScripts');
+            const researchContainer = document.getElementById('researchInsights');
+            const researchContent = document.getElementById('researchContent');
+
+            // Display research insights
+            researchContent.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Hook Research -->
+                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <h4 class="font-semibold text-blue-900 mb-3">🎣 Hook Rate Research</h4>
+                        <div class="space-y-2">
+                            ${scriptData.research_insights.hook_research.map(research => `
+                                <div class="bg-white p-3 rounded border">
+                                    <div class="font-medium text-blue-800">${research.finding}</div>
+                                    <div class="text-sm text-blue-600 mt-1">${research.research}</div>
+                                    <div class="text-xs text-blue-500 mt-1">Source: ${research.source} (${Math.round(research.confidence * 100)}% confidence)</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Retention Research -->
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <h4 class="font-semibold text-green-900 mb-3">📈 Retention Research</h4>
+                        <div class="space-y-2">
+                            ${scriptData.research_insights.retention_research.map(research => `
+                                <div class="bg-white p-3 rounded border">
+                                    <div class="font-medium text-green-800">${research.finding}</div>
+                                    <div class="text-sm text-green-600 mt-1">${research.research}</div>
+                                    <div class="text-xs text-green-500 mt-1">Source: ${research.source} (${Math.round(research.confidence * 100)}% confidence)</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommended Strategies -->
+                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <h4 class="font-semibold text-purple-900 mb-3">💡 AI-Recommended Strategies</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${scriptData.research_insights.recommended_strategies.map(strategy => `
+                            <div class="bg-white p-4 rounded border">
+                                <div class="font-medium text-purple-800">${strategy.strategy}</div>
+                                <div class="text-sm text-purple-600 mt-1">${strategy.description}</div>
+                                <div class="text-xs text-purple-500 mt-2">
+                                    <strong>Examples:</strong> ${strategy.examples.join(' • ')}
+                                </div>
+                                <div class="text-xs font-medium text-purple-700 mt-2">
+                                    Expected: ${strategy.expected_improvement}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            researchContainer.classList.remove('hidden');
+
+            // Display generated scripts
+            container.innerHTML = scriptData.generated_scripts.map((script, index) => `
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-900">${script.title}</h3>
+                        <div class="flex items-center gap-2">
+                            <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">${script.focus}</span>
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">${script.estimated_improvement}</span>
+                        </div>
+                    </div>
+
+                    <!-- Script Sections -->
+                    <div class="space-y-4 mb-6">
+                        ${Object.entries(script.script_sections).map(([sectionName, section]) => `
+                            <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-semibold text-gray-800 capitalize">${sectionName.replace('_', ' ')}</h4>
+                                    <span class="text-sm text-gray-500">${section.timestamp}</span>
+                                </div>
+                                
+                                <div class="space-y-2 mb-3">
+                                    ${section.content.map(line => `
+                                        <div class="bg-gray-50 p-3 rounded border-l-4 border-purple-400">
+                                            <div class="font-medium text-gray-800">${line}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                
+                                <div class="text-sm text-gray-600 mb-2">
+                                    <strong>Visual Notes:</strong> ${section.visual_notes}
+                                </div>
+                                
+                                <div class="text-sm text-blue-600">
+                                    <strong>Rationale:</strong> ${section.rationale}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Performance Prediction -->
+                    <div class="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border">
+                        <h4 class="font-semibold text-gray-800 mb-3">📊 Predicted Performance Improvements</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            ${Object.entries(script.performance_prediction).map(([metric, value]) => `
+                                <div class="text-center">
+                                    <div class="font-bold text-lg text-gray-900">${value}</div>
+                                    <div class="text-sm text-gray-600 capitalize">${metric.replace('_', ' ')}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="copyScript(${index})" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            📋 Copy Script
+                        </button>
+                        <button onclick="exportScript(${index})" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                            📄 Export PDF
+                        </button>
+                        <button onclick="generateVariations(${index})" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                            🔄 Generate Variations
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Store scripts globally for copy/export functions
+            window.generatedScripts = scriptData.generated_scripts;
+        }
+
+        // Utility functions for script actions
+        function copyScript(scriptIndex) {
+            const script = window.generatedScripts[scriptIndex];
+            let scriptText = `${script.title}\n${script.focus}\n\n`;
+            
+            Object.entries(script.script_sections).forEach(([sectionName, section]) => {
+                scriptText += `${sectionName.toUpperCase()} (${section.timestamp}):\n`;
+                section.content.forEach(line => {
+                    scriptText += `- ${line}\n`;
+                });
+                scriptText += `Visual Notes: ${section.visual_notes}\n\n`;
+            });
+
+            navigator.clipboard.writeText(scriptText).then(() => {
+                showDebug(`Script ${scriptIndex + 1} copied to clipboard`);
+                alert('Script copied to clipboard!');
+            });
+        }
+
+        function exportScript(scriptIndex) {
+            showDebug(`Exporting script ${scriptIndex + 1} as PDF`);
+            // This would integrate with a PDF generation service
+            alert('PDF export feature coming soon!');
+        }
+
+        function generateVariations(scriptIndex) {
+            showDebug(`Generating variations for script ${scriptIndex + 1}`);
+            // This would call the AI API again with variation parameters
+            alert('Script variations feature coming soon!');
+        }
+
+        async function loadVideoIntelligence() {
+            showDebug('Loading Video Intelligence');
+            const videoCreatives = creatives.filter(c => c.creative_type === 'video');
+            
+            if (videoCreatives.length === 0) {
+                document.getElementById('video-intelligence-content').innerHTML = `
+                    <div class="text-center py-20">
+                        <div class="text-gray-400 text-6xl mb-4">🎬</div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">No Video Creatives Found</h3>
+                        <p class="text-gray-600">Video intelligence analysis requires video creatives.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Populate creative selector
+            const selector = document.getElementById('intelligenceCreativeSelect');
+            selector.innerHTML = '<option value="">Select a video creative...</option>';
+            
+            for (const creative of videoCreatives) {
+                const option = document.createElement('option');
+                option.value = creative.id;
+                option.textContent = `Creative #${creative.id.slice(-6)} - ${creative.hook_rate.toFixed(1)}% Hook Rate - ${creative.ctr.toFixed(2)}% CTR`;
+                selector.appendChild(option);
+            }
+
+            // Enable analyze button when creative is selected
+            selector.addEventListener('change', () => {
+                const analyzeBtn = document.getElementById('analyzeVideoBtn');
+                analyzeBtn.disabled = !selector.value;
+            });
+
+            // Video analysis functionality
+            document.getElementById('analyzeVideoBtn').addEventListener('click', async () => {
+                const creativeId = selector.value;
+                const analysisType = document.getElementById('analysisType').value;
+                
+                if (!creativeId) return;
+
+                try {
+                    showDebug(`Starting video intelligence analysis for creative ${creativeId}`);
+                    
+                    // Show progress
+                    document.getElementById('videoAnalysisProgress').classList.remove('hidden');
+                    simulateAnalysisProgress();
+                    
+                    // Perform video intelligence analysis
+                    const intelligenceResults = await performVideoIntelligenceAnalysis(creativeId, analysisType);
+                    
+                    // Display results
+                    displayVideoIntelligenceResults(intelligenceResults);
+                    
+                    document.getElementById('videoAnalysisProgress').classList.add('hidden');
+                    showDebug('Video intelligence analysis completed');
+                } catch (error) {
+                    showDebug(`Error in video intelligence analysis: ${error.message}`);
+                    document.getElementById('videoAnalysisProgress').classList.add('hidden');
+                    alert('Error analyzing video: ' + error.message);
+                }
+            });
+        }
+
+        function simulateAnalysisProgress() {
+            const progressBar = document.getElementById('analysisProgressBar');
+            const statusText = document.getElementById('analysisStatusText');
+            
+            const stages = [
+                { progress: 10, text: "Downloading video from Facebook..." },
+                { progress: 25, text: "Extracting frames for analysis..." },
+                { progress: 40, text: "Transcribing audio content..." },
+                { progress: 60, text: "Analyzing visual elements..." },
+                { progress: 80, text: "Detecting objects and scenes..." },
+                { progress: 95, text: "Generating improvement recommendations..." },
+                { progress: 100, text: "Analysis complete!" }
+            ];
+            
+            let currentStage = 0;
+            
+            const updateProgress = () => {
+                if (currentStage < stages.length) {
+                    const stage = stages[currentStage];
+                    progressBar.style.width = stage.progress + '%';
+                    statusText.textContent = stage.text;
+                    currentStage++;
+                    setTimeout(updateProgress, 800);
+                }
+            };
+            
+            updateProgress();
+        }
+
+        async function performVideoIntelligenceAnalysis(creativeId, analysisType) {
+            showDebug(`Calling video intelligence API for ${creativeId}`);
+            
+            const response = await fetch(`${API_BASE}/api/video-intelligence`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    creative_id: creativeId,
+                    analysis_type: analysisType
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Video intelligence analysis failed: ${response.status} - ${errorText}`);
+            }
+
+            return response.json();
+        }
+
+        function displayVideoIntelligenceResults(intelligenceData) {
+            showDebug('Displaying video intelligence results');
+            const container = document.getElementById('videoIntelligenceResults');
+
+            container.innerHTML = `
+                <!-- Video Overview -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">📊 Video Analysis Overview</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="text-center p-4 bg-blue-50 rounded-lg">
+                            <div class="text-2xl font-bold text-blue-600">${intelligenceData.analysis_results.video_metadata.duration}s</div>
+                            <div class="text-sm text-blue-800">Duration</div>
+                        </div>
+                        <div class="text-center p-4 bg-green-50 rounded-lg">
+                            <div class="text-2xl font-bold text-green-600">${intelligenceData.analysis_results.audio_analysis.transcript.length}</div>
+                            <div class="text-sm text-green-800">Audio Segments</div>
+                        </div>
+                        <div class="text-center p-4 bg-purple-50 rounded-lg">
+                            <div class="text-2xl font-bold text-purple-600">${intelligenceData.analysis_results.visual_analysis.scene_changes.length}</div>
+                            <div class="text-sm text-purple-800">Scene Changes</div>
+                        </div>
+                        <div class="text-center p-4 bg-orange-50 rounded-lg">
+                            <div class="text-2xl font-bold text-orange-600">${Math.round(intelligenceData.analysis_results.engagement_prediction.hook_effectiveness)}</div>
+                            <div class="text-sm text-orange-800">Hook Score</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Frame-by-Frame Timeline -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold text-gray-900">🎞️ Frame-by-Frame Timeline</h3>
+                        <button onclick="toggleTimelineView()" class="px-3 py-1 bg-gray-100 text-gray-600 rounded text-sm">Toggle View</button>
+                    </div>
+                    <div id="frameTimeline" class="space-y-3">
+                        ${intelligenceData.analysis_results.frame_by_frame_analysis.map(frame => `
+                            <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-gray-900">${frame.timestamp}s</span>
+                                        <span class="px-2 py-1 bg-${getSceneColor(frame.sceneType)}-100 text-${getSceneColor(frame.sceneType)}-800 rounded text-xs">${frame.sceneType.replace('_', ' ')}</span>
+                                    </div>
+                                    <span class="text-sm text-gray-500">Frame ${frame.frame_number}</span>
+                                </div>
+                                
+                                ${frame.hasAudio ? `
+                                    <div class="mb-3">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-sm font-medium text-gray-700">🎤 Audio:</span>
+                                            <span class="text-xs text-gray-500">${frame.speaker} - ${frame.audioEmotion}</span>
+                                        </div>
+                                        <div class="bg-gray-50 p-3 rounded border-l-4 border-blue-400">
+                                            <div class="font-medium text-gray-800">"${frame.audioText}"</div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <div class="font-medium text-gray-700 mb-1">👁️ Visual Elements:</div>
+                                        <div class="text-gray-600">${frame.objects.join(', ')}</div>
+                                        <div class="text-xs text-gray-500 mt-1">Focus: ${frame.dominantObject}</div>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-gray-700 mb-1">📝 Text Overlays:</div>
+                                        <div class="text-gray-600">${frame.textOverlays.length > 0 ? frame.textOverlays.join(', ') : 'None'}</div>
+                                    </div>
+                                </div>
+                                
+                                ${frame.sceneChange ? `
+                                    <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                        <div class="text-xs font-medium text-yellow-800">
+                                            🎬 Scene Change: ${frame.transitionType}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Audio Transcript -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">🎙️ Complete Audio Transcript</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                                <div class="font-medium text-gray-700">Total Words</div>
+                                <div class="text-lg font-bold text-gray-900">${intelligenceData.analysis_results.audio_analysis.audio_summary.total_words}</div>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-700">Speech Rate</div>
+                                <div class="text-lg font-bold text-gray-900">${intelligenceData.analysis_results.audio_analysis.speech_rate.words_per_minute} WPM</div>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-700">Clarity Score</div>
+                                <div class="text-lg font-bold text-gray-900">${Math.round(intelligenceData.analysis_results.audio_analysis.audio_summary.speech_clarity)}/100</div>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-700">Confidence</div>
+                                <div class="text-lg font-bold text-gray-900">${Math.round(intelligenceData.analysis_results.audio_analysis.audio_summary.average_confidence * 100)}%</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        ${intelligenceData.analysis_results.audio_analysis.transcript.map(segment => `
+                            <div class="flex items-start gap-3 p-3 bg-gray-50 rounded border">
+                                <div class="font-mono text-sm text-gray-500 min-w-0">${segment.start_time}-${segment.end_time}s</div>
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">${segment.text}</div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        ${segment.speaker} • ${segment.emotion} • ${Math.round(segment.confidence * 100)}% confidence
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Critical Recommendations -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">🚨 Critical Improvement Recommendations</h3>
+                    
+                    ${intelligenceData.recommendations.critical_issues.length > 0 ? `
+                        <div class="space-y-4 mb-6">
+                            <h4 class="font-semibold text-red-800">Critical Issues</h4>
+                            ${intelligenceData.recommendations.critical_issues.map(issue => `
+                                <div class="border-l-4 border-red-500 bg-red-50 p-4 rounded">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="font-semibold text-red-800">${issue.issue}</div>
+                                        <span class="px-2 py-1 bg-red-200 text-red-800 text-xs rounded">${issue.priority}</span>
+                                    </div>
+                                    <div class="text-red-700 mb-2">${issue.description}</div>
+                                    <div class="bg-white p-3 rounded border mb-2">
+                                        <div class="text-sm font-medium text-gray-800">Suggested Fix:</div>
+                                        <div class="text-gray-700">${issue.suggested_fix}</div>
+                                    </div>
+                                    <div class="text-sm">
+                                        <span class="font-medium text-red-800">Expected Improvement:</span>
+                                        <span class="text-red-700">${issue.expected_improvement}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+
+                    ${intelligenceData.recommendations.improvement_opportunities.length > 0 ? `
+                        <div class="space-y-4 mb-6">
+                            <h4 class="font-semibold text-yellow-800">Improvement Opportunities</h4>
+                            ${intelligenceData.recommendations.improvement_opportunities.map(opp => `
+                                <div class="border-l-4 border-yellow-500 bg-yellow-50 p-4 rounded">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="font-semibold text-yellow-800">${opp.opportunity}</div>
+                                        <span class="px-2 py-1 bg-yellow-200 text-yellow-800 text-xs rounded">${opp.priority}</span>
+                                    </div>
+                                    <div class="text-yellow-700 mb-2">${opp.description}</div>
+                                    <div class="bg-white p-3 rounded border mb-2">
+                                        <div class="text-sm font-medium text-gray-800">Implementation:</div>
+                                        <div class="text-gray-700">${opp.implementation}</div>
+                                    </div>
+                                    <div class="text-sm">
+                                        <span class="font-medium text-yellow-800">Expected Improvement:</span>
+                                        <span class="text-yellow-700">${opp.expected_improvement}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+
+                    ${intelligenceData.recommendations.content_modifications.length > 0 ? `
+                        <div class="space-y-4">
+                            <h4 class="font-semibold text-blue-800">Content Modifications</h4>
+                            ${intelligenceData.recommendations.content_modifications.map(mod => `
+                                <div class="border-l-4 border-blue-500 bg-blue-50 p-4 rounded">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="font-semibold text-blue-800">${mod.issue}</div>
+                                        <span class="px-2 py-1 bg-blue-200 text-blue-800 text-xs rounded">${mod.priority}</span>
+                                    </div>
+                                    <div class="text-blue-700 mb-2">${mod.description}</div>
+                                    <div class="bg-white p-3 rounded border mb-2">
+                                        <div class="text-sm font-medium text-gray-800">Implementation:</div>
+                                        <div class="text-gray-700">${mod.implementation}</div>
+                                    </div>
+                                    <div class="text-sm">
+                                        <span class="font-medium text-blue-800">Expected Improvement:</span>
+                                        <span class="text-blue-700">${mod.expected_improvement}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Detailed Analysis Metrics -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">📈 Detailed Analysis Metrics</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Content Structure -->
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-3">Content Structure Analysis</h4>
+                            <div class="space-y-3">
+                                ${Object.entries(intelligenceData.analysis_results.content_structure).map(([section, data]) => `
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                                        <div>
+                                            <div class="font-medium text-gray-800 capitalize">${section.replace('_', ' ')}</div>
+                                            <div class="text-sm text-gray-600">${data.start}s - ${data.end}s</div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="font-bold text-lg ${data.quality_score >= 80 ? 'text-green-600' : data.quality_score >= 60 ? 'text-yellow-600' : 'text-red-600'}">${Math.round(data.quality_score)}</div>
+                                            <div class="text-xs text-gray-500">Quality Score</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Engagement Predictions -->
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-3">AI Engagement Predictions</h4>
+                            <div class="space-y-3">
+                                ${Object.entries(intelligenceData.analysis_results.engagement_prediction).map(([metric, score]) => `
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                                        <div class="font-medium text-gray-800 capitalize">${metric.replace('_', ' ')}</div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-20 bg-gray-200 rounded-full h-2">
+                                                <div class="h-2 rounded-full ${score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-yellow-500' : 'bg-red-500'}" style="width: ${score}%"></div>
+                                            </div>
+                                            <span class="font-bold text-gray-900">${Math.round(score)}%</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Store intelligence data globally for export functions
+            window.videoIntelligenceData = intelligenceData;
+        }
+
+        function getSceneColor(sceneType) {
+            const colors = {
+                'person_talking': 'blue',
+                'product_showcase': 'green',
+                'testimonial': 'purple',
+                'text_overlay': 'orange',
+                'logo_display': 'red'
+            };
+            return colors[sceneType] || 'gray';
+        }
+
+        function toggleTimelineView() {
+            const timeline = document.getElementById('frameTimeline');
+            timeline.classList.toggle('grid');
+            timeline.classList.toggle('grid-cols-2');
+            timeline.classList.toggle('space-y-3');
+        }
+
+        async function fetchCampaigns(dateRange) {
+            showDebug(`Fetching campaigns for ${dateRange}`);
+            const url = `${API_BASE}/api/campaigns?date_preset=${dateRange}`;
+            showDebug(`Campaigns URL: ${url}`);
+            
+            const response = await fetch(url);
+            showDebug(`Campaigns response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                showDebug(`Campaigns error: ${errorText}`);
+                throw new Error(`Failed to fetch campaigns: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            showDebug(`Campaigns data received: ${data.length} campaigns`);
+            return data;
+        }
+
+        async function fetchCreatives(dateRange) {
+            showDebug(`Fetching creatives for ${dateRange}`);
+            const url = `${API_BASE}/api/creatives?date_preset=${dateRange}`;
+            showDebug(`Creatives URL: ${url}`);
+            
+            const response = await fetch(url);
+            showDebug(`Creatives response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                showDebug(`Creatives error: ${errorText}`);
+                throw new Error(`Failed to fetch creatives: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            showDebug(`Creatives data received: ${data.length} creatives`);
+            return data;
+        }
+
+        function updateOverviewUI() {
+            showDebug('Updating overview UI');
+            
+            if (!accountData) {
+                showDebug('No account data available');
+                return;
+            }
+
+            try {
+                // Update KPIs with safe fallbacks
+                const totalSpend = accountData.totalSpend || 0;
+                const totalRevenue = accountData.totalRevenue || 0;
+                const totalROAS = accountData.totalROAS || 0;
+                const totalConversions = accountData.totalConversions || 0;
+                const totalClicks = accountData.totalClicks || 0;
+                const averageCTR = accountData.averageCTR || 0;
+                const averageCPC = accountData.averageCPC || 0;
+                const averageCPM = accountData.averageCPM || 0;
+
+                document.getElementById('totalSpend').textContent = `£${totalSpend.toLocaleString()}`;
+                document.getElementById('totalRevenue').textContent = `£${totalRevenue.toLocaleString()}`;
+                document.getElementById('totalROAS').textContent = `${totalROAS.toFixed(2)}x`;
+                document.getElementById('totalConversions').textContent = totalConversions.toLocaleString();
+                document.getElementById('totalClicks').textContent = totalClicks.toLocaleString();
+                document.getElementById('averageCTR').textContent = `${averageCTR.toFixed(2)}%`;
+                document.getElementById('averageCPC').textContent = `£${averageCPC.toFixed(2)}`;
+                document.getElementById('averageCPM').textContent = `£${averageCPM.toFixed(2)}`;
+
+                showDebug(`Updated UI with spend: £${totalSpend}, revenue: £${totalRevenue}`);
+
+                // Update insights
+                const winningCampaigns = campaigns.filter(c => c.status === 'winning');
+                const losingCampaigns = campaigns.filter(c => c.status === 'losing');
+
+                const whatsWorking = document.getElementById('whatsWorking');
+                const needsImprovement = document.getElementById('needsImprovement');
+
+                if (winningCampaigns.length === 0) {
+                    whatsWorking.innerHTML = '<p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>';
+                } else {
+                    whatsWorking.innerHTML = winningCampaigns.map(campaign => `
+                        <div class="p-3 bg-green-50 rounded-lg">
+                            <p class="text-sm font-medium text-green-800">${campaign.name}</p>
+                            <p class="text-xs text-green-600">${campaign.roas.toFixed(2)}x ROAS - Strong performer! Consider scaling up budget.</p>
+                        </div>
+                    `).join('');
+                }
+
+                if (losingCampaigns.length === 0) {
+                    needsImprovement.innerHTML = '<p class="text-gray-500">All campaigns performing well!</p>';
+                } else {
+                    needsImprovement.innerHTML = losingCampaigns.map(campaign => `
+                        <div class="p-3 bg-red-50 rounded-lg">
+                            <p class="text-sm font-medium text-red-800">${campaign.name}</p>
+                            <p class="text-xs text-red-600">${campaign.roas.toFixed(2)}x ROAS - ${campaign.roas < 1 ? 'Losing money! Consider pausing or setting up conversion tracking.' : 'Below target, review targeting and creatives.'}</p>
+                        </div>
+                    `).join('');
+                }
+
+                showDebug('Overview UI updated successfully');
+            } catch (error) {
+                showDebug(`Error updating overview UI: ${error.message}`);
+            }
+        }
+
+        function updateCampaignsUI() {
+            showDebug('Updating campaigns UI');
+            const campaignTable = document.getElementById('campaignTable');
+            campaignTable.innerHTML = '';
+
+            campaigns.forEach((campaign, index) => {
+                try {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-100';
+                    
+                    const statusColor = campaign.status === 'winning' ? 'bg-green-50 text-green-800' :
+                                       campaign.status === 'losing' ? 'bg-red-50 text-red-800' :
+                                       'bg-yellow-50 text-yellow-800';
+
+                    row.innerHTML = `
+                        <td class="py-3 px-4 font-medium text-gray-900">${campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name}</td>
+                        <td class="py-3 px-4 text-right text-gray-900">£${campaign.spend.toLocaleString()}</td>
+                        <td class="py-3 px-4 text-right text-gray-900">£${campaign.revenue.toLocaleString()}</td>
+                        <td class="py-3 px-4 text-right font-medium text-gray-900">${campaign.roas.toFixed(2)}x</td>
+                        <td class="py-3 px-4 text-right text-gray-900">${campaign.conversions}</td>
+                        <td class="py-3 px-4 text-right text-gray-900">${campaign.ctr.toFixed(2)}%</td>
+                        <td class="py-3 px-4 text-right text-gray-900">£${campaign.cpc.toFixed(2)}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
+                                ${campaign.status}
+                            </span>
+                        </td>
+                    `;
+                    campaignTable.appendChild(row);
+                } catch (error) {
+                    showDebug(`Error creating campaign row ${index}: ${error.message}`);
+                }
+            });
+
+            showDebug(`Campaigns UI updated with ${campaigns.length} campaigns`);
+        }
+
+        function updateCreativesUI() {
+            showDebug('Updating creatives UI');
+            const creativesGrid = document.getElementById('creativesGrid');
+            creativesGrid.innerHTML = '';
+
+            creatives.forEach((creative, index) => {
+                try {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200';
+                    
+                    const performanceColor = creative.performance_score >= 70 ? 'text-green-600' :
+                                           creative.performance_score >= 40 ? 'text-yellow-600' : 'text-red-600';
+
+                    card.innerHTML = `
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1">
+                                <h4 class="font-medium text-gray-900 mb-1">${creative.name.substring(0, 30)}...</h4>
+                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                    ${creative.creative_type}
+                                </span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-lg font-bold ${performanceColor}">${creative.performance_score}/100</div>
+                                <div class="text-xs text-gray-500">Performance Score</div>
+                            </div>
+                        </div>
                         
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center justify-between" },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: "text-sm font-medium text-gray-600" }, "Total Revenue"),
-                                    React.createElement('p', { className: "text-2xl font-bold text-gray-900" }, `£${accountData.totalRevenue.toLocaleString()}`)
-                                ),
-                                React.createElement(TrendingUp, { className: "w-8 h-8 text-green-500" })
-                            )
-                        ),
-                        
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center justify-between" },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: "text-sm font-medium text-gray-600" }, "ROAS"),
-                                    React.createElement('p', { className: "text-2xl font-bold text-gray-900" }, `${accountData.totalROAS.toFixed(2)}x`)
-                                ),
-                                React.createElement(Target, { className: "w-8 h-8 text-purple-500" })
-                            )
-                        ),
-                        
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center justify-between" },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: "text-sm font-medium text-gray-600" }, "Conversions"),
-                                    React.createElement('p', { className: "text-2xl font-bold text-gray-900" }, accountData.totalConversions.toLocaleString())
-                                ),
-                                React.createElement(MousePointer, { className: "w-8 h-8 text-orange-500" })
-                            )
-                        )
-                    ),
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <div class="text-gray-600">CTR</div>
+                                <div class="font-medium">${creative.ctr.toFixed(2)}%</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600">CPC</div>
+                                <div class="font-medium">£${creative.cpc.toFixed(2)}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600">Hook Rate</div>
+                                <div class="font-medium">${creative.hook_rate.toFixed(1)}%</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600">Spend</div>
+                                <div class="font-medium">£${creative.spend.toLocaleString()}</div>
+                            </div>
+                        </div>
+                    `;
+                    creativesGrid.appendChild(card);
+                } catch (error) {
+                    showDebug(`Error creating creative card ${index}: ${error.message}`);
+                }
+            });
 
-                    // Campaign Analysis Table
-                    campaigns.length > 0 && React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8" },
-                        React.createElement('h3', { className: "text-lg font-semibold text-gray-900 mb-4" }, "Campaign Performance Analysis"),
-                        React.createElement('div', { className: "overflow-x-auto" },
-                            React.createElement('table', { className: "w-full" },
-                                React.createElement('thead', null,
-                                    React.createElement('tr', { className: "border-b border-gray-200" },
-                                        React.createElement('th', { className: "text-left py-3 px-4 font-medium text-gray-700" }, "Campaign"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "Spend"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "Revenue"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "ROAS"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "Conversions"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "CTR"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "CPC"),
-                                        React.createElement('th', { className: "text-center py-3 px-4 font-medium text-gray-700" }, "Status")
-                                    )
-                                ),
-                                React.createElement('tbody', null,
-                                    campaigns.slice(0, 10).map((campaign, index) =>
-                                        React.createElement('tr', { key: index, className: "border-b border-gray-100" },
-                                            React.createElement('td', { className: "py-3 px-4 font-medium text-gray-900" },
-                                                campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name
-                                            ),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, `£${campaign.spend.toLocaleString()}`),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, `£${campaign.revenue.toLocaleString()}`),
-                                            React.createElement('td', { className: "py-3 px-4 text-right font-medium text-gray-900" }, `${campaign.roas.toFixed(2)}x`),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, campaign.conversions),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, `${campaign.ctr.toFixed(2)}%`),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, `£${campaign.cpc.toFixed(2)}`),
-                                            React.createElement('td', { className: "py-3 px-4 text-center" },
-                                                React.createElement('span', { className: `inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(campaign.status)}` },
-                                                    getStatusIcon(campaign.status),
-                                                    campaign.status
-                                                )
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    ),
+            showDebug(`Creatives UI updated with ${creatives.length} creatives`);
+        }
 
-                    // Insights Section
-                    insights && React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-2 gap-6" },
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center gap-2 mb-4" },
-                                React.createElement(CheckCircle, { className: "w-5 h-5 text-green-500" }),
-                                React.createElement('h3', { className: "text-lg font-semibold text-gray-900" }, "What's Working")
-                            ),
-                            React.createElement('div', { className: "space-y-3" },
-                                insights.whatsWorking.length > 0 ? insights.whatsWorking.map((item, index) =>
-                                    React.createElement('div', { key: index, className: "p-3 bg-green-50 rounded-lg" },
-                                        React.createElement('p', { className: "text-sm font-medium text-green-800" }, item.title),
-                                        React.createElement('p', { className: "text-xs text-green-600" }, item.description)
-                                    )
-                                ) : React.createElement('p', { className: "text-gray-500" }, "Set up conversion tracking to see winning campaigns!")
-                            )
-                        ),
+        async function loadData() {
+            const dateRange = document.getElementById('dateRange').value;
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const refreshIcon = document.getElementById('refreshIcon');
 
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center gap-2 mb-4" },
-                                React.createElement(AlertCircle, { className: "w-5 h-5 text-red-500" }),
-                                React.createElement('h3', { className: "text-lg font-semibold text-gray-900" }, "Needs Improvement")
-                            ),
-                            React.createElement('div', { className: "space-y-3" },
-                                insights.needsImprovement.length > 0 ? insights.needsImprovement.map((item, index) =>
-                                    React.createElement('div', { key: index, className: `p-3 rounded-lg ${item.severity === 'high' ? 'bg-red-50' : 'bg-yellow-50'}` },
-                                        React.createElement('p', { className: `text-sm font-medium ${item.severity === 'high' ? 'text-red-800' : 'text-yellow-800'}` }, item.title),
-                                        React.createElement('p', { className: `text-xs ${item.severity === 'high' ? 'text-red-600' : 'text-yellow-600'}` }, item.description)
-                                    )
-                                ) : React.createElement('p', { className: "text-gray-500" }, "All campaigns performing well!")
-                            )
-                        )
-                    )
-                )
-            );
-        };
+            showDebug(`Starting data load for ${dateRange}`);
 
-        ReactDOM.render(React.createElement(ConnectedFacebookDashboard), document.getElementById('root'));
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+
+            refreshIcon.style.animation = 'spin 1s linear infinite';
+
+            try {
+                showDebug('Fetching account data...');
+                accountData = await fetchAccountData(dateRange);
+                
+                showDebug('Fetching campaigns...');
+                campaigns = await fetchCampaigns(dateRange);
+                
+                showDebug('Fetching creatives...');
+                creatives = await fetchCreatives(dateRange);
+
+                showDebug('Updating UI...');
+                updateOverviewUI();
+                updateCampaignsUI();
+                updateCreativesUI();
+
+                loading.classList.add('hidden');
+                document.getElementById('overview-content').classList.remove('hidden');
+
+                showDebug('Data load completed successfully');
+            } catch (err) {
+                showDebug(`Data load failed: ${err.message}`);
+                loading.classList.add('hidden');
+                error.classList.remove('hidden');
+                document.getElementById('errorMessage').textContent = err.message;
+            } finally {
+                refreshIcon.style.animation = '';
+            }
+        }
+
+        // Event listeners
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            showDebug('Refresh button clicked');
+            loadData();
+        });
+        
+        document.getElementById('dateRange').addEventListener('change', () => {
+            showDebug('Date range changed');
+            loadData();
+        });
+
+        // Load data on page load
+        showDebug('Page loaded, starting initial data load');
+        loadData();
     </script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </body>
 </html>
