@@ -34,6 +34,12 @@
                 </div>
             </div>
 
+            <!-- Debug Info -->
+            <div id="debugInfo" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 hidden">
+                <h3 class="font-semibold text-yellow-800 mb-2">Debug Information</h3>
+                <div id="debugContent" class="text-sm text-yellow-700"></div>
+            </div>
+
             <!-- Tabs -->
             <div class="flex space-x-8 mb-6">
                 <button class="tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600" data-tab="overview">Overview</button>
@@ -187,76 +193,12 @@
                 </div>
             </div>
 
-            <!-- IMPROVED Video Hook Analysis Tab -->
+            <!-- Video Hook Analysis Tab -->
             <div id="video-analysis-content" class="tab-content hidden">
-                
-                <!-- Performance Overview Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="text-sm font-medium text-gray-600">Average Hook Rate</h4>
-                            <span class="text-2xl">🎣</span>
-                        </div>
-                        <div id="avgHookRate" class="text-2xl font-bold text-gray-900">0.0%</div>
-                        <div id="avgHookGrade" class="text-sm font-medium mt-1">Grade: -</div>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="text-sm font-medium text-gray-600">Average Retention</h4>
-                            <span class="text-2xl">📈</span>
-                        </div>
-                        <div id="avgRetention" class="text-2xl font-bold text-gray-900">0.0%</div>
-                        <div id="avgRetentionGrade" class="text-sm font-medium mt-1">Grade: -</div>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="text-sm font-medium text-gray-600">Average Completion</h4>
-                            <span class="text-2xl">✅</span>
-                        </div>
-                        <div id="avgCompletion" class="text-2xl font-bold text-gray-900">0.0%</div>
-                        <div id="avgCompletionGrade" class="text-sm font-medium mt-1">Grade: -</div>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="text-sm font-medium text-gray-600">Overall Score</h4>
-                            <span class="text-2xl">🏆</span>
-                        </div>
-                        <div id="overallVideoScore" class="text-2xl font-bold text-gray-900">0</div>
-                        <div class="text-sm text-gray-600 mt-1">out of 100</div>
-                    </div>
-                </div>
-
-                <!-- Video Performance Ranking -->
-                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-lg font-semibold text-gray-900">Video Performance Ranking</h3>
-                        <div class="flex gap-2">
-                            <button id="sortByHook" class="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-full">Sort by Hook Rate</button>
-                            <button id="sortByRetention" class="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-full">Sort by Retention</button>
-                            <button id="sortByCompletion" class="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-full">Sort by Completion</button>
-                        </div>
-                    </div>
-                    <div id="videoRankingTable" class="overflow-x-auto">
-                        <!-- Video ranking table will be inserted here -->
-                    </div>
-                </div>
-
-                <!-- Video Cards -->
-                <div class="mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Select Video for Detailed Analysis</h3>
-                    <div id="videoCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <!-- Video cards will be inserted here -->
-                    </div>
-                </div>
-
-                <!-- Detailed Analysis Panel -->
-                <div id="videoAnalysisPanel" class="hidden">
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Detailed Video Analysis</h3>
-                        <div id="videoAnalysisContent">
-                            <!-- Detailed analysis will be inserted here -->
-                        </div>
-                    </div>
+                <div class="text-center py-20">
+                    <div class="text-gray-400 text-6xl mb-4">🎬</div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Video Hook Analysis</h3>
+                    <p class="text-gray-600">Click on the Video Hook Analysis tab after data loads to see detailed video analysis.</p>
                 </div>
             </div>
         </div>
@@ -267,12 +209,22 @@
         let accountData = null;
         let campaigns = [];
         let creatives = [];
-        let videoAnalyses = new Map();
+
+        // Debug function
+        function showDebug(message) {
+            console.log('DEBUG:', message);
+            const debugInfo = document.getElementById('debugInfo');
+            const debugContent = document.getElementById('debugContent');
+            debugContent.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            debugInfo.classList.remove('hidden');
+        }
 
         // Tab Management
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tabName = e.target.dataset.tab;
+                
+                showDebug(`Switching to tab: ${tabName}`);
                 
                 // Update button styles
                 document.querySelectorAll('.tab-btn').forEach(b => {
@@ -285,467 +237,280 @@
                     content.classList.add('hidden');
                 });
                 document.getElementById(`${tabName}-content`).classList.remove('hidden');
-                
-                // Load data for specific tabs
-                if (tabName === 'video-analysis' && creatives.length > 0) {
-                    loadVideoAnalysis();
-                }
             });
         });
 
         async function fetchAccountData(dateRange) {
-            const response = await fetch(`${API_BASE}/api/overview?date_preset=${dateRange}`);
-            if (!response.ok) throw new Error('Failed to fetch account data');
-            return response.json();
+            showDebug(`Fetching account data for ${dateRange}`);
+            const url = `${API_BASE}/api/overview?date_preset=${dateRange}`;
+            showDebug(`Account URL: ${url}`);
+            
+            const response = await fetch(url);
+            showDebug(`Account response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                showDebug(`Account error: ${errorText}`);
+                throw new Error(`Failed to fetch account data: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            showDebug(`Account data received: ${JSON.stringify(data).substring(0, 200)}...`);
+            return data;
         }
 
         async function fetchCampaigns(dateRange) {
-            const response = await fetch(`${API_BASE}/api/campaigns?date_preset=${dateRange}`);
-            if (!response.ok) throw new Error('Failed to fetch campaigns');
-            return response.json();
+            showDebug(`Fetching campaigns for ${dateRange}`);
+            const url = `${API_BASE}/api/campaigns?date_preset=${dateRange}`;
+            showDebug(`Campaigns URL: ${url}`);
+            
+            const response = await fetch(url);
+            showDebug(`Campaigns response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                showDebug(`Campaigns error: ${errorText}`);
+                throw new Error(`Failed to fetch campaigns: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            showDebug(`Campaigns data received: ${data.length} campaigns`);
+            return data;
         }
 
         async function fetchCreatives(dateRange) {
-            const response = await fetch(`${API_BASE}/api/creatives?date_preset=${dateRange}`);
-            if (!response.ok) throw new Error('Failed to fetch creatives');
-            return response.json();
-        }
-
-        async function fetchVideoAnalysis(adId) {
-            if (videoAnalyses.has(adId)) {
-                return videoAnalyses.get(adId);
+            showDebug(`Fetching creatives for ${dateRange}`);
+            const url = `${API_BASE}/api/creatives?date_preset=${dateRange}`;
+            showDebug(`Creatives URL: ${url}`);
+            
+            const response = await fetch(url);
+            showDebug(`Creatives response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                showDebug(`Creatives error: ${errorText}`);
+                throw new Error(`Failed to fetch creatives: ${response.status} - ${errorText}`);
             }
             
-            const response = await fetch(`${API_BASE}/api/video-analysis?ad_id=${adId}`);
-            if (!response.ok) throw new Error('Failed to fetch video analysis');
-            
-            const analysis = await response.json();
-            videoAnalyses.set(adId, analysis);
-            return analysis;
+            const data = await response.json();
+            showDebug(`Creatives data received: ${data.length} creatives`);
+            return data;
         }
 
         function updateOverviewUI() {
-            if (!accountData) return;
-
-            // Update KPIs
-            document.getElementById('totalSpend').textContent = `£${accountData.totalSpend.toLocaleString()}`;
-            document.getElementById('totalRevenue').textContent = `£${accountData.totalRevenue.toLocaleString()}`;
-            document.getElementById('totalROAS').textContent = `${accountData.totalROAS.toFixed(2)}x`;
-            document.getElementById('totalConversions').textContent = accountData.totalConversions.toLocaleString();
-            document.getElementById('totalClicks').textContent = accountData.totalClicks.toLocaleString();
-            document.getElementById('averageCTR').textContent = `${accountData.averageCTR.toFixed(2)}%`;
-            document.getElementById('averageCPC').textContent = `£${accountData.averageCPC.toFixed(2)}`;
-            document.getElementById('averageCPM').textContent = `£${accountData.averageCPM.toFixed(2)}`;
-
-            // Update insights
-            const winningCampaigns = campaigns.filter(c => c.status === 'winning');
-            const losingCampaigns = campaigns.filter(c => c.status === 'losing');
-
-            const whatsWorking = document.getElementById('whatsWorking');
-            const needsImprovement = document.getElementById('needsImprovement');
-
-            if (winningCampaigns.length === 0) {
-                whatsWorking.innerHTML = '<p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>';
-            } else {
-                whatsWorking.innerHTML = winningCampaigns.map(campaign => `
-                    <div class="p-3 bg-green-50 rounded-lg">
-                        <p class="text-sm font-medium text-green-800">${campaign.name}</p>
-                        <p class="text-xs text-green-600">${campaign.roas.toFixed(2)}x ROAS - Strong performer! Consider scaling up budget.</p>
-                    </div>
-                `).join('');
+            showDebug('Updating overview UI');
+            
+            if (!accountData) {
+                showDebug('No account data available');
+                return;
             }
 
-            if (losingCampaigns.length === 0) {
-                needsImprovement.innerHTML = '<p class="text-gray-500">All campaigns performing well!</p>';
-            } else {
-                needsImprovement.innerHTML = losingCampaigns.map(campaign => `
-                    <div class="p-3 bg-red-50 rounded-lg">
-                        <p class="text-sm font-medium text-red-800">${campaign.name}</p>
-                        <p class="text-xs text-red-600">${campaign.roas.toFixed(2)}x ROAS - ${campaign.roas < 1 ? 'Losing money! Consider pausing or setting up conversion tracking.' : 'Below target, review targeting and creatives.'}</p>
-                    </div>
-                `).join('');
+            try {
+                // Update KPIs with safe fallbacks
+                const totalSpend = accountData.totalSpend || 0;
+                const totalRevenue = accountData.totalRevenue || 0;
+                const totalROAS = accountData.totalROAS || 0;
+                const totalConversions = accountData.totalConversions || 0;
+                const totalClicks = accountData.totalClicks || 0;
+                const averageCTR = accountData.averageCTR || 0;
+                const averageCPC = accountData.averageCPC || 0;
+                const averageCPM = accountData.averageCPM || 0;
+
+                document.getElementById('totalSpend').textContent = `£${totalSpend.toLocaleString()}`;
+                document.getElementById('totalRevenue').textContent = `£${totalRevenue.toLocaleString()}`;
+                document.getElementById('totalROAS').textContent = `${totalROAS.toFixed(2)}x`;
+                document.getElementById('totalConversions').textContent = totalConversions.toLocaleString();
+                document.getElementById('totalClicks').textContent = totalClicks.toLocaleString();
+                document.getElementById('averageCTR').textContent = `${averageCTR.toFixed(2)}%`;
+                document.getElementById('averageCPC').textContent = `£${averageCPC.toFixed(2)}`;
+                document.getElementById('averageCPM').textContent = `£${averageCPM.toFixed(2)}`;
+
+                showDebug(`Updated UI with spend: £${totalSpend}, revenue: £${totalRevenue}`);
+
+                // Update insights
+                const winningCampaigns = campaigns.filter(c => c.status === 'winning');
+                const losingCampaigns = campaigns.filter(c => c.status === 'losing');
+
+                const whatsWorking = document.getElementById('whatsWorking');
+                const needsImprovement = document.getElementById('needsImprovement');
+
+                if (winningCampaigns.length === 0) {
+                    whatsWorking.innerHTML = '<p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>';
+                } else {
+                    whatsWorking.innerHTML = winningCampaigns.map(campaign => `
+                        <div class="p-3 bg-green-50 rounded-lg">
+                            <p class="text-sm font-medium text-green-800">${campaign.name}</p>
+                            <p class="text-xs text-green-600">${campaign.roas.toFixed(2)}x ROAS - Strong performer! Consider scaling up budget.</p>
+                        </div>
+                    `).join('');
+                }
+
+                if (losingCampaigns.length === 0) {
+                    needsImprovement.innerHTML = '<p class="text-gray-500">All campaigns performing well!</p>';
+                } else {
+                    needsImprovement.innerHTML = losingCampaigns.map(campaign => `
+                        <div class="p-3 bg-red-50 rounded-lg">
+                            <p class="text-sm font-medium text-red-800">${campaign.name}</p>
+                            <p class="text-xs text-red-600">${campaign.roas.toFixed(2)}x ROAS - ${campaign.roas < 1 ? 'Losing money! Consider pausing or setting up conversion tracking.' : 'Below target, review targeting and creatives.'}</p>
+                        </div>
+                    `).join('');
+                }
+
+                showDebug('Overview UI updated successfully');
+            } catch (error) {
+                showDebug(`Error updating overview UI: ${error.message}`);
             }
         }
 
         function updateCampaignsUI() {
+            showDebug('Updating campaigns UI');
             const campaignTable = document.getElementById('campaignTable');
             campaignTable.innerHTML = '';
 
-            campaigns.forEach(campaign => {
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-100';
-                
-                const statusColor = campaign.status === 'winning' ? 'bg-green-50 text-green-800' :
-                                   campaign.status === 'losing' ? 'bg-red-50 text-red-800' :
-                                   'bg-yellow-50 text-yellow-800';
+            campaigns.forEach((campaign, index) => {
+                try {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-100';
+                    
+                    const statusColor = campaign.status === 'winning' ? 'bg-green-50 text-green-800' :
+                                       campaign.status === 'losing' ? 'bg-red-50 text-red-800' :
+                                       'bg-yellow-50 text-yellow-800';
 
-                row.innerHTML = `
-                    <td class="py-3 px-4 font-medium text-gray-900">${campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name}</td>
-                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.spend.toLocaleString()}</td>
-                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.revenue.toLocaleString()}</td>
-                    <td class="py-3 px-4 text-right font-medium text-gray-900">${campaign.roas.toFixed(2)}x</td>
-                    <td class="py-3 px-4 text-right text-gray-900">${campaign.conversions}</td>
-                    <td class="py-3 px-4 text-right text-gray-900">${campaign.ctr.toFixed(2)}%</td>
-                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.cpc.toFixed(2)}</td>
-                    <td class="py-3 px-4 text-center">
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
-                            ${campaign.status}
-                        </span>
-                    </td>
-                `;
-                campaignTable.appendChild(row);
+                    row.innerHTML = `
+                        <td class="py-3 px-4 font-medium text-gray-900">${campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name}</td>
+                        <td class="py-3 px-4 text-right text-gray-900">£${campaign.spend.toLocaleString()}</td>
+                        <td class="py-3 px-4 text-right text-gray-900">£${campaign.revenue.toLocaleString()}</td>
+                        <td class="py-3 px-4 text-right font-medium text-gray-900">${campaign.roas.toFixed(2)}x</td>
+                        <td class="py-3 px-4 text-right text-gray-900">${campaign.conversions}</td>
+                        <td class="py-3 px-4 text-right text-gray-900">${campaign.ctr.toFixed(2)}%</td>
+                        <td class="py-3 px-4 text-right text-gray-900">£${campaign.cpc.toFixed(2)}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
+                                ${campaign.status}
+                            </span>
+                        </td>
+                    `;
+                    campaignTable.appendChild(row);
+                } catch (error) {
+                    showDebug(`Error creating campaign row ${index}: ${error.message}`);
+                }
             });
+
+            showDebug(`Campaigns UI updated with ${campaigns.length} campaigns`);
         }
 
         function updateCreativesUI() {
+            showDebug('Updating creatives UI');
             const creativesGrid = document.getElementById('creativesGrid');
             creativesGrid.innerHTML = '';
 
-            creatives.forEach(creative => {
-                const card = document.createElement('div');
-                card.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200';
-                
-                const performanceColor = creative.performance_score >= 70 ? 'text-green-600' :
-                                       creative.performance_score >= 40 ? 'text-yellow-600' : 'text-red-600';
-
-                card.innerHTML = `
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex-1">
-                            <h4 class="font-medium text-gray-900 mb-1">${creative.name.substring(0, 30)}...</h4>
-                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                                ${creative.creative_type}
-                            </span>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-lg font-bold ${performanceColor}">${creative.performance_score}/100</div>
-                            <div class="text-xs text-gray-500">Performance Score</div>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <div class="text-gray-600">CTR</div>
-                            <div class="font-medium">${creative.ctr.toFixed(2)}%</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-600">CPC</div>
-                            <div class="font-medium">£${creative.cpc.toFixed(2)}</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-600">Hook Rate</div>
-                            <div class="font-medium">${creative.hook_rate.toFixed(1)}%</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-600">Spend</div>
-                            <div class="font-medium">£${creative.spend.toLocaleString()}</div>
-                        </div>
-                    </div>
-                `;
-                creativesGrid.appendChild(card);
-            });
-        }
-
-        async function loadVideoAnalysis() {
-            const videoCreatives = creatives.filter(c => c.creative_type === 'video');
-            
-            if (videoCreatives.length === 0) {
-                document.getElementById('video-analysis-content').innerHTML = `
-                    <div class="text-center py-20">
-                        <div class="text-gray-400 text-6xl mb-4">🎬</div>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-2">No Video Creatives Found</h3>
-                        <p class="text-gray-600">Your campaigns don't appear to have video ads. Video hook analysis requires video creatives.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            // Calculate overview metrics
-            let totalHookRate = 0;
-            let totalRetention = 0;
-            let totalCompletion = 0;
-            let totalScore = 0;
-            
-            for (const creative of videoCreatives) {
+            creatives.forEach((creative, index) => {
                 try {
-                    const analysis = await fetchVideoAnalysis(creative.id);
-                    totalHookRate += analysis.hook_analysis.initial_hook;
-                    totalRetention += analysis.hook_analysis.retention_25pct;
-                    totalCompletion += analysis.hook_analysis.completion_rate;
-                    totalScore += analysis.overall_score;
-                } catch (error) {
-                    console.error('Error fetching analysis for', creative.id, error);
-                }
-            }
-
-            const avgHookRate = totalHookRate / videoCreatives.length;
-            const avgRetention = totalRetention / videoCreatives.length;
-            const avgCompletion = totalCompletion / videoCreatives.length;
-            const avgScore = totalScore / videoCreatives.length;
-
-            // Update overview cards
-            document.getElementById('avgHookRate').textContent = `${avgHookRate.toFixed(1)}%`;
-            document.getElementById('avgRetention').textContent = `${avgRetention.toFixed(1)}%`;
-            document.getElementById('avgCompletion').textContent = `${avgCompletion.toFixed(1)}%`;
-            document.getElementById('overallVideoScore').textContent = Math.round(avgScore);
-
-            // Update grades
-            const hookGrade = avgHookRate >= 15 ? 'A' : avgHookRate >= 8 ? 'B' : avgHookRate >= 4 ? 'C' : 'D';
-            const retentionGrade = avgRetention >= 70 ? 'A' : avgRetention >= 50 ? 'B' : avgRetention >= 30 ? 'C' : 'D';
-            const completionGrade = avgCompletion >= 40 ? 'A' : avgCompletion >= 20 ? 'B' : avgCompletion >= 10 ? 'C' : 'D';
-
-            document.getElementById('avgHookGrade').textContent = `Grade: ${hookGrade}`;
-            document.getElementById('avgRetentionGrade').textContent = `Grade: ${retentionGrade}`;
-            document.getElementById('avgCompletionGrade').textContent = `Grade: ${completionGrade}`;
-
-            document.getElementById('avgHookGrade').className = `text-sm font-medium mt-1 grade-${hookGrade}`;
-            document.getElementById('avgRetentionGrade').className = `text-sm font-medium mt-1 grade-${retentionGrade}`;
-            document.getElementById('avgCompletionGrade').className = `text-sm font-medium mt-1 grade-${completionGrade}`;
-
-            // Create video cards
-            await updateVideoCards(videoCreatives);
-            await updateVideoRankingTable(videoCreatives);
-        }
-
-        async function updateVideoCards(videoCreatives) {
-            const videoCards = document.getElementById('videoCards');
-            videoCards.innerHTML = '';
-
-            for (const creative of videoCreatives) {
-                try {
-                    const analysis = await fetchVideoAnalysis(creative.id);
                     const card = document.createElement('div');
-                    card.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow';
+                    card.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200';
                     
-                    const hookGrade = analysis.performance_grades.hook;
-                    const hookColor = hookGrade === 'A' ? 'text-green-600' :
-                                     hookGrade === 'B' ? 'text-blue-600' :
-                                     hookGrade === 'C' ? 'text-yellow-600' : 'text-red-600';
+                    const performanceColor = creative.performance_score >= 70 ? 'text-green-600' :
+                                           creative.performance_score >= 40 ? 'text-yellow-600' : 'text-red-600';
 
                     card.innerHTML = `
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center gap-2">
-                                <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">Video</span>
-                                <span class="text-sm font-medium text-gray-900">Creative #${creative.id.slice(-6)}</span>
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1">
+                                <h4 class="font-medium text-gray-900 mb-1">${creative.name.substring(0, 30)}...</h4>
+                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                    ${creative.creative_type}
+                                </span>
                             </div>
                             <div class="text-right">
-                                <div class="text-lg font-bold ${hookColor}">${analysis.overall_score}/100</div>
-                                <div class="text-xs text-gray-500">Score</div>
+                                <div class="text-lg font-bold ${performanceColor}">${creative.performance_score}/100</div>
+                                <div class="text-xs text-gray-500">Performance Score</div>
                             </div>
                         </div>
                         
-                        <div class="grid grid-cols-3 gap-3 text-sm mb-4">
-                            <div class="text-center">
-                                <div class="text-lg font-bold ${hookColor}">${analysis.hook_analysis.initial_hook.toFixed(1)}%</div>
-                                <div class="text-xs text-gray-600">Hook Rate</div>
-                                <div class="text-xs font-medium grade-${hookGrade} px-1 rounded">Grade ${hookGrade}</div>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <div class="text-gray-600">CTR</div>
+                                <div class="font-medium">${creative.ctr.toFixed(2)}%</div>
                             </div>
-                            <div class="text-center">
-                                <div class="text-lg font-bold text-gray-900">${analysis.hook_analysis.retention_25pct.toFixed(1)}%</div>
-                                <div class="text-xs text-gray-600">Retention</div>
-                                <div class="text-xs font-medium grade-${analysis.performance_grades.retention} px-1 rounded">Grade ${analysis.performance_grades.retention}</div>
+                            <div>
+                                <div class="text-gray-600">CPC</div>
+                                <div class="font-medium">£${creative.cpc.toFixed(2)}</div>
                             </div>
-                            <div class="text-center">
-                                <div class="text-lg font-bold text-gray-900">${analysis.hook_analysis.completion_rate.toFixed(1)}%</div>
-                                <div class="text-xs text-gray-600">Completion</div>
-                                <div class="text-xs font-medium grade-${analysis.performance_grades.completion} px-1 rounded">Grade ${analysis.performance_grades.completion}</div>
+                            <div>
+                                <div class="text-gray-600">Hook Rate</div>
+                                <div class="font-medium">${creative.hook_rate.toFixed(1)}%</div>
                             </div>
-                        </div>
-                        
-                        <div class="text-xs text-gray-500 mb-2">Performance Metrics:</div>
-                        <div class="grid grid-cols-2 gap-2 text-xs">
-                            <div>CTR: ${creative.ctr.toFixed(2)}%</div>
-                            <div>CPC: £${creative.cpc.toFixed(2)}</div>
-                            <div>Spend: £${creative.spend.toLocaleString()}</div>
-                            <div>Clicks: ${creative.clicks}</div>
+                            <div>
+                                <div class="text-gray-600">Spend</div>
+                                <div class="font-medium">£${creative.spend.toLocaleString()}</div>
+                            </div>
                         </div>
                     `;
-
-                    card.addEventListener('click', () => showDetailedAnalysis(creative.id, analysis));
-                    videoCards.appendChild(card);
+                    creativesGrid.appendChild(card);
                 } catch (error) {
-                    console.error('Error creating video card for', creative.id, error);
+                    showDebug(`Error creating creative card ${index}: ${error.message}`);
                 }
-            }
-        }
-
-        async function updateVideoRankingTable(videoCreatives) {
-            const tableContainer = document.getElementById('videoRankingTable');
-            
-            // Get all analyses
-            const videoData = [];
-            for (const creative of videoCreatives) {
-                try {
-                    const analysis = await fetchVideoAnalysis(creative.id);
-                    videoData.push({
-                        creative,
-                        analysis,
-                        hookRate: analysis.hook_analysis.initial_hook,
-                        retention: analysis.hook_analysis.retention_25pct,
-                        completion: analysis.hook_analysis.completion_rate,
-                        score: analysis.overall_score
-                    });
-                } catch (error) {
-                    console.error('Error fetching analysis for ranking', creative.id, error);
-                }
-            }
-
-            // Sort by hook rate initially
-            videoData.sort((a, b) => b.hookRate - a.hookRate);
-
-            const table = document.createElement('table');
-            table.className = 'w-full';
-            table.innerHTML = `
-                <thead>
-                    <tr class="border-b border-gray-200">
-                        <th class="text-left py-3 px-4 font-medium text-gray-700">Rank</th>
-                        <th class="text-left py-3 px-4 font-medium text-gray-700">Video</th>
-                        <th class="text-center py-3 px-4 font-medium text-gray-700">Hook Rate</th>
-                        <th class="text-center py-3 px-4 font-medium text-gray-700">Retention</th>
-                        <th class="text-center py-3 px-4 font-medium text-gray-700">Completion</th>
-                        <th class="text-center py-3 px-4 font-medium text-gray-700">Overall Score</th>
-                        <th class="text-center py-3 px-4 font-medium text-gray-700">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${videoData.map((video, index) => {
-                        const rankColor = index === 0 ? 'text-yellow-600' : 
-                                         index === 1 ? 'text-gray-600' :
-                                         index === 2 ? 'text-orange-600' : 'text-gray-400';
-                        
-                        const statusColor = video.score >= 70 ? 'performance-high' :
-                                           video.score >= 40 ? 'performance-medium' : 'performance-low';
-                        
-                        const statusText = video.score >= 70 ? 'Winning' :
-                                          video.score >= 40 ? 'Testing' : 'Needs Work';
-
-                        return `
-                            <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="showDetailedAnalysis('${video.creative.id}', ${JSON.stringify(video.analysis).replace(/"/g, '&quot;')})">
-                                <td class="py-3 px-4">
-                                    <span class="text-lg font-bold ${rankColor}">#${index + 1}</span>
-                                </td>
-                                <td class="py-3 px-4">
-                                    <div class="font-medium text-gray-900">Creative #${video.creative.id.slice(-6)}</div>
-                                    <div class="text-sm text-gray-500">CTR: ${video.creative.ctr.toFixed(2)}% • £${video.creative.spend.toLocaleString()} spend</div>
-                                </td>
-                                <td class="py-3 px-4 text-center">
-                                    <div class="font-bold text-lg">${video.hookRate.toFixed(1)}%</div>
-                                    <div class="text-xs grade-${video.analysis.performance_grades.hook} px-1 rounded">${video.analysis.performance_grades.hook}</div>
-                                </td>
-                                <td class="py-3 px-4 text-center">
-                                    <div class="font-bold text-lg">${video.retention.toFixed(1)}%</div>
-                                    <div class="text-xs grade-${video.analysis.performance_grades.retention} px-1 rounded">${video.analysis.performance_grades.retention}</div>
-                                </td>
-                                <td class="py-3 px-4 text-center">
-                                    <div class="font-bold text-lg">${video.completion.toFixed(1)}%</div>
-                                    <div class="text-xs grade-${video.analysis.performance_grades.completion} px-1 rounded">${video.analysis.performance_grades.completion}</div>
-                                </td>
-                                <td class="py-3 px-4 text-center">
-                                    <div class="text-xl font-bold text-gray-900">${video.score}</div>
-                                    <div class="text-xs text-gray-500">/ 100</div>
-                                </td>
-                                <td class="py-3 px-4">
-                                    <div class="p-2 rounded ${statusColor}">
-                                        <div class="font-medium text-sm">${statusText}</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            `;
-
-            tableContainer.innerHTML = '';
-            tableContainer.appendChild(table);
-
-            // Add sorting functionality
-            document.getElementById('sortByHook').onclick = () => {
-                videoData.sort((a, b) => b.hookRate - a.hookRate);
-                updateVideoRankingTable(videoCreatives);
-                updateSortButtons('sortByHook');
-            };
-
-            document.getElementById('sortByRetention').onclick = () => {
-                videoData.sort((a, b) => b.retention - a.retention);
-                updateVideoRankingTable(videoCreatives);
-                updateSortButtons('sortByRetention');
-            };
-
-            document.getElementById('sortByCompletion').onclick = () => {
-                videoData.sort((a, b) => b.completion - a.completion);
-                updateVideoRankingTable(videoCreatives);
-                updateSortButtons('sortByCompletion');
-            };
-        }
-
-        function updateSortButtons(activeButton) {
-            document.querySelectorAll('[id^="sortBy"]').forEach(btn => {
-                btn.className = 'px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-full';
             });
-            document.getElementById(activeButton).className = 'px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-full';
+
+            showDebug(`Creatives UI updated with ${creatives.length} creatives`);
         }
 
-        function showDetailedAnalysis(creativeId, analysis) {
-            const panel = document.getElementById('videoAnalysisPanel');
-            const content = document.getElementById('videoAnalysisContent');
-            
-            // Create retention timeline visualization
-            const retentionData = [
-                { point: '0s', label: 'Start', value: 100 },
-                { point: '3s', label: 'Hook', value: analysis.hook_analysis.initial_hook },
-                { point: '25%', label: '25%', value: analysis.hook_analysis.retention_25pct },
-                { point: '50%', label: '50%', value: analysis.hook_analysis.retention_50pct },
-                { point: '75%', label: '75%', value: analysis.hook_analysis.retention_75pct },
-                { point: 'End', label: 'End', value: analysis.hook_analysis.completion_rate }
-            ];
+        async function loadData() {
+            const dateRange = document.getElementById('dateRange').value;
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const refreshIcon = document.getElementById('refreshIcon');
 
-            content.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    <!-- Retention Timeline -->
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <h4 class="font-semibold text-gray-900 mb-4">Retention Timeline</h4>
-                        <div class="space-y-3">
-                            ${retentionData.map((point, index) => `
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium">
-                                            ${index + 1}
-                                        </div>
-                                        <span class="text-sm font-medium">${point.label}</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-20 bg-gray-200 rounded-full h-2">
-                                            <div class="bg-blue-500 h-2 rounded-full" style="width: ${point.value}%"></div>
-                                        </div>
-                                        <span class="text-sm font-bold w-12">${point.value.toFixed(1)}%</span>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
+            showDebug(`Starting data load for ${dateRange}`);
 
-                    <!-- Hook Performance Breakdown -->
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <h4 class="font-semibold text-gray-900 mb-4">Hook Performance Breakdown</h4>
-                        <div class="space-y-3">
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm">Initial Hook (0-3s)</span>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold">${analysis.hook_analysis.initial_hook.toFixed(1)}%</span>
-                                    <span class="grade-${analysis.performance_grades.hook} px-2 py-1 rounded text-xs">${analysis.performance_grades.hook}</span>
-                                </div>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm">Early Retention (25%)</span>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold">${analysis.hook_analysis.retention_25pct.toFixed(1)}%</span>
-                                    <span class="grade-${analysis.performance_grades.retention} px-2 py-1 rounded text-xs">${analysis.performance_grades.retention}</span>
-                                </div>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm">Mid Retention (50%)</span>
-                                <span class="font-bold">${analysis.hook_analysis.retention_50pct.toFixed(1)}%</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm">Completion Rate</span>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold">${analysis.hook_analysis.completion_rate.toFixed(1)}%</span>
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+
+            refreshIcon.style.animation = 'spin 1s linear infinite';
+
+            try {
+                showDebug('Fetching account data...');
+                accountData = await fetchAccountData(dateRange);
+                
+                showDebug('Fetching campaigns...');
+                campaigns = await fetchCampaigns(dateRange);
+                
+                showDebug('Fetching creatives...');
+                creatives = await fetchCreatives(dateRange);
+
+                showDebug('Updating UI...');
+                updateOverviewUI();
+                updateCampaignsUI();
+                updateCreativesUI();
+
+                loading.classList.add('hidden');
+                document.getElementById('overview-content').classList.remove('hidden');
+
+                showDebug('Data load completed successfully');
+            } catch (err) {
+                showDebug(`Data load failed: ${err.message}`);
+                loading.classList.add('hidden');
+                error.classList.remove('hidden');
+                document.getElementById('errorMessage').textContent = err.message;
+            } finally {
+                refreshIcon.style.animation = '';
+            }
+        }
+
+        // Event listeners
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            showDebug('Refresh button clicked');
+            loadData();
+        });
+        
+        document.getElementById('dateRange').addEventListener('change', () => {
+            showDebug('Date range changed');
+            loadData();
+        });
+
+        // Load data on page load
+        showDebug('Page loaded, starting initial data load');
+        loadData();
+    </script>
+</body>
+</html>
