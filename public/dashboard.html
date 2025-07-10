@@ -49,6 +49,7 @@
                 <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="campaigns">Campaigns</button>
                 <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="creatives">Creative Analysis</button>
                 <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="video-analysis">Video Hook Analysis</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="ai-scripts">AI Script Generator</button>
             </div>
 
             <!-- Controls -->
@@ -156,6 +157,53 @@
                         <div id="needsImprovement" class="space-y-3">
                             <p class="text-gray-500">Loading recommendations...</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Script Generator Tab -->
+            <div id="ai-scripts-content" class="tab-content hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-purple-500 to-blue-600 text-white p-6 rounded-lg mb-6">
+                    <h2 class="text-2xl font-bold mb-2">🤖 AI Video Script Generator</h2>
+                    <p class="text-purple-100">Generate optimized video scripts based on your performance data and AI research</p>
+                </div>
+
+                <!-- Script Generation Controls -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate New Scripts</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <select id="scriptCreativeSelect" class="px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="">Select a video creative...</option>
+                        </select>
+                        <select id="scriptType" class="px-4 py-2 border border-gray-300 rounded-lg">
+                            <option value="improvement">Performance Improvement</option>
+                            <option value="hook">Hook Rate Focus</option>
+                            <option value="retention">Retention Focus</option>
+                            <option value="completion">Completion Focus</option>
+                        </select>
+                        <button id="generateScriptsBtn" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300" disabled>
+                            Generate Scripts
+                        </button>
+                    </div>
+                    <div id="scriptGeneration" class="hidden">
+                        <div class="flex items-center gap-2 text-purple-600">
+                            <div class="loading inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></div>
+                            <span>AI is researching and generating optimized scripts...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated Scripts Container -->
+                <div id="generatedScripts" class="space-y-6">
+                    <!-- Scripts will be inserted here -->
+                </div>
+
+                <!-- Research Insights -->
+                <div id="researchInsights" class="hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">🔬 AI Research Insights</h3>
+                    <div id="researchContent">
+                        <!-- Research insights will be inserted here -->
                     </div>
                 </div>
             </div>
