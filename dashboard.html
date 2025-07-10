@@ -946,51 +946,18 @@
                     showDebug(`Generating scripts for creative ${creativeId}`);
                     document.getElementById('scriptGeneration').classList.remove('hidden');
                     
-                    // Get video analysis for the selected creative
-                    const analysis = await fetchVideoAnalysis(creativeId);
+                    // For now, show a message that the API needs to be implemented
+                    setTimeout(() => {
+                        document.getElementById('scriptGeneration').classList.add('hidden');
+                        alert('AI Script Generator ready! Create the api/ai-script-generator.js file to make it functional.');
+                    }, 2000);
                     
-                    // Generate scripts using AI
-                    const scripts = await generateAIScripts(creativeId, analysis, scriptType);
-                    
-                    // Display generated scripts
-                    displayGeneratedScripts(scripts);
-                    
-                    document.getElementById('scriptGeneration').classList.add('hidden');
-                    showDebug('Scripts generated successfully');
                 } catch (error) {
                     showDebug(`Error generating scripts: ${error.message}`);
                     document.getElementById('scriptGeneration').classList.add('hidden');
                     alert('Error generating scripts: ' + error.message);
                 }
             });
-        }
-
-        async function generateAIScripts(creativeId, analysis, scriptType) {
-            showDebug(`Calling AI script generator API for ${creativeId}`);
-            
-            const response = await fetch(`${API_BASE}/api/ai-script-generator`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    creative_id: creativeId,
-                    analysis_data: analysis,
-                    script_type: scriptType
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`AI script generation failed: ${response.status} - ${errorText}`);
-            }
-
-            return response.json();
-        }
-
-        function displayGeneratedScripts(scriptData) {
-            // Implementation for displaying generated scripts
-            alert('AI Script Generator feature implemented but needs backend API!');
         }
 
         async function loadVideoIntelligence() {
@@ -1039,14 +1006,12 @@
                     document.getElementById('videoAnalysisProgress').classList.remove('hidden');
                     simulateAnalysisProgress();
                     
-                    // Perform video intelligence analysis
-                    const intelligenceResults = await performVideoIntelligenceAnalysis(creativeId, analysisType);
+                    // For now, show a message that the API needs to be implemented
+                    setTimeout(() => {
+                        document.getElementById('videoAnalysisProgress').classList.add('hidden');
+                        alert('Video Intelligence ready! Create the api/video-intelligence.js file to make it functional.');
+                    }, 5000);
                     
-                    // Display results
-                    displayVideoIntelligenceResults(intelligenceResults);
-                    
-                    document.getElementById('videoAnalysisProgress').classList.add('hidden');
-                    showDebug('Video intelligence analysis completed');
                 } catch (error) {
                     showDebug(`Error in video intelligence analysis: ${error.message}`);
                     document.getElementById('videoAnalysisProgress').classList.add('hidden');
@@ -1077,38 +1042,11 @@
                     progressBar.style.width = stage.progress + '%';
                     statusText.textContent = stage.text;
                     currentStage++;
-                    setTimeout(updateProgress, 800);
+                    setTimeout(updateProgress, 600);
                 }
             };
             
             updateProgress();
-        }
-
-        async function performVideoIntelligenceAnalysis(creativeId, analysisType) {
-            showDebug(`Calling video intelligence API for ${creativeId}`);
-            
-            const response = await fetch(`${API_BASE}/api/video-intelligence`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    creative_id: creativeId,
-                    analysis_type: analysisType
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Video intelligence analysis failed: ${response.status} - ${errorText}`);
-            }
-
-            return response.json();
-        }
-
-        function displayVideoIntelligenceResults(intelligenceData) {
-            // Implementation for displaying video intelligence results
-            alert('Video Intelligence feature implemented but needs backend API!');
         }
 
         async function loadData() {
