@@ -1,23 +1,9 @@
-// api/video-analysis.js - Video Hook Analysis Endpoint
 export default async function handler(req, res) {
   try {
     const { video_id, ad_id } = req.query;
     
     if (!video_id && !ad_id) {
       return res.status(400).json({ error: 'video_id or ad_id is required' });
-    }
-    
-    // Get video insights from Facebook
-    let videoInsights = {};
-    if (video_id) {
-      const videoUrl = `https://graph.facebook.com/v18.0/${video_id}?fields=title,description,length,thumbnails,insights{video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_30_sec_watched_actions,video_avg_time_watched_actions,video_thruplay_watched_actions}&access_token=${process.env.FACEBOOK_ACCESS_TOKEN}`;
-      
-      const response = await fetch(videoUrl);
-      const result = await response.json();
-      
-      if (response.ok) {
-        videoInsights = result;
-      }
     }
     
     // Get ad performance data
@@ -30,9 +16,6 @@ export default async function handler(req, res) {
       
       if (response.ok) {
         adPerformance = result;
-        if (!video_id && result.creative?.video_id) {
-          video_id = result.creative.video_id;
-        }
       }
     }
     
@@ -99,16 +82,6 @@ export default async function handler(req, res) {
       });
     }
     
-    // Mid-video analysis
-    if (hookAnalysis.retention_50pct < hookAnalysis.retention_25pct * 0.6) {
-      hookInsights.push({
-        type: 'warning',
-        category: 'retention',
-        message: 'Significant drop-off at mid-point - Content may be too long or lose focus',
-        recommendation: 'Consider shorter format or stronger mid-video hook'
-      });
-    }
-    
     // Completion analysis
     if (hookAnalysis.completion_rate >= 50) {
       hookInsights.push({
@@ -136,62 +109,35 @@ export default async function handler(req, res) {
       });
     }
     
-    // Simulate video content analysis (in real implementation, you'd use computer vision)
-    const mockVideoAnalysis = {
-      duration: avgWatchTime > 0 ? Math.max(avgWatchTime, 15) : 30,
-      detected_elements: [
-        { element: 'Text Overlay', timestamp: 0, confidence: 0.9, description: 'Bold text appears in first 2 seconds' },
-        { element: 'Human Face', timestamp: 1, confidence: 0.85, description: 'Person speaking to camera' },
-        { element: 'Product Shot', timestamp: 5, confidence: 0.8, description: 'Product shown prominently' },
-        { element: 'Call to Action', timestamp: 20, confidence: 0.75, description: 'CTA text overlay appears' }
-      ],
-      audio_analysis: {
-        has_voiceover: true,
-        has_music: true,
-        audio_peaks: [0, 3, 8, 15], // Timestamps of audio emphasis
-        silence_periods: [] // No significant silence
+    // Mock video element analysis
+    const elementPerformance = [
+      {
+        element: 'Text Overlay',
+        timestamp: 0,
+        performance_impact: hookAnalysis.initial_hook >= 10 ? 'positive' : 'negative',
+        insight: hookAnalysis.initial_hook >= 10 ? 'Early text overlay correlates with strong hook' : 'Text overlay not capturing attention effectively'
       },
-      visual_analysis: {
-        scene_changes: [0, 5, 12, 20], // When scenes change
-        color_palette: ['#FF6B6B', '#4ECDC4', '#45B7D1'], // Dominant colors
-        movement_intensity: 'high', // Camera movement/action level
-        text_overlays: [
-          { text: 'Amazing Results!', timestamp: 0, duration: 3 },
-          { text: 'Order Now', timestamp: 20, duration: 5 }
-        ]
+      {
+        element: 'Human Face',
+        timestamp: 1,
+        performance_impact: hookAnalysis.retention_25pct >= 60 ? 'positive' : 'neutral',
+        insight: hookAnalysis.retention_25pct >= 60 ? 'Human presenter helps maintain early engagement' : 'Consider more dynamic presenter or different approach'
+      },
+      {
+        element: 'Product Shot',
+        timestamp: 5,
+        performance_impact: hookAnalysis.retention_50pct >= 50 ? 'positive' : 'negative',
+        insight: hookAnalysis.retention_50pct >= 50 ? 'Product reveal timing works well' : 'Product shown too late or not compelling enough'
+      },
+      {
+        element: 'Call to Action',
+        timestamp: 20,
+        performance_impact: hookAnalysis.completion_rate >= 30 ? 'positive' : 'neutral',
+        insight: hookAnalysis.completion_rate >= 30 ? 'CTA timing allows for good completion rate' : 'CTA may appear too early or late'
       }
-    };
+    ];
     
-    // Correlate video elements with performance
-    const elementPerformance = mockVideoAnalysis.detected_elements.map(element => {
-      let performance_impact = 'neutral';
-      let insight = '';
-      
-      if (element.element === 'Text Overlay' && element.timestamp <= 2) {
-        performance_impact = hookAnalysis.initial_hook >= 10 ? 'positive' : 'negative';
-        insight = hookAnalysis.initial_hook >= 10 ? 
-          'Early text overlay correlates with strong hook' : 
-          'Text overlay not capturing attention effectively';
-      } else if (element.element === 'Human Face' && element.timestamp <= 3) {
-        performance_impact = hookAnalysis.retention_25pct >= 60 ? 'positive' : 'neutral';
-        insight = hookAnalysis.retention_25pct >= 60 ? 
-          'Human presenter helps maintain early engagement' : 
-          'Consider more dynamic presenter or different approach';
-      } else if (element.element === 'Product Shot') {
-        performance_impact = hookAnalysis.retention_50pct >= 50 ? 'positive' : 'negative';
-        insight = hookAnalysis.retention_50pct >= 50 ? 
-          'Product reveal timing works well' : 
-          'Product shown too late or not compelling enough';
-      }
-      
-      return {
-        ...element,
-        performance_impact,
-        insight
-      };
-    });
-    
-    // Generate hook optimization recommendations
+    // Generate optimization recommendations
     const optimizationTips = [];
     
     if (hookAnalysis.initial_hook < 10) {
@@ -246,7 +192,6 @@ export default async function handler(req, res) {
       ad_id,
       hook_analysis: hookAnalysis,
       performance_grades: performanceGrade,
-      video_content: mockVideoAnalysis,
       element_performance: elementPerformance,
       insights: hookInsights,
       optimization_tips: optimizationTips,
