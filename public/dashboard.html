@@ -4,326 +4,307 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Facebook Ads Dashboard</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.js"></script>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-gray-50">
+    <div class="min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900 mb-2">Facebook Ads Performance</h1>
+                        <p class="text-gray-600">Live data from your Facebook advertising campaigns</p>
+                    </div>
+                    <button id="refreshBtn" class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                        <span id="refreshIcon">🔄</span>
+                        Refresh Data
+                    </button>
+                </div>
+            </div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } = Recharts;
-        const { TrendingUp, TrendingDown, DollarSign, Target, AlertCircle, CheckCircle, Eye, MousePointer, RefreshCw } = lucide;
+            <!-- Controls -->
+            <div class="flex flex-wrap gap-4 mb-6">
+                <select id="dateRange" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="yesterday">Yesterday</option>
+                    <option value="last_7d">Last 7 days</option>
+                    <option value="last_30d" selected>Last 30 days</option>
+                    <option value="last_90d">Last 90 days</option>
+                    <option value="this_month">This month</option>
+                    <option value="last_month">Last month</option>
+                </select>
+            </div>
 
-        const ConnectedFacebookDashboard = () => {
-            const [dateRange, setDateRange] = useState('last_30d');
-            const [loading, setLoading] = useState(true);
-            const [error, setError] = useState(null);
-            const [accountData, setAccountData] = useState(null);
-            const [campaigns, setCampaigns] = useState([]);
-            const [insights, setInsights] = useState(null);
+            <!-- Loading State -->
+            <div id="loading" class="text-center py-20">
+                <div class="loading inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                <p class="text-gray-600 mt-4">Loading your Facebook Ads data...</p>
+            </div>
 
-            const API_BASE = 'https://facebook-ads-dashboard-git-main-jacks-projects-e0e84f4f.vercel.app';
+            <!-- Error State -->
+            <div id="error" class="hidden text-center py-20">
+                <div class="text-red-500 text-6xl mb-4">⚠️</div>
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">Connection Error</h2>
+                <p class="text-gray-600 mb-4" id="errorMessage"></p>
+                <button onclick="loadData()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                    Try Again
+                </button>
+            </div>
 
-            const fetchAccountData = async () => {
-                try {
-                    const response = await fetch(`${API_BASE}/api/overview?date_preset=${dateRange}`);
-                    if (!response.ok) throw new Error('Failed to fetch account data');
-                    const data = await response.json();
-                    setAccountData(data);
-                } catch (err) {
-                    console.error('Error fetching account data:', err);
-                    setError(err.message);
-                }
-            };
-
-            const fetchCampaigns = async () => {
-                try {
-                    const response = await fetch(`${API_BASE}/api/campaigns?date_preset=${dateRange}`);
-                    if (!response.ok) throw new Error('Failed to fetch campaigns');
-                    const data = await response.json();
-                    setCampaigns(data);
-                } catch (err) {
-                    console.error('Error fetching campaigns:', err);
-                    setError(err.message);
-                }
-            };
-
-            const fetchInsights = async () => {
-                try {
-                    const winningCampaigns = campaigns.filter(c => c.status === 'winning').slice(0, 3);
-                    const losingCampaigns = campaigns.filter(c => c.status === 'losing').slice(0, 3);
+            <!-- Main Content -->
+            <div id="content" class="hidden">
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Spend</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalSpend">£0</p>
+                            </div>
+                            <div class="text-blue-500 text-3xl">💰</div>
+                        </div>
+                    </div>
                     
-                    const insights = {
-                        whatsWorking: winningCampaigns.map(campaign => ({
-                            title: campaign.name,
-                            description: `${campaign.roas.toFixed(2)}x ROAS - Strong performer! Consider scaling up budget.`,
-                            metric: `${campaign.roas.toFixed(2)}x ROAS`
-                        })),
-                        needsImprovement: losingCampaigns.map(campaign => ({
-                            title: campaign.name,
-                            description: `${campaign.roas.toFixed(2)}x ROAS - ${campaign.roas < 1 ? 'Losing money! Consider pausing.' : 'Below target, review targeting and creatives.'}`,
-                            metric: `${campaign.roas.toFixed(2)}x ROAS`,
-                            severity: campaign.roas < 1 ? 'high' : 'medium'
-                        }))
-                    };
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Revenue</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalRevenue">£0</p>
+                            </div>
+                            <div class="text-green-500 text-3xl">📈</div>
+                        </div>
+                    </div>
                     
-                    setInsights(insights);
-                } catch (err) {
-                    console.error('Error generating insights:', err);
-                    setError(err.message);
-                }
-            };
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">ROAS</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalROAS">0.00x</p>
+                            </div>
+                            <div class="text-purple-500 text-3xl">🎯</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Conversions</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalConversions">0</p>
+                            </div>
+                            <div class="text-orange-500 text-3xl">👆</div>
+                        </div>
+                    </div>
+                </div>
 
-            const loadData = async () => {
-                setLoading(true);
-                setError(null);
-                try {
-                    await fetchAccountData();
-                    await fetchCampaigns();
-                    setTimeout(() => {
-                        fetchInsights();
-                    }, 1000);
-                } catch (err) {
-                    setError('Failed to load data');
-                } finally {
-                    setLoading(false);
-                }
-            };
+                <!-- Secondary KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">Total Clicks</p>
+                        <p class="text-xl font-bold text-gray-900" id="totalClicks">0</p>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">CTR</p>
+                        <p class="text-xl font-bold text-gray-900" id="averageCTR">0.00%</p>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">CPC</p>
+                        <p class="text-xl font-bold text-gray-900" id="averageCPC">£0.00</p>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">CPM</p>
+                        <p class="text-xl font-bold text-gray-900" id="averageCPM">£0.00</p>
+                    </div>
+                </div>
 
-            useEffect(() => {
-                loadData();
-            }, [dateRange]);
+                <!-- Campaign Analysis -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Campaign Performance Analysis</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 font-medium text-gray-700">Campaign</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Spend</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Revenue</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">ROAS</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Conversions</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">CTR</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">CPC</th>
+                                    <th class="text-center py-3 px-4 font-medium text-gray-700">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="campaignTable">
+                                <!-- Campaign rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-            useEffect(() => {
-                const testConnection = async () => {
-                    try {
-                        const response = await fetch(`${API_BASE}/api/connection`);
-                        const result = await response.json();
-                        if (!result.success) {
-                            setError(`API Connection Error: ${result.error}`);
-                        }
-                    } catch (err) {
-                        setError('Cannot connect to backend API. Make sure the server is running.');
-                    }
-                };
-                testConnection();
-            }, []);
+                <!-- Insights Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- What's Working -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-green-500 text-xl">✅</span>
+                            <h3 class="text-lg font-semibold text-gray-900">What's Working</h3>
+                        </div>
+                        <div id="whatsWorking" class="space-y-3">
+                            <p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>
+                        </div>
+                    </div>
 
-            const getStatusColor = (status) => {
-                switch(status) {
-                    case 'winning': return 'text-green-600 bg-green-50';
-                    case 'losing': return 'text-red-600 bg-red-50';
-                    default: return 'text-yellow-600 bg-yellow-50';
-                }
-            };
+                    <!-- Needs Improvement -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-red-500 text-xl">⚠️</span>
+                            <h3 class="text-lg font-semibold text-gray-900">Needs Improvement</h3>
+                        </div>
+                        <div id="needsImprovement" class="space-y-3">
+                            <p class="text-gray-500">Loading recommendations...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            const getStatusIcon = (status) => {
-                switch(status) {
-                    case 'winning': return React.createElement(CheckCircle, { className: "w-4 h-4" });
-                    case 'losing': return React.createElement(AlertCircle, { className: "w-4 h-4" });
-                    default: return React.createElement(Eye, { className: "w-4 h-4" });
-                }
-            };
+    <script>
+        const API_BASE = 'https://facebook-ads-dashboard-git-main-jacks-projects-e0e84f4f.vercel.app';
+        let accountData = null;
+        let campaigns = [];
 
-            const chartData = campaigns.slice(0, 6).map(campaign => ({
-                name: campaign.name.length > 20 ? campaign.name.substring(0, 20) + '...' : campaign.name,
-                spend: campaign.spend,
-                revenue: campaign.revenue,
-                roas: campaign.roas
-            }));
+        async function fetchAccountData(dateRange) {
+            const response = await fetch(`${API_BASE}/api/overview?date_preset=${dateRange}`);
+            if (!response.ok) throw new Error('Failed to fetch account data');
+            return response.json();
+        }
 
-            const pieData = campaigns.slice(0, 5).map(campaign => ({
-                name: campaign.name.length > 15 ? campaign.name.substring(0, 15) + '...' : campaign.name,
-                value: campaign.spend
-            }));
+        async function fetchCampaigns(dateRange) {
+            const response = await fetch(`${API_BASE}/api/campaigns?date_preset=${dateRange}`);
+            if (!response.ok) throw new Error('Failed to fetch campaigns');
+            return response.json();
+        }
 
-            const COLORS = ['#1877F2', '#42B883', '#F59E0B', '#EF4444', '#8B5CF6'];
+        function updateUI() {
+            if (!accountData) return;
 
-            if (loading) {
-                return React.createElement('div', { className: "min-h-screen bg-gray-50 flex items-center justify-center" },
-                    React.createElement('div', { className: "text-center" },
-                        React.createElement(RefreshCw, { className: "w-8 h-8 text-blue-500 animate-spin mx-auto mb-4" }),
-                        React.createElement('p', { className: "text-gray-600" }, "Loading your Facebook Ads data...")
-                    )
-                );
+            // Update KPIs
+            document.getElementById('totalSpend').textContent = `£${accountData.totalSpend.toLocaleString()}`;
+            document.getElementById('totalRevenue').textContent = `£${accountData.totalRevenue.toLocaleString()}`;
+            document.getElementById('totalROAS').textContent = `${accountData.totalROAS.toFixed(2)}x`;
+            document.getElementById('totalConversions').textContent = accountData.totalConversions.toLocaleString();
+            document.getElementById('totalClicks').textContent = accountData.totalClicks.toLocaleString();
+            document.getElementById('averageCTR').textContent = `${accountData.averageCTR.toFixed(2)}%`;
+            document.getElementById('averageCPC').textContent = `£${accountData.averageCPC.toFixed(2)}`;
+            document.getElementById('averageCPM').textContent = `£${accountData.averageCPM.toFixed(2)}`;
+
+            // Update campaign table
+            const campaignTable = document.getElementById('campaignTable');
+            campaignTable.innerHTML = '';
+            
+            campaigns.forEach(campaign => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-100';
+                
+                const statusColor = campaign.status === 'winning' ? 'bg-green-50 text-green-800' : 
+                                   campaign.status === 'losing' ? 'bg-red-50 text-red-800' : 
+                                   'bg-yellow-50 text-yellow-800';
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4 font-medium text-gray-900">${campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name}</td>
+                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.spend.toLocaleString()}</td>
+                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.revenue.toLocaleString()}</td>
+                    <td class="py-3 px-4 text-right font-medium text-gray-900">${campaign.roas.toFixed(2)}x</td>
+                    <td class="py-3 px-4 text-right text-gray-900">${campaign.conversions}</td>
+                    <td class="py-3 px-4 text-right text-gray-900">${campaign.ctr.toFixed(2)}%</td>
+                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.cpc.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
+                            ${campaign.status}
+                        </span>
+                    </td>
+                `;
+                
+                campaignTable.appendChild(row);
+            });
+
+            // Update insights
+            const winningCampaigns = campaigns.filter(c => c.status === 'winning');
+            const losingCampaigns = campaigns.filter(c => c.status === 'losing');
+
+            const whatsWorking = document.getElementById('whatsWorking');
+            const needsImprovement = document.getElementById('needsImprovement');
+
+            if (winningCampaigns.length === 0) {
+                whatsWorking.innerHTML = '<p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>';
+            } else {
+                whatsWorking.innerHTML = winningCampaigns.map(campaign => `
+                    <div class="p-3 bg-green-50 rounded-lg">
+                        <p class="text-sm font-medium text-green-800">${campaign.name}</p>
+                        <p class="text-xs text-green-600">${campaign.roas.toFixed(2)}x ROAS - Strong performer! Consider scaling up budget.</p>
+                    </div>
+                `).join('');
             }
 
-            if (error) {
-                return React.createElement('div', { className: "min-h-screen bg-gray-50 flex items-center justify-center" },
-                    React.createElement('div', { className: "text-center max-w-md" },
-                        React.createElement(AlertCircle, { className: "w-8 h-8 text-red-500 mx-auto mb-4" }),
-                        React.createElement('h2', { className: "text-xl font-semibold text-gray-900 mb-2" }, "Connection Error"),
-                        React.createElement('p', { className: "text-gray-600 mb-4" }, error),
-                        React.createElement('button', { 
-                            onClick: loadData,
-                            className: "px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                        }, "Try Again")
-                    )
-                );
+            if (losingCampaigns.length === 0) {
+                needsImprovement.innerHTML = '<p class="text-gray-500">All campaigns performing well!</p>';
+            } else {
+                needsImprovement.innerHTML = losingCampaigns.map(campaign => `
+                    <div class="p-3 bg-red-50 rounded-lg">
+                        <p class="text-sm font-medium text-red-800">${campaign.name}</p>
+                        <p class="text-xs text-red-600">${campaign.roas.toFixed(2)}x ROAS - ${campaign.roas < 1 ? 'Losing money! Consider pausing or setting up conversion tracking.' : 'Below target, review targeting and creatives.'}</p>
+                    </div>
+                `).join('');
             }
+        }
 
-            return React.createElement('div', { className: "min-h-screen bg-gray-50 p-6" },
-                React.createElement('div', { className: "max-w-7xl mx-auto" },
-                    // Header
-                    React.createElement('div', { className: "mb-8" },
-                        React.createElement('div', { className: "flex items-center justify-between" },
-                            React.createElement('div', null,
-                                React.createElement('h1', { className: "text-3xl font-bold text-gray-900 mb-2" }, "Facebook Ads Performance"),
-                                React.createElement('p', { className: "text-gray-600" }, "Live data from your Facebook advertising campaigns")
-                            ),
-                            React.createElement('button', { 
-                                onClick: loadData,
-                                className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                            },
-                                React.createElement(RefreshCw, { className: "w-4 h-4" }),
-                                "Refresh Data"
-                            )
-                        )
-                    ),
+        async function loadData() {
+            const dateRange = document.getElementById('dateRange').value;
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const content = document.getElementById('content');
+            const refreshIcon = document.getElementById('refreshIcon');
 
-                    // Controls
-                    React.createElement('div', { className: "flex flex-wrap gap-4 mb-6" },
-                        React.createElement('select', { 
-                            value: dateRange, 
-                            onChange: (e) => setDateRange(e.target.value),
-                            className: "px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        },
-                            React.createElement('option', { value: "yesterday" }, "Yesterday"),
-                            React.createElement('option', { value: "last_7d" }, "Last 7 days"),
-                            React.createElement('option', { value: "last_30d" }, "Last 30 days"),
-                            React.createElement('option', { value: "last_90d" }, "Last 90 days"),
-                            React.createElement('option', { value: "this_month" }, "This month"),
-                            React.createElement('option', { value: "last_month" }, "Last month")
-                        )
-                    ),
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            content.classList.add('hidden');
+            refreshIcon.style.animation = 'spin 1s linear infinite';
 
-                    // KPI Cards
-                    accountData && React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" },
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center justify-between" },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: "text-sm font-medium text-gray-600" }, "Total Spend"),
-                                    React.createElement('p', { className: "text-2xl font-bold text-gray-900" }, `£${accountData.totalSpend.toLocaleString()}`)
-                                ),
-                                React.createElement(DollarSign, { className: "w-8 h-8 text-blue-500" })
-                            )
-                        ),
-                        
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center justify-between" },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: "text-sm font-medium text-gray-600" }, "Total Revenue"),
-                                    React.createElement('p', { className: "text-2xl font-bold text-gray-900" }, `£${accountData.totalRevenue.toLocaleString()}`)
-                                ),
-                                React.createElement(TrendingUp, { className: "w-8 h-8 text-green-500" })
-                            )
-                        ),
-                        
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center justify-between" },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: "text-sm font-medium text-gray-600" }, "ROAS"),
-                                    React.createElement('p', { className: "text-2xl font-bold text-gray-900" }, `${accountData.totalROAS.toFixed(2)}x`)
-                                ),
-                                React.createElement(Target, { className: "w-8 h-8 text-purple-500" })
-                            )
-                        ),
-                        
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center justify-between" },
-                                React.createElement('div', null,
-                                    React.createElement('p', { className: "text-sm font-medium text-gray-600" }, "Conversions"),
-                                    React.createElement('p', { className: "text-2xl font-bold text-gray-900" }, accountData.totalConversions.toLocaleString())
-                                ),
-                                React.createElement(MousePointer, { className: "w-8 h-8 text-orange-500" })
-                            )
-                        )
-                    ),
+            try {
+                accountData = await fetchAccountData(dateRange);
+                campaigns = await fetchCampaigns(dateRange);
+                
+                updateUI();
+                
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+            } catch (err) {
+                loading.classList.add('hidden');
+                error.classList.remove('hidden');
+                document.getElementById('errorMessage').textContent = err.message;
+            } finally {
+                refreshIcon.style.animation = '';
+            }
+        }
 
-                    // Campaign Analysis Table
-                    campaigns.length > 0 && React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8" },
-                        React.createElement('h3', { className: "text-lg font-semibold text-gray-900 mb-4" }, "Campaign Performance Analysis"),
-                        React.createElement('div', { className: "overflow-x-auto" },
-                            React.createElement('table', { className: "w-full" },
-                                React.createElement('thead', null,
-                                    React.createElement('tr', { className: "border-b border-gray-200" },
-                                        React.createElement('th', { className: "text-left py-3 px-4 font-medium text-gray-700" }, "Campaign"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "Spend"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "Revenue"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "ROAS"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "Conversions"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "CTR"),
-                                        React.createElement('th', { className: "text-right py-3 px-4 font-medium text-gray-700" }, "CPC"),
-                                        React.createElement('th', { className: "text-center py-3 px-4 font-medium text-gray-700" }, "Status")
-                                    )
-                                ),
-                                React.createElement('tbody', null,
-                                    campaigns.slice(0, 10).map((campaign, index) =>
-                                        React.createElement('tr', { key: index, className: "border-b border-gray-100" },
-                                            React.createElement('td', { className: "py-3 px-4 font-medium text-gray-900" },
-                                                campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name
-                                            ),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, `£${campaign.spend.toLocaleString()}`),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, `£${campaign.revenue.toLocaleString()}`),
-                                            React.createElement('td', { className: "py-3 px-4 text-right font-medium text-gray-900" }, `${campaign.roas.toFixed(2)}x`),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, campaign.conversions),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, `${campaign.ctr.toFixed(2)}%`),
-                                            React.createElement('td', { className: "py-3 px-4 text-right text-gray-900" }, `£${campaign.cpc.toFixed(2)}`),
-                                            React.createElement('td', { className: "py-3 px-4 text-center" },
-                                                React.createElement('span', { className: `inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(campaign.status)}` },
-                                                    getStatusIcon(campaign.status),
-                                                    campaign.status
-                                                )
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    ),
+        // Event listeners
+        document.getElementById('refreshBtn').addEventListener('click', loadData);
+        document.getElementById('dateRange').addEventListener('change', loadData);
 
-                    // Insights Section
-                    insights && React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-2 gap-6" },
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center gap-2 mb-4" },
-                                React.createElement(CheckCircle, { className: "w-5 h-5 text-green-500" }),
-                                React.createElement('h3', { className: "text-lg font-semibold text-gray-900" }, "What's Working")
-                            ),
-                            React.createElement('div', { className: "space-y-3" },
-                                insights.whatsWorking.length > 0 ? insights.whatsWorking.map((item, index) =>
-                                    React.createElement('div', { key: index, className: "p-3 bg-green-50 rounded-lg" },
-                                        React.createElement('p', { className: "text-sm font-medium text-green-800" }, item.title),
-                                        React.createElement('p', { className: "text-xs text-green-600" }, item.description)
-                                    )
-                                ) : React.createElement('p', { className: "text-gray-500" }, "Set up conversion tracking to see winning campaigns!")
-                            )
-                        ),
-
-                        React.createElement('div', { className: "bg-white p-6 rounded-lg shadow-sm border border-gray-200" },
-                            React.createElement('div', { className: "flex items-center gap-2 mb-4" },
-                                React.createElement(AlertCircle, { className: "w-5 h-5 text-red-500" }),
-                                React.createElement('h3', { className: "text-lg font-semibold text-gray-900" }, "Needs Improvement")
-                            ),
-                            React.createElement('div', { className: "space-y-3" },
-                                insights.needsImprovement.length > 0 ? insights.needsImprovement.map((item, index) =>
-                                    React.createElement('div', { key: index, className: `p-3 rounded-lg ${item.severity === 'high' ? 'bg-red-50' : 'bg-yellow-50'}` },
-                                        React.createElement('p', { className: `text-sm font-medium ${item.severity === 'high' ? 'text-red-800' : 'text-yellow-800'}` }, item.title),
-                                        React.createElement('p', { className: `text-xs ${item.severity === 'high' ? 'text-red-600' : 'text-yellow-600'}` }, item.description)
-                                    )
-                                ) : React.createElement('p', { className: "text-gray-500" }, "All campaigns performing well!")
-                            )
-                        )
-                    )
-                )
-            );
-        };
-
-        ReactDOM.render(React.createElement(ConnectedFacebookDashboard), document.getElementById('root'));
+        // Load data on page load
+        loadData();
     </script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </body>
 </html>
