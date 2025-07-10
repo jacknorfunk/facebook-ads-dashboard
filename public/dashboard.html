@@ -13,6 +13,17 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+        .creative-card {
+            transition: transform 0.2s ease-in-out;
+        }
+        .creative-card:hover {
+            transform: translateY(-2px);
+        }
+        .performance-bar {
+            height: 4px;
+            border-radius: 2px;
+            transition: width 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -30,6 +41,13 @@
                         Refresh Data
                     </button>
                 </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
+                <button id="overviewTab" class="tab-button active px-4 py-2 rounded-md text-sm font-medium">Overview</button>
+                <button id="campaignsTab" class="tab-button px-4 py-2 rounded-md text-sm font-medium">Campaigns</button>
+                <button id="creativesTab" class="tab-button px-4 py-2 rounded-md text-sm font-medium">Creative Analysis</button>
             </div>
 
             <!-- Controls -->
@@ -62,118 +80,164 @@
 
             <!-- Main Content -->
             <div id="content" class="hidden">
-                <!-- KPI Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-600">Total Spend</p>
-                                <p class="text-2xl font-bold text-gray-900" id="totalSpend">£0</p>
+                <!-- Overview Tab -->
+                <div id="overviewContent" class="tab-content">
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Spend</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalSpend">£0</p>
+                                </div>
+                                <div class="text-blue-500 text-3xl">💰</div>
                             </div>
-                            <div class="text-blue-500 text-3xl">💰</div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Revenue</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalRevenue">£0</p>
+                                </div>
+                                <div class="text-green-500 text-3xl">📈</div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">ROAS</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalROAS">0.00x</p>
+                                </div>
+                                <div class="text-purple-500 text-3xl">🎯</div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Conversions</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalConversions">0</p>
+                                </div>
+                                <div class="text-orange-500 text-3xl">👆</div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-600">Total Revenue</p>
-                                <p class="text-2xl font-bold text-gray-900" id="totalRevenue">£0</p>
-                            </div>
-                            <div class="text-green-500 text-3xl">📈</div>
+
+                    <!-- Secondary KPIs -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <p class="text-sm font-medium text-gray-600">Total Clicks</p>
+                            <p class="text-xl font-bold text-gray-900" id="totalClicks">0</p>
+                        </div>
+                        
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <p class="text-sm font-medium text-gray-600">CTR</p>
+                            <p class="text-xl font-bold text-gray-900" id="averageCTR">0.00%</p>
+                        </div>
+                        
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <p class="text-sm font-medium text-gray-600">CPC</p>
+                            <p class="text-xl font-bold text-gray-900" id="averageCPC">£0.00</p>
+                        </div>
+                        
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <p class="text-sm font-medium text-gray-600">CPM</p>
+                            <p class="text-xl font-bold text-gray-900" id="averageCPM">£0.00</p>
                         </div>
                     </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-600">ROAS</p>
-                                <p class="text-2xl font-bold text-gray-900" id="totalROAS">0.00x</p>
+
+                    <!-- Insights Section -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- What's Working -->
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="text-green-500 text-xl">✅</span>
+                                <h3 class="text-lg font-semibold text-gray-900">What's Working</h3>
                             </div>
-                            <div class="text-purple-500 text-3xl">🎯</div>
+                            <div id="whatsWorking" class="space-y-3">
+                                <p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-600">Conversions</p>
-                                <p class="text-2xl font-bold text-gray-900" id="totalConversions">0</p>
+
+                        <!-- Needs Improvement -->
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="text-red-500 text-xl">⚠️</span>
+                                <h3 class="text-lg font-semibold text-gray-900">Needs Improvement</h3>
                             </div>
-                            <div class="text-orange-500 text-3xl">👆</div>
+                            <div id="needsImprovement" class="space-y-3">
+                                <p class="text-gray-500">Loading recommendations...</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Secondary KPIs -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-sm font-medium text-gray-600">Total Clicks</p>
-                        <p class="text-xl font-bold text-gray-900" id="totalClicks">0</p>
-                    </div>
-                    
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-sm font-medium text-gray-600">CTR</p>
-                        <p class="text-xl font-bold text-gray-900" id="averageCTR">0.00%</p>
-                    </div>
-                    
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-sm font-medium text-gray-600">CPC</p>
-                        <p class="text-xl font-bold text-gray-900" id="averageCPC">£0.00</p>
-                    </div>
-                    
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-sm font-medium text-gray-600">CPM</p>
-                        <p class="text-xl font-bold text-gray-900" id="averageCPM">£0.00</p>
+                <!-- Campaigns Tab -->
+                <div id="campaignsContent" class="tab-content hidden">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Campaign Performance Analysis</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b border-gray-200">
+                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Campaign</th>
+                                        <th class="text-right py-3 px-4 font-medium text-gray-700">Spend</th>
+                                        <th class="text-right py-3 px-4 font-medium text-gray-700">Revenue</th>
+                                        <th class="text-right py-3 px-4 font-medium text-gray-700">ROAS</th>
+                                        <th class="text-right py-3 px-4 font-medium text-gray-700">Conversions</th>
+                                        <th class="text-right py-3 px-4 font-medium text-gray-700">CTR</th>
+                                        <th class="text-right py-3 px-4 font-medium text-gray-700">CPC</th>
+                                        <th class="text-center py-3 px-4 font-medium text-gray-700">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="campaignTable">
+                                    <!-- Campaign rows will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Campaign Analysis -->
-                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Campaign Performance Analysis</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead>
-                                <tr class="border-b border-gray-200">
-                                    <th class="text-left py-3 px-4 font-medium text-gray-700">Campaign</th>
-                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Spend</th>
-                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Revenue</th>
-                                    <th class="text-right py-3 px-4 font-medium text-gray-700">ROAS</th>
-                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Conversions</th>
-                                    <th class="text-right py-3 px-4 font-medium text-gray-700">CTR</th>
-                                    <th class="text-right py-3 px-4 font-medium text-gray-700">CPC</th>
-                                    <th class="text-center py-3 px-4 font-medium text-gray-700">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="campaignTable">
-                                <!-- Campaign rows will be inserted here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Insights Section -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- What's Working -->
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center gap-2 mb-4">
-                            <span class="text-green-500 text-xl">✅</span>
-                            <h3 class="text-lg font-semibold text-gray-900">What's Working</h3>
+                <!-- Creative Analysis Tab -->
+                <div id="creativesContent" class="tab-content hidden">
+                    <!-- Creative Performance Summary -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Creatives</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalCreatives">0</p>
+                                </div>
+                                <div class="text-purple-500 text-3xl">🎨</div>
+                            </div>
                         </div>
-                        <div id="whatsWorking" class="space-y-3">
-                            <p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Avg Hook Rate</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="avgHookRate">0.00%</p>
+                                </div>
+                                <div class="text-orange-500 text-3xl">⚡</div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Top Performer</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="topPerformerScore">0</p>
+                                </div>
+                                <div class="text-green-500 text-3xl">🏆</div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Needs Improvement -->
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <div class="flex items-center gap-2 mb-4">
-                            <span class="text-red-500 text-xl">⚠️</span>
-                            <h3 class="text-lg font-semibold text-gray-900">Needs Improvement</h3>
-                        </div>
-                        <div id="needsImprovement" class="space-y-3">
-                            <p class="text-gray-500">Loading recommendations...</p>
-                        </div>
+                    <!-- Creative Cards Grid -->
+                    <div id="creativeGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Creative cards will be inserted here -->
                     </div>
                 </div>
             </div>
@@ -184,6 +248,45 @@
         const API_BASE = 'https://facebook-ads-dashboard-git-main-jacks-projects-e0e84f4f.vercel.app';
         let accountData = null;
         let campaigns = [];
+        let creatives = [];
+
+        // Tab functionality
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                // Remove active class from all tabs
+                document.querySelectorAll('.tab-button').forEach(tab => {
+                    tab.classList.remove('active', 'bg-white', 'text-blue-600');
+                    tab.classList.add('text-gray-500', 'hover:text-gray-700');
+                });
+                
+                // Add active class to clicked tab
+                e.target.classList.add('active', 'bg-white', 'text-blue-600');
+                e.target.classList.remove('text-gray-500', 'hover:text-gray-700');
+                
+                // Hide all content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                
+                // Show selected content
+                const tabId = e.target.id;
+                if (tabId === 'overviewTab') {
+                    document.getElementById('overviewContent').classList.remove('hidden');
+                } else if (tabId === 'campaignsTab') {
+                    document.getElementById('campaignsContent').classList.remove('hidden');
+                } else if (tabId === 'creativesTab') {
+                    document.getElementById('creativesContent').classList.remove('hidden');
+                    if (creatives.length === 0) {
+                        loadCreatives();
+                    }
+                }
+            });
+        });
+
+        // Initialize active tab styling
+        document.getElementById('overviewTab').classList.add('bg-white', 'text-blue-600');
+        document.getElementById('campaignsTab').classList.add('text-gray-500', 'hover:text-gray-700');
+        document.getElementById('creativesTab').classList.add('text-gray-500', 'hover:text-gray-700');
 
         async function fetchAccountData(dateRange) {
             const response = await fetch(`${API_BASE}/api/overview?date_preset=${dateRange}`);
@@ -197,7 +300,13 @@
             return response.json();
         }
 
-        function updateUI() {
+        async function fetchCreatives(dateRange) {
+            const response = await fetch(`${API_BASE}/api/creatives?date_preset=${dateRange}`);
+            if (!response.ok) throw new Error('Failed to fetch creative data');
+            return response.json();
+        }
+
+        function updateOverviewUI() {
             if (!accountData) return;
 
             // Update KPIs
@@ -209,36 +318,6 @@
             document.getElementById('averageCTR').textContent = `${accountData.averageCTR.toFixed(2)}%`;
             document.getElementById('averageCPC').textContent = `£${accountData.averageCPC.toFixed(2)}`;
             document.getElementById('averageCPM').textContent = `£${accountData.averageCPM.toFixed(2)}`;
-
-            // Update campaign table
-            const campaignTable = document.getElementById('campaignTable');
-            campaignTable.innerHTML = '';
-            
-            campaigns.forEach(campaign => {
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-100';
-                
-                const statusColor = campaign.status === 'winning' ? 'bg-green-50 text-green-800' : 
-                                   campaign.status === 'losing' ? 'bg-red-50 text-red-800' : 
-                                   'bg-yellow-50 text-yellow-800';
-                
-                row.innerHTML = `
-                    <td class="py-3 px-4 font-medium text-gray-900">${campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name}</td>
-                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.spend.toLocaleString()}</td>
-                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.revenue.toLocaleString()}</td>
-                    <td class="py-3 px-4 text-right font-medium text-gray-900">${campaign.roas.toFixed(2)}x</td>
-                    <td class="py-3 px-4 text-right text-gray-900">${campaign.conversions}</td>
-                    <td class="py-3 px-4 text-right text-gray-900">${campaign.ctr.toFixed(2)}%</td>
-                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.cpc.toFixed(2)}</td>
-                    <td class="py-3 px-4 text-center">
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
-                            ${campaign.status}
-                        </span>
-                    </td>
-                `;
-                
-                campaignTable.appendChild(row);
-            });
 
             // Update insights
             const winningCampaigns = campaigns.filter(c => c.status === 'winning');
@@ -270,41 +349,56 @@
             }
         }
 
-        async function loadData() {
-            const dateRange = document.getElementById('dateRange').value;
-            const loading = document.getElementById('loading');
-            const error = document.getElementById('error');
-            const content = document.getElementById('content');
-            const refreshIcon = document.getElementById('refreshIcon');
-
-            loading.classList.remove('hidden');
-            error.classList.add('hidden');
-            content.classList.add('hidden');
-            refreshIcon.style.animation = 'spin 1s linear infinite';
-
-            try {
-                accountData = await fetchAccountData(dateRange);
-                campaigns = await fetchCampaigns(dateRange);
+        function updateCampaignsUI() {
+            const campaignTable = document.getElementById('campaignTable');
+            campaignTable.innerHTML = '';
+            
+            campaigns.forEach(campaign => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-100';
                 
-                updateUI();
+                const statusColor = campaign.status === 'winning' ? 'bg-green-50 text-green-800' : 
+                                   campaign.status === 'losing' ? 'bg-red-50 text-red-800' : 
+                                   'bg-yellow-50 text-yellow-800';
                 
-                loading.classList.add('hidden');
-                content.classList.remove('hidden');
-            } catch (err) {
-                loading.classList.add('hidden');
-                error.classList.remove('hidden');
-                document.getElementById('errorMessage').textContent = err.message;
-            } finally {
-                refreshIcon.style.animation = '';
-            }
+                row.innerHTML = `
+                    <td class="py-3 px-4 font-medium text-gray-900">${campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name}</td>
+                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.spend.toLocaleString()}</td>
+                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.revenue.toLocaleString()}</td>
+                    <td class="py-3 px-4 text-right font-medium text-gray-900">${campaign.roas.toFixed(2)}x</td>
+                    <td class="py-3 px-4 text-right text-gray-900">${campaign.conversions}</td>
+                    <td class="py-3 px-4 text-right text-gray-900">${campaign.ctr.toFixed(2)}%</td>
+                    <td class="py-3 px-4 text-right text-gray-900">£${campaign.cpc.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
+                            ${campaign.status}
+                        </span>
+                    </td>
+                `;
+                
+                campaignTable.appendChild(row);
+            });
         }
 
-        // Event listeners
-        document.getElementById('refreshBtn').addEventListener('click', loadData);
-        document.getElementById('dateRange').addEventListener('change', loadData);
+        function updateCreativesUI() {
+            if (creatives.length === 0) return;
 
-        // Load data on page load
-        loadData();
-    </script>
-</body>
-</html>
+            // Update creative summary
+            const totalCreatives = creatives.length;
+            const avgHookRate = creatives.reduce((sum, c) => sum + c.hook_rate, 0) / totalCreatives;
+            const topPerformer = Math.max(...creatives.map(c => c.performance_score));
+
+            document.getElementById('totalCreatives').textContent = totalCreatives;
+            document.getElementById('avgHookRate').textContent = `${avgHookRate.toFixed(1)}%`;
+            document.getElementById('topPerformerScore').textContent = topPerformer.toFixed(0);
+
+            // Update creative grid
+            const creativeGrid = document.getElementById('creativeGrid');
+            creativeGrid.innerHTML = '';
+
+            creatives.forEach(creative => {
+                const card = document.createElement('div');
+                card.className = 'creative-card bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden';
+                
+                const performanceColor = creative.performance_score >= 70 ? 'bg-green-500' : 
+                                        creative.performance_score >= 40 ? 'bg-yellow-500
