@@ -6,19 +6,15 @@
     <title>Facebook Ads Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .loading {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        .creative-card {
-            transition: transform 0.2s ease-in-out;
-        }
-        .creative-card:hover {
-            transform: translateY(-2px);
-        }
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grade-A { @apply bg-green-100 text-green-800 border-green-200; }
+        .grade-B { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .grade-C { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        .grade-D { @apply bg-red-100 text-red-800 border-red-200; }
+        .performance-high { @apply bg-green-50 border-l-4 border-green-400; }
+        .performance-medium { @apply bg-yellow-50 border-l-4 border-yellow-400; }
+        .performance-low { @apply bg-red-50 border-l-4 border-red-400; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -38,12 +34,12 @@
                 </div>
             </div>
 
-            <!-- Navigation Tabs -->
-            <div class="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
-                <button id="overviewTab" class="tab-button bg-white text-blue-600 px-4 py-2 rounded-md text-sm font-medium">Overview</button>
-                <button id="campaignsTab" class="tab-button text-gray-500 hover:text-gray-700 px-4 py-2 rounded-md text-sm font-medium">Campaigns</button>
-                <button id="creativesTab" class="tab-button text-gray-500 hover:text-gray-700 px-4 py-2 rounded-md text-sm font-medium">Creative Analysis</button>
-                <button id="videoAnalysisTab" class="tab-button text-gray-500 hover:text-gray-700 px-4 py-2 rounded-md text-sm font-medium">Video Hook Analysis</button>
+            <!-- Tabs -->
+            <div class="flex space-x-8 mb-6">
+                <button class="tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600" data-tab="overview">Overview</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="campaigns">Campaigns</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="creatives">Creative Analysis</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="video-analysis">Video Hook Analysis</button>
             </div>
 
             <!-- Controls -->
@@ -53,8 +49,6 @@
                     <option value="last_7d">Last 7 days</option>
                     <option value="last_30d" selected>Last 30 days</option>
                     <option value="last_90d">Last 90 days</option>
-                    <option value="this_month">This month</option>
-                    <option value="last_month">Last month</option>
                 </select>
             </div>
 
@@ -69,293 +63,198 @@
                 <div class="text-red-500 text-6xl mb-4">⚠️</div>
                 <h2 class="text-xl font-semibold text-gray-900 mb-2">Connection Error</h2>
                 <p class="text-gray-600 mb-4" id="errorMessage"></p>
-                <button onclick="loadData()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                    Try Again
-                </button>
+                <button onclick="loadData()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Try Again</button>
             </div>
 
-            <!-- Main Content -->
-            <div id="content" class="hidden">
-                <!-- Overview Tab -->
-                <div id="overviewContent" class="tab-content">
-                    <!-- KPI Cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Total Spend</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="totalSpend">£0</p>
-                                </div>
-                                <div class="text-blue-500 text-3xl">💰</div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Total Revenue</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="totalRevenue">£0</p>
-                                </div>
-                                <div class="text-green-500 text-3xl">📈</div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">ROAS</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="totalROAS">0.00x</p>
-                                </div>
-                                <div class="text-purple-500 text-3xl">🎯</div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Conversions</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="totalConversions">0</p>
-                                </div>
-                                <div class="text-orange-500 text-3xl">👆</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Secondary KPIs -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                            <p class="text-sm font-medium text-gray-600">Total Clicks</p>
-                            <p class="text-xl font-bold text-gray-900" id="totalClicks">0</p>
-                        </div>
-                        
-                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                            <p class="text-sm font-medium text-gray-600">CTR</p>
-                            <p class="text-xl font-bold text-gray-900" id="averageCTR">0.00%</p>
-                        </div>
-                        
-                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                            <p class="text-sm font-medium text-gray-600">CPC</p>
-                            <p class="text-xl font-bold text-gray-900" id="averageCPC">£0.00</p>
-                        </div>
-                        
-                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                            <p class="text-sm font-medium text-gray-600">CPM</p>
-                            <p class="text-xl font-bold text-gray-900" id="averageCPM">£0.00</p>
-                        </div>
-                    </div>
-
-                    <!-- Insights Section -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- What's Working -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center gap-2 mb-4">
-                                <span class="text-green-500 text-xl">✅</span>
-                                <h3 class="text-lg font-semibold text-gray-900">What's Working</h3>
-                            </div>
-                            <div id="whatsWorking" class="space-y-3">
-                                <p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>
-                            </div>
-                        </div>
-
-                        <!-- Needs Improvement -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center gap-2 mb-4">
-                                <span class="text-red-500 text-xl">⚠️</span>
-                                <h3 class="text-lg font-semibold text-gray-900">Needs Improvement</h3>
-                            </div>
-                            <div id="needsImprovement" class="space-y-3">
-                                <p class="text-gray-500">Loading recommendations...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Campaigns Tab -->
-                <div id="campaignsContent" class="tab-content hidden">
+            <!-- Overview Tab -->
+            <div id="overview-content" class="tab-content">
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Campaign Performance Analysis</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="border-b border-gray-200">
-                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Campaign</th>
-                                        <th class="text-right py-3 px-4 font-medium text-gray-700">Spend</th>
-                                        <th class="text-right py-3 px-4 font-medium text-gray-700">Revenue</th>
-                                        <th class="text-right py-3 px-4 font-medium text-gray-700">ROAS</th>
-                                        <th class="text-right py-3 px-4 font-medium text-gray-700">Conversions</th>
-                                        <th class="text-right py-3 px-4 font-medium text-gray-700">CTR</th>
-                                        <th class="text-right py-3 px-4 font-medium text-gray-700">CPC</th>
-                                        <th class="text-center py-3 px-4 font-medium text-gray-700">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="campaignTable">
-                                    <!-- Campaign rows will be inserted here -->
-                                </tbody>
-                            </table>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Spend</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalSpend">£0</p>
+                            </div>
+                            <div class="text-blue-500 text-3xl">💰</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Revenue</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalRevenue">£0</p>
+                            </div>
+                            <div class="text-green-500 text-3xl">📈</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">ROAS</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalROAS">0.00x</p>
+                            </div>
+                            <div class="text-purple-500 text-3xl">🎯</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Conversions</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalConversions">0</p>
+                            </div>
+                            <div class="text-orange-500 text-3xl">🎯</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Creative Analysis Tab -->
-                <div id="creativesContent" class="tab-content hidden">
-                    <!-- Creative Performance Summary -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Total Creatives</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="totalCreatives">0</p>
-                                </div>
-                                <div class="text-purple-500 text-3xl">🎨</div>
-                            </div>
+                <!-- Secondary KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">Total Clicks</p>
+                        <p class="text-xl font-bold text-gray-900" id="totalClicks">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">CTR</p>
+                        <p class="text-xl font-bold text-gray-900" id="averageCTR">0.00%</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">CPC</p>
+                        <p class="text-xl font-bold text-gray-900" id="averageCPC">£0.00</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <p class="text-sm font-medium text-gray-600">CPM</p>
+                        <p class="text-xl font-bold text-gray-900" id="averageCPM">£0.00</p>
+                    </div>
+                </div>
+
+                <!-- Insights Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-green-500 text-xl">✅</span>
+                            <h3 class="text-lg font-semibold text-gray-900">What's Working</h3>
                         </div>
-                        
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Avg Hook Rate</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="avgHookRate">0.00%</p>
-                                </div>
-                                <div class="text-orange-500 text-3xl">⚡</div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Top Performer</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="topPerformerScore">0</p>
-                                </div>
-                                <div class="text-green-500 text-3xl">🏆</div>
-                            </div>
+                        <div id="whatsWorking" class="space-y-3">
+                            <p class="text-gray-500">Set up conversion tracking to see winning campaigns!</p>
                         </div>
                     </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-red-500 text-xl">⚠️</span>
+                            <h3 class="text-lg font-semibold text-gray-900">Needs Improvement</h3>
+                        </div>
+                        <div id="needsImprovement" class="space-y-3">
+                            <p class="text-gray-500">Loading recommendations...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                    <!-- Creative Cards Grid -->
-                    <div id="creativeGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Campaigns Tab -->
+            <div id="campaigns-content" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Campaign Performance Analysis</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 font-medium text-gray-700">Campaign</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Spend</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Revenue</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">ROAS</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">Conversions</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">CTR</th>
+                                    <th class="text-right py-3 px-4 font-medium text-gray-700">CPC</th>
+                                    <th class="text-center py-3 px-4 font-medium text-gray-700">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="campaignTable">
+                                <!-- Campaign rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Creative Analysis Tab -->
+            <div id="creatives-content" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Creative Performance Analysis</h3>
+                    <div id="creativesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <!-- Creative cards will be inserted here -->
                     </div>
                 </div>
+            </div>
 
-                <!-- Video Hook Analysis Tab -->
-                <div id="videoAnalysisContent" class="tab-content hidden">
-                    <!-- Video Performance Summary -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Hook Rate</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="videoHookRate">0.0%</p>
-                                    <p class="text-sm text-gray-500" id="videoHookGrade">Grade: -</p>
-                                </div>
-                                <div class="text-red-500 text-3xl">🎣</div>
-                            </div>
+            <!-- IMPROVED Video Hook Analysis Tab -->
+            <div id="video-analysis-content" class="tab-content hidden">
+                
+                <!-- Performance Overview Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-600">Average Hook Rate</h4>
+                            <span class="text-2xl">🎣</span>
                         </div>
-                        
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">25% Retention</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="videoRetention25">0.0%</p>
-                                    <p class="text-sm text-gray-500" id="videoRetentionGrade">Grade: -</p>
-                                </div>
-                                <div class="text-orange-500 text-3xl">📊</div>
-                            </div>
+                        <div id="avgHookRate" class="text-2xl font-bold text-gray-900">0.0%</div>
+                        <div id="avgHookGrade" class="text-sm font-medium mt-1">Grade: -</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-600">Average Retention</h4>
+                            <span class="text-2xl">📈</span>
                         </div>
-                        
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Completion Rate</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="videoCompletion">0.0%</p>
-                                    <p class="text-sm text-gray-500" id="videoCompletionGrade">Grade: -</p>
-                                </div>
-                                <div class="text-green-500 text-3xl">✅</div>
-                            </div>
+                        <div id="avgRetention" class="text-2xl font-bold text-gray-900">0.0%</div>
+                        <div id="avgRetentionGrade" class="text-sm font-medium mt-1">Grade: -</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-600">Average Completion</h4>
+                            <span class="text-2xl">✅</span>
                         </div>
-                        
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-600">Overall Score</p>
-                                    <p class="text-2xl font-bold text-gray-900" id="videoOverallScore">0</p>
-                                    <p class="text-sm text-gray-500">out of 100</p>
-                                </div>
-                                <div class="text-purple-500 text-3xl">🏆</div>
-                            </div>
+                        <div id="avgCompletion" class="text-2xl font-bold text-gray-900">0.0%</div>
+                        <div id="avgCompletionGrade" class="text-sm font-medium mt-1">Grade: -</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-600">Overall Score</h4>
+                            <span class="text-2xl">🏆</span>
+                        </div>
+                        <div id="overallVideoScore" class="text-2xl font-bold text-gray-900">0</div>
+                        <div class="text-sm text-gray-600 mt-1">out of 100</div>
+                    </div>
+                </div>
+
+                <!-- Video Performance Ranking -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900">Video Performance Ranking</h3>
+                        <div class="flex gap-2">
+                            <button id="sortByHook" class="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-full">Sort by Hook Rate</button>
+                            <button id="sortByRetention" class="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-full">Sort by Retention</button>
+                            <button id="sortByCompletion" class="px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-full">Sort by Completion</button>
                         </div>
                     </div>
-
-                    <!-- Video Selection -->
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Select Video for Analysis</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="videoSelector">
-                            <!-- Video selection cards will be inserted here -->
-                        </div>
+                    <div id="videoRankingTable" class="overflow-x-auto">
+                        <!-- Video ranking table will be inserted here -->
                     </div>
+                </div>
 
-                    <!-- Hook Timeline Analysis -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                        <!-- Retention Curve -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Retention Timeline</h3>
-                            <div class="relative h-64" id="retentionChart">
-                                <!-- Retention chart will be drawn here -->
-                                <canvas id="retentionCanvas" width="400" height="200" class="w-full h-full"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Performance Breakdown -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Hook Performance Breakdown</h3>
-                            <div class="space-y-4" id="hookBreakdown">
-                                <!-- Hook breakdown items will be inserted here -->
-                            </div>
-                        </div>
+                <!-- Video Cards -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Select Video for Detailed Analysis</h3>
+                    <div id="videoCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Video cards will be inserted here -->
                     </div>
+                </div>
 
-                    <!-- Video Element Analysis -->
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Video Element Performance</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="border-b border-gray-200">
-                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Element</th>
-                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Timestamp</th>
-                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Impact</th>
-                                        <th class="text-left py-3 px-4 font-medium text-gray-700">Insight</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="elementAnalysisTable">
-                                    <!-- Element analysis rows will be inserted here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Optimization Recommendations -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- What's Working in This Video -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center gap-2 mb-4">
-                                <span class="text-green-500 text-xl">🎯</span>
-                                <h3 class="text-lg font-semibold text-gray-900">What's Working</h3>
-                            </div>
-                            <div id="videoWhatsWorking" class="space-y-3">
-                                <p class="text-gray-500">Select a video to see analysis...</p>
-                            </div>
-                        </div>
-
-                        <!-- Optimization Opportunities -->
-                        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <div class="flex items-center gap-2 mb-4">
-                                <span class="text-blue-500 text-xl">💡</span>
-                                <h3 class="text-lg font-semibold text-gray-900">Optimization Tips</h3>
-                            </div>
-                            <div id="videoOptimizationTips" class="space-y-3">
-                                <p class="text-gray-500">Select a video to see recommendations...</p>
-                            </div>
+                <!-- Detailed Analysis Panel -->
+                <div id="videoAnalysisPanel" class="hidden">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Detailed Video Analysis</h3>
+                        <div id="videoAnalysisContent">
+                            <!-- Detailed analysis will be inserted here -->
                         </div>
                     </div>
                 </div>
@@ -368,50 +267,31 @@
         let accountData = null;
         let campaigns = [];
         let creatives = [];
-        let videoAnalysisData = null;
+        let videoAnalyses = new Map();
 
-        // Tab functionality
-        function switchTab(tabName) {
-            // Hide all content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.add('hidden');
-            });
-            
-            // Remove active from all buttons
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.classList.remove('bg-white', 'text-blue-600');
-                button.classList.add('text-gray-500', 'hover:text-gray-700');
-            });
-            
-            // Show selected content and activate button
-            if (tabName === 'overview') {
-                document.getElementById('overviewContent').classList.remove('hidden');
-                document.getElementById('overviewTab').classList.add('bg-white', 'text-blue-600');
-                document.getElementById('overviewTab').classList.remove('text-gray-500', 'hover:text-gray-700');
-            } else if (tabName === 'campaigns') {
-                document.getElementById('campaignsContent').classList.remove('hidden');
-                document.getElementById('campaignsTab').classList.add('bg-white', 'text-blue-600');
-                document.getElementById('campaignsTab').classList.remove('text-gray-500', 'hover:text-gray-700');
-            } else if (tabName === 'creatives') {
-                document.getElementById('creativesContent').classList.remove('hidden');
-                document.getElementById('creativesTab').classList.add('bg-white', 'text-blue-600');
-                document.getElementById('creativesTab').classList.remove('text-gray-500', 'hover:text-gray-700');
-                if (creatives.length === 0) {
-                    loadCreatives();
+        // Tab Management
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.tab;
+                
+                // Update button styles
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.className = 'tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700';
+                });
+                e.target.className = 'tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600';
+                
+                // Show/hide content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`${tabName}-content`).classList.remove('hidden');
+                
+                // Load data for specific tabs
+                if (tabName === 'video-analysis' && creatives.length > 0) {
+                    loadVideoAnalysis();
                 }
-            } else if (tabName === 'videoAnalysis') {
-                document.getElementById('videoAnalysisContent').classList.remove('hidden');
-                document.getElementById('videoAnalysisTab').classList.add('bg-white', 'text-blue-600');
-                document.getElementById('videoAnalysisTab').classList.remove('text-gray-500', 'hover:text-gray-700');
-                loadVideoAnalysis();
-            }
-        }
-
-        // Tab event listeners
-        document.getElementById('overviewTab').addEventListener('click', () => switchTab('overview'));
-        document.getElementById('campaignsTab').addEventListener('click', () => switchTab('campaigns'));
-        document.getElementById('creativesTab').addEventListener('click', () => switchTab('creatives'));
-        document.getElementById('videoAnalysisTab').addEventListener('click', () => switchTab('videoAnalysis'));
+            });
+        });
 
         async function fetchAccountData(dateRange) {
             const response = await fetch(`${API_BASE}/api/overview?date_preset=${dateRange}`);
@@ -427,14 +307,21 @@
 
         async function fetchCreatives(dateRange) {
             const response = await fetch(`${API_BASE}/api/creatives?date_preset=${dateRange}`);
-            if (!response.ok) throw new Error('Failed to fetch creative data');
+            if (!response.ok) throw new Error('Failed to fetch creatives');
             return response.json();
         }
 
         async function fetchVideoAnalysis(adId) {
+            if (videoAnalyses.has(adId)) {
+                return videoAnalyses.get(adId);
+            }
+            
             const response = await fetch(`${API_BASE}/api/video-analysis?ad_id=${adId}`);
             if (!response.ok) throw new Error('Failed to fetch video analysis');
-            return response.json();
+            
+            const analysis = await response.json();
+            videoAnalyses.set(adId, analysis);
+            return analysis;
         }
 
         function updateOverviewUI() {
@@ -483,15 +370,15 @@
         function updateCampaignsUI() {
             const campaignTable = document.getElementById('campaignTable');
             campaignTable.innerHTML = '';
-            
+
             campaigns.forEach(campaign => {
                 const row = document.createElement('tr');
                 row.className = 'border-b border-gray-100';
                 
-                const statusColor = campaign.status === 'winning' ? 'bg-green-50 text-green-800' : 
-                                   campaign.status === 'losing' ? 'bg-red-50 text-red-800' : 
+                const statusColor = campaign.status === 'winning' ? 'bg-green-50 text-green-800' :
+                                   campaign.status === 'losing' ? 'bg-red-50 text-red-800' :
                                    'bg-yellow-50 text-yellow-800';
-                
+
                 row.innerHTML = `
                     <td class="py-3 px-4 font-medium text-gray-900">${campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name}</td>
                     <td class="py-3 px-4 text-right text-gray-900">£${campaign.spend.toLocaleString()}</td>
@@ -506,389 +393,359 @@
                         </span>
                     </td>
                 `;
-                
                 campaignTable.appendChild(row);
             });
         }
 
         function updateCreativesUI() {
-            if (creatives.length === 0) return;
-
-            // Update creative summary
-            const totalCreatives = creatives.length;
-            const avgHookRate = creatives.reduce((sum, c) => sum + c.hook_rate, 0) / totalCreatives;
-            const topPerformer = Math.max(...creatives.map(c => c.performance_score));
-
-            document.getElementById('totalCreatives').textContent = totalCreatives;
-            document.getElementById('avgHookRate').textContent = `${avgHookRate.toFixed(1)}%`;
-            document.getElementById('topPerformerScore').textContent = topPerformer.toFixed(0);
-
-            // Update creative grid
-            const creativeGrid = document.getElementById('creativeGrid');
-            creativeGrid.innerHTML = '';
+            const creativesGrid = document.getElementById('creativesGrid');
+            creativesGrid.innerHTML = '';
 
             creatives.forEach(creative => {
                 const card = document.createElement('div');
-                card.className = 'creative-card bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden';
+                card.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200';
                 
-                const performanceColor = creative.performance_score >= 70 ? 'bg-green-500' : 
-                                        creative.performance_score >= 40 ? 'bg-yellow-500' : 'bg-red-500';
-                
+                const performanceColor = creative.performance_score >= 70 ? 'text-green-600' :
+                                       creative.performance_score >= 40 ? 'text-yellow-600' : 'text-red-600';
+
                 card.innerHTML = `
-                    <div class="p-4">
-                        <div class="flex items-start justify-between mb-3">
-                            <h4 class="text-sm font-medium text-gray-900 truncate">${creative.name}</h4>
-                            <span class="px-2 py-1 text-xs font-medium ${creative.creative_type === 'video' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'} rounded">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex-1">
+                            <h4 class="font-medium text-gray-900 mb-1">${creative.name.substring(0, 30)}...</h4>
+                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
                                 ${creative.creative_type}
                             </span>
                         </div>
-                        
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">CTR:</span>
-                                <span class="font-medium">${creative.ctr.toFixed(2)}%</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">CPC:</span>
-                                <span class="font-medium">£${creative.cpc.toFixed(2)}</span>
-                            </div>
-                            ${creative.creative_type === 'video' ? `
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Hook Rate:</span>
-                                <span class="font-medium">${creative.hook_rate.toFixed(1)}%</span>
-                            </div>
-                            ` : ''}
+                        <div class="text-right">
+                            <div class="text-lg font-bold ${performanceColor}">${creative.performance_score}/100</div>
+                            <div class="text-xs text-gray-500">Performance Score</div>
                         </div>
-                        
-                        <div class="mt-3">
-                            <div class="flex items-center justify-between text-xs text-gray-600 mb-1">
-                                <span>Performance Score</span>
-                                <span>${creative.performance_score.toFixed(0)}/100</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="${performanceColor} h-2 rounded-full" style="width: ${creative.performance_score}%"></div>
-                            </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <div class="text-gray-600">CTR</div>
+                            <div class="font-medium">${creative.ctr.toFixed(2)}%</div>
                         </div>
-                        
-                        ${creative.insights.length > 0 ? `
-                        <div class="mt-3 space-y-1">
-                            ${creative.insights.slice(0, 2).map(insight => `
-                                <div class="text-xs p-2 rounded ${
-                                    insight.type === 'success' ? 'bg-green-50 text-green-700' :
-                                    insight.type === 'warning' ? 'bg-yellow-50 text-yellow-700' :
-                                    'bg-red-50 text-red-700'
-                                }">
-                                    ${insight.message}
-                                </div>
-                            `).join('')}
+                        <div>
+                            <div class="text-gray-600">CPC</div>
+                            <div class="font-medium">£${creative.cpc.toFixed(2)}</div>
                         </div>
-                        ` : ''}
+                        <div>
+                            <div class="text-gray-600">Hook Rate</div>
+                            <div class="font-medium">${creative.hook_rate.toFixed(1)}%</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-600">Spend</div>
+                            <div class="font-medium">£${creative.spend.toLocaleString()}</div>
+                        </div>
                     </div>
                 `;
-                
-                creativeGrid.appendChild(card);
+                creativesGrid.appendChild(card);
             });
         }
 
-        async function loadCreatives() {
-            try {
-                const dateRange = document.getElementById('dateRange').value;
-                creatives = await fetchCreatives(dateRange);
-                updateCreativesUI();
-            } catch (error) {
-                console.error('Error loading creatives:', error);
-            }
-        }
-
-        function loadVideoAnalysis() {
-            // Create video selector from existing creatives
-            const videoSelector = document.getElementById('videoSelector');
-            videoSelector.innerHTML = '';
-            
+        async function loadVideoAnalysis() {
             const videoCreatives = creatives.filter(c => c.creative_type === 'video');
             
             if (videoCreatives.length === 0) {
-                videoSelector.innerHTML = '<p class="text-gray-500 col-span-3">No video creatives found. Make sure you have video ads in your selected date range.</p>';
+                document.getElementById('video-analysis-content').innerHTML = `
+                    <div class="text-center py-20">
+                        <div class="text-gray-400 text-6xl mb-4">🎬</div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">No Video Creatives Found</h3>
+                        <p class="text-gray-600">Your campaigns don't appear to have video ads. Video hook analysis requires video creatives.</p>
+                    </div>
+                `;
                 return;
             }
-            
-            videoCreatives.forEach(creative => {
-                const card = document.createElement('div');
-                card.className = 'border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-blue-500 transition-colors';
-                card.onclick = () => analyzeSpecificVideo(creative.id);
-                
-                card.innerHTML = `
-                    <div class="flex items-center justify-between mb-2">
-                        <h4 class="font-medium text-sm text-gray-900 truncate">${creative.name}</h4>
-                        <span class="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">Video</span>
-                    </div>
-                    <div class="text-xs text-gray-600 space-y-1">
-                        <div>CTR: ${creative.ctr.toFixed(2)}%</div>
-                        <div>Hook Rate: ${creative.hook_rate.toFixed(1)}%</div>
-                        <div>Performance: ${creative.performance_score.toFixed(0)}/100</div>
-                    </div>
-                `;
-                
-                videoSelector.appendChild(card);
-            });
-        }
 
-        async function analyzeSpecificVideo(adId) {
-            try {
-                // Show loading state
-                document.getElementById('videoHookRate').textContent = 'Loading...';
-                document.getElementById('videoRetention25').textContent = 'Loading...';
-                document.getElementById('videoCompletion').textContent = 'Loading...';
-                document.getElementById('videoOverallScore').textContent = 'Loading...';
-                
-                // Fetch video analysis
-                videoAnalysisData = await fetchVideoAnalysis(adId);
-                
-                // Update summary cards
-                document.getElementById('videoHookRate').textContent = `${videoAnalysisData.hook_analysis.initial_hook.toFixed(1)}%`;
-                document.getElementById('videoHookGrade').textContent = `Grade: ${videoAnalysisData.performance_grades.hook}`;
-                document.getElementById('videoRetention25').textContent = `${videoAnalysisData.hook_analysis.retention_25pct.toFixed(1)}%`;
-                document.getElementById('videoRetentionGrade').textContent = `Grade: ${videoAnalysisData.performance_grades.retention}`;
-                document.getElementById('videoCompletion').textContent = `${videoAnalysisData.hook_analysis.completion_rate.toFixed(1)}%`;
-                document.getElementById('videoCompletionGrade').textContent = `Grade: ${videoAnalysisData.performance_grades.completion}`;
-                document.getElementById('videoOverallScore').textContent = videoAnalysisData.overall_score;
-                
-                // Draw retention chart
-                drawRetentionChart(videoAnalysisData.hook_analysis);
-                
-                // Update hook breakdown
-                updateHookBreakdown(videoAnalysisData.hook_analysis);
-                
-                // Update element analysis table
-                updateElementAnalysisTable(videoAnalysisData.element_performance);
-                
-                // Update insights and tips
-                updateVideoInsights(videoAnalysisData.insights, videoAnalysisData.optimization_tips);
-                
-            } catch (error) {
-                console.error('Error analyzing video:', error);
-                document.getElementById('videoHookRate').textContent = 'Error';
-                document.getElementById('videoRetention25').textContent = 'Error';
-                document.getElementById('videoCompletion').textContent = 'Error';
-                document.getElementById('videoOverallScore').textContent = 'Error';
-            }
-        }
-
-        function drawRetentionChart(hookAnalysis) {
-            const canvas = document.getElementById('retentionCanvas');
-            const ctx = canvas.getContext('2d');
+            // Calculate overview metrics
+            let totalHookRate = 0;
+            let totalRetention = 0;
+            let totalCompletion = 0;
+            let totalScore = 0;
             
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Set up chart dimensions
-            const padding = 40;
-            const chartWidth = canvas.width - padding * 2;
-            const chartHeight = canvas.height - padding * 2;
-            
-            // Data points for retention curve
-            const dataPoints = [
-                { x: 0, y: 100, label: 'Start' },
-                { x: 0.03, y: hookAnalysis.initial_hook, label: '3sec Hook' },
-                { x: 0.25, y: hookAnalysis.retention_25pct, label: '25%' },
-                { x: 0.5, y: hookAnalysis.retention_50pct, label: '50%' },
-                { x: 0.75, y: hookAnalysis.retention_75pct, label: '75%' },
-                { x: 1.0, y: hookAnalysis.completion_rate, label: 'End' }
-            ];
-            
-            // Draw axes
-            ctx.strokeStyle = '#e5e7eb';
-            ctx.lineWidth = 1;
-            
-            // Y-axis
-            ctx.beginPath();
-            ctx.moveTo(padding, padding);
-            ctx.lineTo(padding, padding + chartHeight);
-            ctx.stroke();
-            
-            // X-axis
-            ctx.beginPath();
-            ctx.moveTo(padding, padding + chartHeight);
-            ctx.lineTo(padding + chartWidth, padding + chartHeight);
-            ctx.stroke();
-            
-            // Draw retention curve
-            ctx.strokeStyle = '#3b82f6';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            
-            dataPoints.forEach((point, index) => {
-                const x = padding + (point.x * chartWidth);
-                const y = padding + ((100 - point.y) / 100 * chartHeight);
-                
-                if (index === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
+            for (const creative of videoCreatives) {
+                try {
+                    const analysis = await fetchVideoAnalysis(creative.id);
+                    totalHookRate += analysis.hook_analysis.initial_hook;
+                    totalRetention += analysis.hook_analysis.retention_25pct;
+                    totalCompletion += analysis.hook_analysis.completion_rate;
+                    totalScore += analysis.overall_score;
+                } catch (error) {
+                    console.error('Error fetching analysis for', creative.id, error);
                 }
-            });
-            ctx.stroke();
-            
-            // Draw data points
-            ctx.fillStyle = '#3b82f6';
-            dataPoints.forEach(point => {
-                const x = padding + (point.x * chartWidth);
-                const y = padding + ((100 - point.y) / 100 * chartHeight);
-                
-                ctx.beginPath();
-                ctx.arc(x, y, 4, 0, 2 * Math.PI);
-                ctx.fill();
-            });
-            
-            // Add labels
-            ctx.fillStyle = '#374151';
-            ctx.font = '12px sans-serif';
-            ctx.textAlign = 'center';
-            
-            dataPoints.forEach(point => {
-                const x = padding + (point.x * chartWidth);
-                const y = padding + ((100 - point.y) / 100 * chartHeight);
-                
-                ctx.fillText(`${point.y.toFixed(0)}%`, x, y - 10);
-                ctx.fillText(point.label, x, padding + chartHeight + 20);
-            });
-        }
-
-        function updateHookBreakdown(hookAnalysis) {
-            const breakdown = document.getElementById('hookBreakdown');
-            breakdown.innerHTML = '';
-            
-            const metrics = [
-                { label: 'Initial Hook (0-3s)', value: hookAnalysis.initial_hook, benchmark: 'Above 10% is good' },
-                { label: 'Early Retention (25%)', value: hookAnalysis.retention_25pct, benchmark: 'Above 60% is good' },
-                { label: 'Mid Retention (50%)', value: hookAnalysis.retention_50pct, benchmark: 'Above 40% is good' },
-                { label: 'Completion Rate', value: hookAnalysis.completion_rate, benchmark: 'Above 25% is good' }
-            ];
-            
-            metrics.forEach(metric => {
-                const item = document.createElement('div');
-                item.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
-                
-                const isGood = metric.value >= parseFloat(metric.benchmark.match(/\d+/)[0]);
-                const color = isGood ? 'text-green-600' : 'text-orange-600';
-                
-                item.innerHTML = `
-                    <div>
-                        <div class="font-medium text-gray-900">${metric.label}</div>
-                        <div class="text-sm text-gray-600">${metric.benchmark}</div>
-                    </div>
-                    <div class="text-xl font-bold ${color}">${metric.value.toFixed(1)}%</div>
-                `;
-                
-                breakdown.appendChild(item);
-            });
-        }
-
-        function updateElementAnalysisTable(elementPerformance) {
-            const table = document.getElementById('elementAnalysisTable');
-            table.innerHTML = '';
-            
-            elementPerformance.forEach(element => {
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-100';
-                
-                const impactColor = element.performance_impact === 'positive' ? 'text-green-600 bg-green-50' :
-                                   element.performance_impact === 'negative' ? 'text-red-600 bg-red-50' :
-                                   'text-yellow-600 bg-yellow-50';
-                
-                row.innerHTML = `
-                    <td class="py-3 px-4 font-medium text-gray-900">${element.element}</td>
-                    <td class="py-3 px-4 text-gray-600">${element.timestamp}s</td>
-                    <td class="py-3 px-4">
-                        <span class="px-2 py-1 rounded-full text-xs font-medium ${impactColor}">
-                            ${element.performance_impact}
-                        </span>
-                    </td>
-                    <td class="py-3 px-4 text-sm text-gray-600">${element.insight}</td>
-                `;
-                
-                table.appendChild(row);
-            });
-        }
-
-        function updateVideoInsights(insights, optimizationTips) {
-            // Update what's working
-            const whatsWorking = document.getElementById('videoWhatsWorking');
-            const successInsights = insights.filter(insight => insight.type === 'success');
-            
-            if (successInsights.length === 0) {
-                whatsWorking.innerHTML = '<p class="text-gray-500">No standout elements identified in this video.</p>';
-            } else {
-                whatsWorking.innerHTML = successInsights.map(insight => `
-                    <div class="p-3 bg-green-50 rounded-lg">
-                        <p class="text-sm font-medium text-green-800">${insight.category.charAt(0).toUpperCase() + insight.category.slice(1)}</p>
-                        <p class="text-xs text-green-600">${insight.message}</p>
-                        ${insight.recommendation ? `<p class="text-xs text-green-700 mt-1"><strong>Action:</strong> ${insight.recommendation}</p>` : ''}
-                    </div>
-                `).join('');
             }
-            
-            // Update optimization tips
-            const optimizationDiv = document.getElementById('videoOptimizationTips');
-            
-            if (optimizationTips.length === 0) {
-                optimizationDiv.innerHTML = '<p class="text-gray-500">This video is performing well across all metrics!</p>';
-            } else {
-                optimizationDiv.innerHTML = optimizationTips.map(tip => `
-                    <div class="p-3 bg-blue-50 rounded-lg">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="px-2 py-1 text-xs font-medium ${tip.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'} rounded">
-                                ${tip.priority} priority
-                            </span>
-                            <p class="text-sm font-medium text-blue-800">${tip.tip}</p>
+
+            const avgHookRate = totalHookRate / videoCreatives.length;
+            const avgRetention = totalRetention / videoCreatives.length;
+            const avgCompletion = totalCompletion / videoCreatives.length;
+            const avgScore = totalScore / videoCreatives.length;
+
+            // Update overview cards
+            document.getElementById('avgHookRate').textContent = `${avgHookRate.toFixed(1)}%`;
+            document.getElementById('avgRetention').textContent = `${avgRetention.toFixed(1)}%`;
+            document.getElementById('avgCompletion').textContent = `${avgCompletion.toFixed(1)}%`;
+            document.getElementById('overallVideoScore').textContent = Math.round(avgScore);
+
+            // Update grades
+            const hookGrade = avgHookRate >= 15 ? 'A' : avgHookRate >= 8 ? 'B' : avgHookRate >= 4 ? 'C' : 'D';
+            const retentionGrade = avgRetention >= 70 ? 'A' : avgRetention >= 50 ? 'B' : avgRetention >= 30 ? 'C' : 'D';
+            const completionGrade = avgCompletion >= 40 ? 'A' : avgCompletion >= 20 ? 'B' : avgCompletion >= 10 ? 'C' : 'D';
+
+            document.getElementById('avgHookGrade').textContent = `Grade: ${hookGrade}`;
+            document.getElementById('avgRetentionGrade').textContent = `Grade: ${retentionGrade}`;
+            document.getElementById('avgCompletionGrade').textContent = `Grade: ${completionGrade}`;
+
+            document.getElementById('avgHookGrade').className = `text-sm font-medium mt-1 grade-${hookGrade}`;
+            document.getElementById('avgRetentionGrade').className = `text-sm font-medium mt-1 grade-${retentionGrade}`;
+            document.getElementById('avgCompletionGrade').className = `text-sm font-medium mt-1 grade-${completionGrade}`;
+
+            // Create video cards
+            await updateVideoCards(videoCreatives);
+            await updateVideoRankingTable(videoCreatives);
+        }
+
+        async function updateVideoCards(videoCreatives) {
+            const videoCards = document.getElementById('videoCards');
+            videoCards.innerHTML = '';
+
+            for (const creative of videoCreatives) {
+                try {
+                    const analysis = await fetchVideoAnalysis(creative.id);
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow';
+                    
+                    const hookGrade = analysis.performance_grades.hook;
+                    const hookColor = hookGrade === 'A' ? 'text-green-600' :
+                                     hookGrade === 'B' ? 'text-blue-600' :
+                                     hookGrade === 'C' ? 'text-yellow-600' : 'text-red-600';
+
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">Video</span>
+                                <span class="text-sm font-medium text-gray-900">Creative #${creative.id.slice(-6)}</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-lg font-bold ${hookColor}">${analysis.overall_score}/100</div>
+                                <div class="text-xs text-gray-500">Score</div>
+                            </div>
                         </div>
-                        <p class="text-xs text-blue-600">Examples: ${tip.examples.join(', ')}</p>
+                        
+                        <div class="grid grid-cols-3 gap-3 text-sm mb-4">
+                            <div class="text-center">
+                                <div class="text-lg font-bold ${hookColor}">${analysis.hook_analysis.initial_hook.toFixed(1)}%</div>
+                                <div class="text-xs text-gray-600">Hook Rate</div>
+                                <div class="text-xs font-medium grade-${hookGrade} px-1 rounded">Grade ${hookGrade}</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-gray-900">${analysis.hook_analysis.retention_25pct.toFixed(1)}%</div>
+                                <div class="text-xs text-gray-600">Retention</div>
+                                <div class="text-xs font-medium grade-${analysis.performance_grades.retention} px-1 rounded">Grade ${analysis.performance_grades.retention}</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-gray-900">${analysis.hook_analysis.completion_rate.toFixed(1)}%</div>
+                                <div class="text-xs text-gray-600">Completion</div>
+                                <div class="text-xs font-medium grade-${analysis.performance_grades.completion} px-1 rounded">Grade ${analysis.performance_grades.completion}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-xs text-gray-500 mb-2">Performance Metrics:</div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>CTR: ${creative.ctr.toFixed(2)}%</div>
+                            <div>CPC: £${creative.cpc.toFixed(2)}</div>
+                            <div>Spend: £${creative.spend.toLocaleString()}</div>
+                            <div>Clicks: ${creative.clicks}</div>
+                        </div>
+                    `;
+
+                    card.addEventListener('click', () => showDetailedAnalysis(creative.id, analysis));
+                    videoCards.appendChild(card);
+                } catch (error) {
+                    console.error('Error creating video card for', creative.id, error);
+                }
+            }
+        }
+
+        async function updateVideoRankingTable(videoCreatives) {
+            const tableContainer = document.getElementById('videoRankingTable');
+            
+            // Get all analyses
+            const videoData = [];
+            for (const creative of videoCreatives) {
+                try {
+                    const analysis = await fetchVideoAnalysis(creative.id);
+                    videoData.push({
+                        creative,
+                        analysis,
+                        hookRate: analysis.hook_analysis.initial_hook,
+                        retention: analysis.hook_analysis.retention_25pct,
+                        completion: analysis.hook_analysis.completion_rate,
+                        score: analysis.overall_score
+                    });
+                } catch (error) {
+                    console.error('Error fetching analysis for ranking', creative.id, error);
+                }
+            }
+
+            // Sort by hook rate initially
+            videoData.sort((a, b) => b.hookRate - a.hookRate);
+
+            const table = document.createElement('table');
+            table.className = 'w-full';
+            table.innerHTML = `
+                <thead>
+                    <tr class="border-b border-gray-200">
+                        <th class="text-left py-3 px-4 font-medium text-gray-700">Rank</th>
+                        <th class="text-left py-3 px-4 font-medium text-gray-700">Video</th>
+                        <th class="text-center py-3 px-4 font-medium text-gray-700">Hook Rate</th>
+                        <th class="text-center py-3 px-4 font-medium text-gray-700">Retention</th>
+                        <th class="text-center py-3 px-4 font-medium text-gray-700">Completion</th>
+                        <th class="text-center py-3 px-4 font-medium text-gray-700">Overall Score</th>
+                        <th class="text-center py-3 px-4 font-medium text-gray-700">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${videoData.map((video, index) => {
+                        const rankColor = index === 0 ? 'text-yellow-600' : 
+                                         index === 1 ? 'text-gray-600' :
+                                         index === 2 ? 'text-orange-600' : 'text-gray-400';
+                        
+                        const statusColor = video.score >= 70 ? 'performance-high' :
+                                           video.score >= 40 ? 'performance-medium' : 'performance-low';
+                        
+                        const statusText = video.score >= 70 ? 'Winning' :
+                                          video.score >= 40 ? 'Testing' : 'Needs Work';
+
+                        return `
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="showDetailedAnalysis('${video.creative.id}', ${JSON.stringify(video.analysis).replace(/"/g, '&quot;')})">
+                                <td class="py-3 px-4">
+                                    <span class="text-lg font-bold ${rankColor}">#${index + 1}</span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="font-medium text-gray-900">Creative #${video.creative.id.slice(-6)}</div>
+                                    <div class="text-sm text-gray-500">CTR: ${video.creative.ctr.toFixed(2)}% • £${video.creative.spend.toLocaleString()} spend</div>
+                                </td>
+                                <td class="py-3 px-4 text-center">
+                                    <div class="font-bold text-lg">${video.hookRate.toFixed(1)}%</div>
+                                    <div class="text-xs grade-${video.analysis.performance_grades.hook} px-1 rounded">${video.analysis.performance_grades.hook}</div>
+                                </td>
+                                <td class="py-3 px-4 text-center">
+                                    <div class="font-bold text-lg">${video.retention.toFixed(1)}%</div>
+                                    <div class="text-xs grade-${video.analysis.performance_grades.retention} px-1 rounded">${video.analysis.performance_grades.retention}</div>
+                                </td>
+                                <td class="py-3 px-4 text-center">
+                                    <div class="font-bold text-lg">${video.completion.toFixed(1)}%</div>
+                                    <div class="text-xs grade-${video.analysis.performance_grades.completion} px-1 rounded">${video.analysis.performance_grades.completion}</div>
+                                </td>
+                                <td class="py-3 px-4 text-center">
+                                    <div class="text-xl font-bold text-gray-900">${video.score}</div>
+                                    <div class="text-xs text-gray-500">/ 100</div>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="p-2 rounded ${statusColor}">
+                                        <div class="font-medium text-sm">${statusText}</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            `;
+
+            tableContainer.innerHTML = '';
+            tableContainer.appendChild(table);
+
+            // Add sorting functionality
+            document.getElementById('sortByHook').onclick = () => {
+                videoData.sort((a, b) => b.hookRate - a.hookRate);
+                updateVideoRankingTable(videoCreatives);
+                updateSortButtons('sortByHook');
+            };
+
+            document.getElementById('sortByRetention').onclick = () => {
+                videoData.sort((a, b) => b.retention - a.retention);
+                updateVideoRankingTable(videoCreatives);
+                updateSortButtons('sortByRetention');
+            };
+
+            document.getElementById('sortByCompletion').onclick = () => {
+                videoData.sort((a, b) => b.completion - a.completion);
+                updateVideoRankingTable(videoCreatives);
+                updateSortButtons('sortByCompletion');
+            };
+        }
+
+        function updateSortButtons(activeButton) {
+            document.querySelectorAll('[id^="sortBy"]').forEach(btn => {
+                btn.className = 'px-3 py-1 text-sm bg-gray-100 text-gray-600 rounded-full';
+            });
+            document.getElementById(activeButton).className = 'px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-full';
+        }
+
+        function showDetailedAnalysis(creativeId, analysis) {
+            const panel = document.getElementById('videoAnalysisPanel');
+            const content = document.getElementById('videoAnalysisContent');
+            
+            // Create retention timeline visualization
+            const retentionData = [
+                { point: '0s', label: 'Start', value: 100 },
+                { point: '3s', label: 'Hook', value: analysis.hook_analysis.initial_hook },
+                { point: '25%', label: '25%', value: analysis.hook_analysis.retention_25pct },
+                { point: '50%', label: '50%', value: analysis.hook_analysis.retention_50pct },
+                { point: '75%', label: '75%', value: analysis.hook_analysis.retention_75pct },
+                { point: 'End', label: 'End', value: analysis.hook_analysis.completion_rate }
+            ];
+
+            content.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Retention Timeline -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-gray-900 mb-4">Retention Timeline</h4>
+                        <div class="space-y-3">
+                            ${retentionData.map((point, index) => `
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium">
+                                            ${index + 1}
+                                        </div>
+                                        <span class="text-sm font-medium">${point.label}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                                            <div class="bg-blue-500 h-2 rounded-full" style="width: ${point.value}%"></div>
+                                        </div>
+                                        <span class="text-sm font-bold w-12">${point.value.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
                     </div>
-                `).join('');
-            }
-        }
 
-        async function loadData() {
-            const dateRange = document.getElementById('dateRange').value;
-            const loading = document.getElementById('loading');
-            const error = document.getElementById('error');
-            const content = document.getElementById('content');
-            const refreshIcon = document.getElementById('refreshIcon');
-
-            loading.classList.remove('hidden');
-            error.classList.add('hidden');
-            content.classList.add('hidden');
-            refreshIcon.style.animation = 'spin 1s linear infinite';
-
-            try {
-                // Load account data and campaigns first
-                accountData = await fetchAccountData(dateRange);
-                campaigns = await fetchCampaigns(dateRange);
-                
-                updateOverviewUI();
-                updateCampaignsUI();
-                
-                loading.classList.add('hidden');
-                content.classList.remove('hidden');
-            } catch (err) {
-                loading.classList.add('hidden');
-                error.classList.remove('hidden');
-                document.getElementById('errorMessage').textContent = err.message;
-            } finally {
-                refreshIcon.style.animation = '';
-            }
-        }
-
-        // Event listeners
-        document.getElementById('refreshBtn').addEventListener('click', loadData);
-        document.getElementById('dateRange').addEventListener('change', () => {
-            creatives = []; // Reset creatives when date changes
-            videoAnalysisData = null; // Reset video analysis
-            loadData();
-        });
-
-        // Load data on page load
-        loadData();
-    </script>
-</body>
-</html>
+                    <!-- Hook Performance Breakdown -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-gray-900 mb-4">Hook Performance Breakdown</h4>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Initial Hook (0-3s)</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold">${analysis.hook_analysis.initial_hook.toFixed(1)}%</span>
+                                    <span class="grade-${analysis.performance_grades.hook} px-2 py-1 rounded text-xs">${analysis.performance_grades.hook}</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Early Retention (25%)</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold">${analysis.hook_analysis.retention_25pct.toFixed(1)}%</span>
+                                    <span class="grade-${analysis.performance_grades.retention} px-2 py-1 rounded text-xs">${analysis.performance_grades.retention}</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Mid Retention (50%)</span>
+                                <span class="font-bold">${analysis.hook_analysis.retention_50pct.toFixed(1)}%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Completion Rate</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold">${analysis.hook_analysis.completion_rate.toFixed(1)}%</span>
