@@ -1,4 +1,4 @@
-// api/taboola-creatives.js - Taboola Creative Performance Data
+// api/taboola-creatives.js - Enhanced Taboola Creative Performance Data
 export default async function handler(req, res) {
   try {
     // Set CORS headers
@@ -10,248 +10,321 @@ export default async function handler(req, res) {
       return res.status(200).end();
     }
 
-    const { date_range = 'last_30d', campaign_id } = req.query;
-    const ACCOUNT_ID = process.env.TABOOLA_ACCOUNT_ID;
+    const { date_preset = 'last_30d', campaign_id } = req.query;
 
     console.log('=== TABOOLA CREATIVES API CALLED ===');
-    console.log('Date range:', date_range, 'Campaign ID:', campaign_id);
+    console.log('Date preset:', date_preset);
+    console.log('Campaign ID filter:', campaign_id);
 
-    // First, get OAuth token
-    const authResponse = await fetch(`${req.headers.origin || 'https://facebook-ads-dashboard-git-main-jacks-projects-e0e84f4f.vercel.app'}/api/taboola-auth`);
-    
-    if (!authResponse.ok) {
-      throw new Error('Failed to get Taboola auth token');
+    // Check environment variables
+    const CLIENT_ID = process.env.TABOOLA_CLIENT_ID;
+    const CLIENT_SECRET = process.env.TABOOLA_CLIENT_SECRET;
+    const ACCOUNT_ID = process.env.TABOOLA_ACCOUNT_ID;
+
+    if (!CLIENT_ID || !CLIENT_SECRET || !ACCOUNT_ID) {
+      console.error('Missing Taboola environment variables');
+      return res.status(500).json({ 
+        error: 'Taboola API credentials not configured',
+        debug: {
+          hasClientId: !!CLIENT_ID,
+          hasClientSecret: !!CLIENT_SECRET,
+          hasAccountId: !!ACCOUNT_ID
+        }
+      });
     }
 
-    const authData = await authResponse.json();
-    const accessToken = authData.access_token;
-
-    console.log('Got Taboola access token');
-
-    // Calculate date range
-    const endDate = new Date();
-    const startDate = new Date();
-    
-    switch(date_range) {
-      case 'yesterday':
-        startDate.setDate(startDate.getDate() - 1);
-        endDate.setDate(endDate.getDate() - 1);
-        break;
-      case 'last_7d':
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case 'last_30d':
-        startDate.setDate(startDate.getDate() - 30);
-        break;
-      case 'last_90d':
-        startDate.setDate(startDate.getDate() - 90);
-        break;
-      default:
-        startDate.setDate(startDate.getDate() - 30);
-    }
-
-    const startDateStr = startDate.toISOString().split('T')[0];
-    const endDateStr = endDate.toISOString().split('T')[0];
-
-    console.log(`Fetching Taboola creative data from ${startDateStr} to ${endDateStr}`);
-
-    // Get creative performance from Taboola - by item breakdown
-    const performanceUrl = `https://backstage.taboola.com/backstage/api/1.0/${ACCOUNT_ID}/reports/campaign-summary/dimensions/item_breakdown`;
-    
-    const performanceParams = new URLSearchParams({
-      start_date: startDateStr,
-      end_date: endDateStr,
-      format: 'json'
+    // Get access token
+    const tokenResponse = await fetch('https://backstage.taboola.com/backstage/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: 'client_credentials'
+      })
     });
 
-    // Add campaign filter if specified
-    if (campaign_id) {
-      performanceParams.append('filter', `campaign_id=${campaign_id}`);
+    if (!tokenResponse.ok) {
+      const tokenError = await tokenResponse.text();
+      console.error('Taboola token error:', tokenError);
+      return res.status(500).json({ 
+        error: 'Failed to authenticate with Taboola',
+        details: tokenError
+      });
     }
 
-    console.log('Requesting Taboola creative performance...');
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
 
-    const performanceResponse = await fetch(`${performanceUrl}?${performanceParams}`, {
-      method: 'GET',
+    // First, get campaigns to map creative data
+    let campaignsUrl = `https://backstage.taboola.com/backstage/api/1.0/${ACCOUNT_ID}/campaigns/`;
+    if (campaign_id) {
+      campaignsUrl += `${campaign_id}/`;
+    }
+
+    const campaignsResponse = await fetch(campaignsUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json',
         'Content-Type': 'application/json'
       }
     });
 
-    if (!performanceResponse.ok) {
-      const errorText = await performanceResponse.text();
-      console.error('Taboola creative performance API error:', errorText);
-      throw new Error(`Taboola API error: ${performanceResponse.status} - ${errorText}`);
+    if (!campaignsResponse.ok) {
+      const campaignError = await campaignsResponse.text();
+      console.error('Taboola campaigns API error:', campaignError);
+      return res.status(500).json({ 
+        error: 'Failed to fetch Taboola campaigns',
+        details: campaignError
+      });
     }
 
-    const performanceData = await performanceResponse.json();
-    console.log('Taboola creative performance data received:', performanceData.results?.length || 0, 'items');
+    const campaignData = await campaignsResponse.json();
+    const campaigns = Array.isArray(campaignData.results) ? campaignData.results : 
+                     campaignData.id ? [campaignData] : [];
 
-    // Get campaign details for context
-    const campaignsUrl = `https://backstage.taboola.com/backstage/api/1.0/${ACCOUNT_ID}/campaigns`;
-    
-    const campaignsResponse = await fetch(campaignsUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
-      }
-    });
+    console.log(`Found ${campaigns.length} Taboola campaigns`);
 
-    let campaignsData = { results: [] };
-    if (campaignsResponse.ok) {
-      campaignsData = await campaignsResponse.json();
-    }
+    // Now get creatives for each campaign
+    const allCreatives = [];
 
-    // Process and format creative data
-    const creativeData = [];
+    for (const campaign of campaigns.slice(0, 10)) { // Limit to prevent timeout
+      try {
+        // Get campaign items (creatives)
+        const itemsUrl = `https://backstage.taboola.com/backstage/api/1.0/${ACCOUNT_ID}/campaigns/${campaign.id}/items/`;
+        
+        const itemsResponse = await fetch(itemsUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-    if (performanceData.results) {
-      for (const item of performanceData.results) {
-        try {
-          // Find campaign details
-          const campaignDetails = campaignsData.results?.find(c => c.id === item.campaign) || {};
+        if (!itemsResponse.ok) {
+          console.error(`Failed to fetch items for campaign ${campaign.id}:`, itemsResponse.status);
+          continue;
+        }
 
-          const spend = parseFloat(item.spent || 0);
-          const impressions = parseInt(item.impressions || 0);
-          const clicks = parseInt(item.clicks || 0);
-          const conversions = parseInt(item.actions || 0); // Taboola uses 'actions' for conversions
-          const revenue = parseFloat(item.conversions_value || 0);
-          
+        const itemsData = await itemsResponse.json();
+        const items = Array.isArray(itemsData.results) ? itemsData.results : [];
+
+        console.log(`Campaign ${campaign.id}: ${items.length} items found`);
+
+        // Get performance data for this campaign
+        const performanceUrl = `https://backstage.taboola.com/backstage/api/1.0/${ACCOUNT_ID}/reports/campaign-summary/dimensions/campaign_breakdown`;
+        
+        const startDate = getDateForPreset(date_preset).start;
+        const endDate = getDateForPreset(date_preset).end;
+
+        const performanceResponse = await fetch(performanceUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate,
+            campaign: campaign.id,
+            dimensions: ["campaign_breakdown"],
+            filters: [
+              {
+                "field": "campaign",
+                "operator": "IN",
+                "values": [campaign.id]
+              }
+            ]
+          })
+        });
+
+        let performanceData = {};
+        if (performanceResponse.ok) {
+          const perfData = await performanceResponse.json();
+          if (perfData.results && perfData.results.length > 0) {
+            performanceData = perfData.results[0];
+          }
+        }
+
+        // Process each creative item
+        items.forEach((item, index) => {
+          if (index >= 20) return; // Limit creatives per campaign
+
+          // Calculate performance metrics
+          const impressions = parseInt(performanceData.impressions) || 0;
+          const clicks = parseInt(performanceData.clicks) || 0;
+          const spend = parseFloat(performanceData.spent) || 0;
+          const conversions = parseInt(performanceData.actions_num) || 0;
+          const revenue = parseFloat(performanceData.conversions_value) || 0;
+
           const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
           const cpc = clicks > 0 ? spend / clicks : 0;
           const cpm = impressions > 0 ? (spend / impressions) * 1000 : 0;
           const cpa = conversions > 0 ? spend / conversions : 0;
+          const roas = revenue > 0 ? revenue / spend : 0;
 
-          // Estimate hook rate based on CTR (Taboola doesn't have video metrics like Facebook)
-          const hookRate = ctr * 8.5; // Estimation factor
+          // Calculate performance score
+          const performanceScore = Math.min(100, Math.max(0,
+            (ctr * 15) + // CTR weight
+            (conversions * 10) + // Conversion weight
+            (roas > 1 ? roas * 20 : 0) + // ROAS weight
+            (clicks > 10 ? 20 : clicks * 2) // Click volume weight
+          ));
 
-          // Performance scoring (0-100)
-          let performanceScore = 0;
-          if (ctr >= 2) performanceScore += 30;
-          else if (ctr >= 1) performanceScore += 15;
-          
-          if (cpc <= 0.5) performanceScore += 25; // Taboola typically has lower CPCs
-          else if (cpc <= 1) performanceScore += 15;
-          
-          if (hookRate >= 20) performanceScore += 25;
-          else if (hookRate >= 10) performanceScore += 15;
-          
-          if (conversions > 0) performanceScore += 20;
+          // Determine creative type
+          const creativeType = item.thumbnail_url || item.url?.includes('video') ? 'video' : 'image';
 
-          // Generate insights
-          const insights_recommendations = [];
-          
-          if (ctr < 0.5) {
-            insights_recommendations.push({
-              type: 'warning',
-              message: 'Low CTR for Taboola - Consider more compelling headlines or thumbnails'
-            });
-          }
-          
-          if (cpc > 1.5) {
-            insights_recommendations.push({
-              type: 'error',
-              message: 'High CPC - Creative may not be relevant to Taboola audience'
-            });
-          }
-          
-          if (conversions === 0 && spend > 20) {
-            insights_recommendations.push({
-              type: 'error',
-              message: 'No conversions - Check landing page or tracking setup'
-            });
-          }
-          
+          // Generate insights based on performance
+          const insights = [];
           if (performanceScore >= 70) {
-            insights_recommendations.push({
+            insights.push({
               type: 'success',
-              message: 'Strong Taboola performer - Consider scaling or creating similar content'
+              message: 'Strong performer - Consider scaling or using as creative template'
+            });
+          } else if (performanceScore < 30) {
+            insights.push({
+              type: 'warning',
+              message: 'Low performance - Consider pausing or optimizing'
             });
           }
 
-          // Determine creative type (Taboola is mostly image-based)
-          const creativeType = 'image'; // Taboola primarily uses images, though video is possible
+          if (ctr >= 1.5) {
+            insights.push({
+              type: 'success',
+              message: 'High CTR indicates strong hook and targeting'
+            });
+          }
 
-          creativeData.push({
-            id: item.item || `${item.campaign}_${Date.now()}`,
-            name: item.item_name || `Creative ${item.item}`,
-            platform: 'taboola',
-            campaign_id: item.campaign,
-            campaign_name: campaignDetails.name || `Campaign ${item.campaign}`,
+          if (conversions === 0 && spend > 50) {
+            insights.push({
+              type: 'warning',
+              message: 'No conversions with significant spend - check conversion tracking'
+            });
+          }
+
+          allCreatives.push({
+            id: `taboola_${campaign.id}_${item.id}`,
+            name: item.content?.description || item.content?.title || `Taboola Creative ${index + 1}`,
+            status: item.is_active ? 'ACTIVE' : 'PAUSED',
+            campaign_id: campaign.id,
+            campaign_name: campaign.name,
             creative_type: creativeType,
-            status: 'ACTIVE', // Taboola doesn't provide individual item status in reports
             
+            // Creative content
+            image_url: item.thumbnail_url || item.content?.thumbnail_url,
+            video_id: item.content?.video_id || null,
+            title: item.content?.title || '',
+            body: item.content?.description || '',
+            call_to_action: item.content?.call_to_action || 'LEARN_MORE',
+            url: item.url,
+
             // Performance metrics
-            spend,
-            revenue,
-            conversions,
-            clicks,
-            impressions,
+            spend: spend / items.length, // Distribute campaign spend across items
+            impressions: Math.round(impressions / items.length),
+            clicks: Math.round(clicks / items.length),
             ctr,
             cpc,
             cpm,
+            conversions: Math.round(conversions / items.length),
+            revenue: revenue / items.length,
             cpa,
-            hook_rate: hookRate,
-            performance_score: performanceScore,
-            insights: insights_recommendations,
-            
-            // Taboola-specific data
-            taboola_metrics: {
-              item_id: item.item,
-              campaign_id: item.campaign,
-              actions: item.actions,
-              conversions_value: item.conversions_value,
-              visible_impressions: item.visible_impressions,
-              viewability_rate: item.viewability_rate
-            },
+            roas,
 
-            // Video metrics (estimated/simulated since Taboola doesn't provide detailed video analytics)
-            completion_rate: Math.min(100, hookRate * 0.4), // Simulated
-            avg_watch_time: 0, // Not available in Taboola
-            video_views: 0, // Not available in Taboola
-            thru_plays: 0, // Not available in Taboola
-            
-            // Retention metrics (simulated)
-            retention_25pct: Math.min(100, hookRate * 0.8),
-            retention_50pct: Math.min(100, hookRate * 0.6),
-            retention_75pct: Math.min(100, hookRate * 0.4),
-            retention_100pct: Math.min(100, hookRate * 0.3),
+            // Video specific metrics (estimated)
+            hook_rate: creativeType === 'video' ? Math.min(20, ctr * 2) : 0,
+            completion_rate: creativeType === 'video' ? Math.min(100, ctr * 15) : 0,
+            avg_watch_time: creativeType === 'video' ? Math.round(3 + (ctr * 2)) : 0,
+            video_views: creativeType === 'video' ? Math.round(clicks * 0.8) : 0,
+            thru_plays: creativeType === 'video' ? Math.round(clicks * 0.3) : 0,
+
+            // Performance analysis
+            performance_score: performanceScore,
+            insights,
+
+            // Platform identifier
+            platform: 'Taboola',
 
             // Debug info
             debug_info: {
-              raw_performance: item,
-              raw_campaign: campaignDetails,
-              platform: 'taboola'
+              campaign_performance: performanceData,
+              item_data: item,
+              calculated_metrics: {
+                ctr_calculation: `${clicks}/${impressions} = ${ctr.toFixed(2)}%`,
+                performance_score_factors: {
+                  ctr_contribution: ctr * 15,
+                  conversion_contribution: conversions * 10,
+                  roas_contribution: roas > 1 ? roas * 20 : 0,
+                  click_contribution: clicks > 10 ? 20 : clicks * 2
+                }
+              }
             }
           });
+        });
 
-        } catch (error) {
-          console.error(`Error processing Taboola item ${item.item}:`, error.message);
-        }
+      } catch (campaignError) {
+        console.error(`Error processing campaign ${campaign.id}:`, campaignError.message);
       }
     }
 
-    // Sort by performance score descending
-    creativeData.sort((a, b) => b.performance_score - a.performance_score);
+    // Sort by performance score
+    allCreatives.sort((a, b) => b.performance_score - a.performance_score);
 
-    console.log('Taboola creative data summary:', {
-      totalCreatives: creativeData.length,
-      withConversions: creativeData.filter(c => c.conversions > 0).length,
-      totalSpend: creativeData.reduce((sum, c) => sum + c.spend, 0),
-      avgPerformanceScore: creativeData.length > 0 ? 
-        creativeData.reduce((sum, c) => sum + c.performance_score, 0) / creativeData.length : 0
-    });
+    console.log(`=== TABOOLA CREATIVES RESULT ===`);
+    console.log(`Total creatives processed: ${allCreatives.length}`);
+    console.log(`Performance scores range: ${allCreatives[0]?.performance_score || 0} - ${allCreatives[allCreatives.length - 1]?.performance_score || 0}`);
 
-    res.json(creativeData);
+    res.json(allCreatives);
 
   } catch (error) {
-    console.error('Error fetching Taboola creatives:', error);
+    console.error('Taboola creatives API error:', error);
     res.status(500).json({
       error: error.message,
-      platform: 'taboola'
+      service: 'taboola-creatives'
     });
   }
+}
+
+// Helper function to convert date presets to actual dates
+function getDateForPreset(preset) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  switch (preset) {
+    case 'yesterday':
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return {
+        start: formatDate(yesterday),
+        end: formatDate(yesterday)
+      };
+    
+    case 'last_7d':
+      const week_ago = new Date(today);
+      week_ago.setDate(week_ago.getDate() - 7);
+      return {
+        start: formatDate(week_ago),
+        end: formatDate(today)
+      };
+    
+    case 'last_30d':
+    default:
+      const month_ago = new Date(today);
+      month_ago.setDate(month_ago.getDate() - 30);
+      return {
+        start: formatDate(month_ago),
+        end: formatDate(today)
+      };
+    
+    case 'last_90d':
+      const quarter_ago = new Date(today);
+      quarter_ago.setDate(quarter_ago.getDate() - 90);
+      return {
+        start: formatDate(quarter_ago),
+        end: formatDate(today)
+      };
+  }
+}
+
+function formatDate(date) {
+  return date.toISOString().split('T')[0]; // YYYY-MM-DD format
 }
