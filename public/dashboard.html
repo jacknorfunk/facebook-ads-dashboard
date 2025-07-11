@@ -480,15 +480,53 @@
                     fetch(`${API_BASE}/api/taboola-creatives?date_range=${dateRange}`)
                 ]);
 
-                if (!campaignsResponse.ok || !creativesResponse.ok) {
-                    throw new Error('Taboola API request failed');
+                debugLog(`Taboola responses - Campaigns: ${campaignsResponse.status}, Creatives: ${creativesResponse.status}`);
+
+                // Handle campaigns response
+                if (campaignsResponse.ok) {
+                    const campaignsData = await campaignsResponse.json();
+                    
+                    // Check if it's an error response with empty data
+                    if (campaignsData.success === false) {
+                        debugLog(`Taboola campaigns API returned error: ${campaignsData.error}`);
+                        taboolaData.campaigns = [];
+                    } else if (Array.isArray(campaignsData)) {
+                        taboolaData.campaigns = campaignsData;
+                    } else {
+                        debugLog('Taboola campaigns response format unexpected');
+                        taboolaData.campaigns = [];
+                    }
+                } else {
+                    debugLog(`Taboola campaigns fetch failed with status: ${campaignsResponse.status}`);
+                    taboolaData.campaigns = [];
                 }
 
-                taboolaData.campaigns = await campaignsResponse.json();
-                taboolaData.creatives = await creativesResponse.json();
+                // Handle creatives response
+                if (creativesResponse.ok) {
+                    const creativesData = await creativesResponse.json();
+                    
+                    if (creativesData.success === false) {
+                        debugLog(`Taboola creatives API returned error: ${creativesData.error}`);
+                        taboolaData.creatives = [];
+                    } else if (Array.isArray(creativesData)) {
+                        taboolaData.creatives = creativesData;
+                    } else {
+                        debugLog('Taboola creatives response format unexpected');
+                        taboolaData.creatives = [];
+                    }
+                } else {
+                    debugLog(`Taboola creatives fetch failed with status: ${creativesResponse.status}`);
+                    taboolaData.creatives = [];
+                }
 
-                updatePlatformStatus('taboola', 'connected');
-                debugLog(`Taboola data loaded: ${taboolaData.campaigns.length} campaigns, ${taboolaData.creatives.length} creatives`);
+                // Update status based on data received
+                if (taboolaData.campaigns.length > 0 || taboolaData.creatives.length > 0) {
+                    updatePlatformStatus('taboola', 'connected');
+                    debugLog(`Taboola data loaded: ${taboolaData.campaigns.length} campaigns, ${taboolaData.creatives.length} creatives`);
+                } else {
+                    updatePlatformStatus('taboola', 'error', 'No data available - check account access');
+                    debugLog('Taboola connected but no data available');
+                }
 
             } catch (error) {
                 updatePlatformStatus('taboola', 'error', error.message);
