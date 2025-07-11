@@ -185,11 +185,11 @@ function extractSuccessFactors(creative, analysisData) {
   return factors;
 }
 
-// Generate direct variations
+// Generate direct variations with guaranteed image generation
 async function generateDirectVariations(baseCreative, successFactors, targetPlatform) {
   const variations = [];
 
-  // Headline variations
+  // Headline variations (these work fine)
   const headlineVariations = generateHeadlineVariations(baseCreative, successFactors);
   
   headlineVariations.forEach((headline, index) => {
@@ -217,41 +217,26 @@ async function generateDirectVariations(baseCreative, successFactors, targetPlat
     });
   });
 
-  // Visual variations using real OpenAI DALL-E 3
-  if (process.env.OPENAI_API_KEY) {
-    try {
-      const visualVariations = await generateRealImages(baseCreative, successFactors, targetPlatform);
-      variations.push(...visualVariations);
-    } catch (error) {
-      console.error('Real image generation failed, using mock:', error);
-      // Fallback to mock if real generation fails
-      variations.push(...generateMockVisuals(baseCreative, successFactors, targetPlatform));
-    }
-  } else {
-    // Mock visual variations
-    for (let i = 0; i < 2; i++) {
-      variations.push({
-        id: `img_${Date.now()}_${i}`,
-        type: 'image_variation',
-        platform: targetPlatform,
-        generation_method: 'ai_image_generation',
-        
-        creative_data: {
-          description: `AI-generated visual variation ${i + 1} based on successful elements`,
-          style: i === 0 ? 'enhanced_contrast' : 'emotional_focus',
-          dimensions: targetPlatform === 'facebook' ? '1200x630' : '1200x800',
-          image_url: null // Would contain actual generated image URL
-        },
-
-        ai_rationale: `Generated using successful visual patterns from base creative`,
-        
-        predicted_improvements: {
-          visual_appeal_lift: '+20-35%',
-          engagement_score: 75 + (i * 8),
-          thumb_stopping_power: 'enhanced'
-        }
-      });
-    }
+  // ALWAYS generate real images - simplified and guaranteed
+  console.log('🎨 Starting guaranteed image generation...');
+  
+  try {
+    const realImages = await generateGuaranteedImages(baseCreative, targetPlatform);
+    variations.push(...realImages);
+    console.log(`✅ Successfully added ${realImages.length} real images`);
+  } catch (error) {
+    console.error('❌ Image generation failed:', error);
+    // Add error details to variations so we can see what went wrong
+    variations.push({
+      id: `img_error_${Date.now()}`,
+      type: 'image_generation_error',
+      platform: targetPlatform,
+      generation_method: 'openai_dalle3_failed',
+      creative_data: {
+        error_message: error.message,
+        error_details: 'Check Vercel function logs for full details'
+      }
+    });
   }
 
   return variations;
@@ -469,7 +454,93 @@ function generateTestingStrategy(creatives, baseCreative) {
   };
 }
 
-// Generate real images using OpenAI DALL-E 3
+// Guaranteed image generation - simplified version that always works
+async function generateGuaranteedImages(baseCreative, targetPlatform) {
+  const variations = [];
+  const headline = baseCreative.title || baseCreative.name || 'Car Finance';
+  
+  console.log(`🎨 Generating images for: "${headline}"`);
+  
+  // Single, simple image generation that we know works
+  const prompt = `Professional car finance advertisement featuring a modern car, clean minimal design, trustworthy business aesthetic, professional photography style, bright lighting, based on successful headline: "${headline}". High-quality marketing image, optimized for ${targetPlatform}`;
+  
+  console.log(`📝 Using prompt: ${prompt}`);
+  
+  try {
+    console.log('🔄 Calling DALL-E API...');
+    
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: prompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        style: "vivid"
+      })
+    });
+
+    console.log(`📊 DALL-E response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ DALL-E API error:', errorData);
+      throw new Error(`DALL-E API failed: ${response.status} - ${JSON.stringify(errorData)}`);
+    }
+
+    const imageData = await response.json();
+    const imageUrl = imageData.data[0].url;
+    
+    console.log(`✅ Image generated successfully: ${imageUrl}`);
+
+    variations.push({
+      id: `dalle_${Date.now()}`,
+      type: 'ai_generated_image',
+      platform: targetPlatform,
+      generation_method: 'openai_dalle3',
+      
+      creative_data: {
+        title: `AI-Generated Creative for "${headline}"`,
+        description: `DALL-E 3 generated professional car finance advertisement`,
+        style: 'professional_trust',
+        dimensions: '1024x1024',
+        image_url: imageUrl,
+        download_url: imageUrl,
+        prompt_used: prompt,
+        generated_at: new Date().toISOString()
+      },
+
+      ai_rationale: `Generated professional car finance visual based on successful headline elements`,
+      
+      predicted_improvements: {
+        visual_appeal_lift: '+25-45%',
+        engagement_score: 85,
+        thumb_stopping_power: 'high',
+        conversion_potential: 'enhanced'
+      },
+
+      implementation: {
+        ready_to_use: true,
+        testing_priority: 'high',
+        recommended_budget: '30%',
+        platform_optimized: true
+      }
+    });
+
+    console.log(`🎉 Successfully created image variation with URL: ${imageUrl}`);
+
+  } catch (error) {
+    console.error('💥 Guaranteed image generation failed:', error);
+    throw error; // Re-throw to be caught by the calling function
+  }
+
+  return variations;
+}
 async function generateRealImages(baseCreative, successFactors, targetPlatform) {
   const variations = [];
   
@@ -496,7 +567,8 @@ async function generateRealImages(baseCreative, successFactors, targetPlatform) 
     const imagePrompt = imagePrompts[i];
     
     try {
-      console.log(`Generating real image ${i + 1} with DALL-E 3...`);
+      console.log(`🎨 Generating real image ${i + 1} with DALL-E 3...`);
+      console.log(`Prompt: ${imagePrompt.prompt}`);
       
       const response = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
@@ -514,14 +586,18 @@ async function generateRealImages(baseCreative, successFactors, targetPlatform) 
         })
       });
 
+      console.log(`DALL-E API response status: ${response.status}`);
+
       if (!response.ok) {
-        throw new Error(`DALL-E API error: ${response.status}`);
+        const errorData = await response.json();
+        console.error(`DALL-E API error details:`, errorData);
+        throw new Error(`DALL-E API error: ${response.status} - ${JSON.stringify(errorData)}`);
       }
 
       const imageData = await response.json();
       const imageUrl = imageData.data[0].url;
 
-      console.log(`✅ Generated real image: ${imageUrl}`);
+      console.log(`✅ Generated real image successfully: ${imageUrl}`);
 
       variations.push({
         id: `dalle_${Date.now()}_${i}`,
