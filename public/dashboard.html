@@ -1,4 +1,63 @@
-// Creative Generator functionality
+).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button class="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                    onclick="launchTest('${creative.id}')">
+                                🚀 Launch Test
+                            </button>
+                            <button class="px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
+                                    onclick="saveCreative('${creative.id}')">
+                                💾 Save
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            // Add testing recommendations
+            if (generationResult.generation_summary.testing_recommendations) {
+                html += `
+                    <div class="mt-6 bg-blue-50 p-4 rounded-lg">
+                        <h3 class="font-semibold text-blue-800 mb-3">🧪 Testing Strategy</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <strong class="text-blue-700">Approach:</strong><br>
+                                ${generationResult.generation_summary.testing_recommendations.approach}
+                            </div>
+                            <div>
+                                <strong class="text-blue-700">Duration:</strong><br>
+                                ${generationResult.generation_summary.testing_recommendations.duration}
+                            </div>
+                            <div class="md:col-span-2">
+                                <strong class="text-blue-700">Success Criteria:</strong><br>
+                                ${generationResult.generation_summary.testing_recommendations.success_criteria.join(' • ')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            generatedDiv.innerHTML = html;
+        }
+
+        // Creative actions
+        function launchTest(creativeId) {
+            debugLog(`Launching test for creative: ${creativeId}`);
+            // This would integrate with your ad platform APIs to actually create campaigns
+            alert('Test launch functionality would integrate with Facebook/Taboola APIs to create campaigns');
+        }
+
+        function saveCreative(creativeId) {
+            debugLog(`Saving creative: ${creativeId}`);
+            // This would save to your database/storage
+            alert('Creative saved to your library');
+        }
+
+        // Creative Generator functionality
         function updateCreativeGenerator() {
             if (allCreatives.length === 0) return;
             
@@ -25,6 +84,119 @@
                 generateBtn.textContent = baseSelect.value ? '🚀 Generate with AI' : '🚀 Select creative first';
             });
         }
+
+        // Generate creatives from current analysis
+        async function generateCreativesFromAnalysis() {
+            if (!currentAnalysis) {
+                debugLog('No current analysis available for generation');
+                return;
+            }
+            
+            debugLog('Starting creative generation from AI analysis...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/real-creative-generator`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        base_creative_id: currentAnalysis.creative_id,
+                        generation_type: 'variation',
+                        target_platform: 'facebook',
+                        success_factors: currentAnalysis.success_factors,
+                        creative_format: 'image'
+                    })
+                });
+                
+                if (response.ok) {
+                    const generationResult = await response.json();
+                    debugLog(`Creative generation completed: ${generationResult.generated_count} creatives generated`);
+                    
+                    // Display generated creatives
+                    displayGeneratedCreatives(generationResult);
+                    
+                    // Update AI status
+                    const aiGenerated = document.getElementById('aiGenerated');
+                    const currentGenerated = parseInt(aiGenerated.textContent) || 0;
+                    aiGenerated.textContent = currentGenerated + generationResult.generated_count;
+                    
+                } else {
+                    debugLog(`Creative generation failed: ${response.status}`);
+                }
+            } catch (error) {
+                debugLog(`Creative generation error: ${error.message}`);
+            }
+        }
+
+        // Generate creatives manually
+        document.getElementById('generateCreatives').addEventListener('click', async () => {
+            const baseCreativeId = document.getElementById('baseCreativeSelect').value;
+            const generationType = document.getElementById('generationType').value;
+            const targetPlatform = document.getElementById('targetPlatform').value;
+            
+            if (!baseCreativeId) {
+                debugLog('No base creative selected');
+                return;
+            }
+            
+            const baseCreative = allCreatives.find(c => c.id === baseCreativeId);
+            if (!baseCreative) {
+                debugLog('Base creative not found');
+                return;
+            }
+            
+            debugLog(`Starting creative generation: ${generationType} for ${targetPlatform}`);
+            
+            // Show loading state
+            const generateBtn = document.getElementById('generateCreatives');
+            const originalText = generateBtn.textContent;
+            generateBtn.textContent = '🚀 Generating...';
+            generateBtn.disabled = true;
+            
+            try {
+                // Use success factors from current analysis or create basic ones
+                const successFactors = currentAnalysis?.success_factors || [
+                    { factor: 'high_ctr', impact_score: baseCreative.ctr / 2, category: 'performance' },
+                    { factor: 'engagement', impact_score: 0.6, category: 'psychological' }
+                ];
+                
+                const response = await fetch(`${API_BASE}/api/real-creative-generator`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        base_creative_id: baseCreativeId,
+                        generation_type: generationType,
+                        target_platform: targetPlatform,
+                        success_factors: successFactors,
+                        creative_format: 'image'
+                    })
+                });
+                
+                if (response.ok) {
+                    const generationResult = await response.json();
+                    debugLog(`Creative generation completed: ${generationResult.generated_count} creatives generated`);
+                    
+                    // Display generated creatives
+                    displayGeneratedCreatives(generationResult);
+                    
+                    // Update AI status
+                    const aiGenerated = document.getElementById('aiGenerated');
+                    const currentGenerated = parseInt(aiGenerated.textContent) || 0;
+                    aiGenerated.textContent = currentGenerated + generationResult.generated_count;
+                    
+                } else {
+                    debugLog(`Creative generation failed: ${response.status}`);
+                }
+            } catch (error) {
+                debugLog(`Creative generation error: ${error.message}`);
+            } finally {
+                generateBtn.textContent = originalText;
+                generateBtn.disabled = false;
+            }
+        });
 
         // Generate creatives from current analysis
         async function generateCreativesFromAnalysis() {
