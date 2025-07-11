@@ -353,6 +353,11 @@
             logDiv.scrollTop = logDiv.scrollHeight;
         }
 
+        // Compatibility function for generateAIVariations
+        function generateAIVariations() {
+            return generateCreatives();
+        }
+
         // Update status indicator
         function updateStatus(elementId, success) {
             const indicator = document.getElementById(elementId);
@@ -610,6 +615,11 @@
                     progressBar.style.display = 'none';
                 }, 1000);
             }
+        }
+
+        // Alternative function name for compatibility
+        async function generateAIVariations() {
+            return await generateCreatives();
         }
 
         // Generate AI creatives
