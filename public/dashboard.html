@@ -178,8 +178,29 @@
 
             <!-- Video Hook Analysis Tab -->
             <div id="video-analysis-content" class="tab-content">
-                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
                     <h2 class="text-xl font-semibold text-gray-900 mb-4">📺 Video Hook Analysis</h2>
+                    
+                    <!-- Overview Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-blue-600" id="avgHookRate">0.0%</div>
+                            <div class="text-sm text-blue-600">Average Hook Rate</div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-green-600" id="avgRetention">0.0%</div>
+                            <div class="text-sm text-green-600">Average Retention</div>
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-purple-600" id="avgCompletion">0.0%</div>
+                            <div class="text-sm text-purple-600">Average Completion</div>
+                        </div>
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-orange-600" id="totalVideos">0</div>
+                            <div class="text-sm text-orange-600">Total Videos</div>
+                        </div>
+                    </div>
+                    
                     <div id="videoAnalysisTable" class="overflow-x-auto">Loading video analysis...</div>
                 </div>
             </div>
@@ -228,6 +249,8 @@
         let campaigns = [];
         let creatives = [];
         let taboolaCampaigns = [];
+        let taboolaCreatives = [];
+        let allCreatives = []; // Combined Facebook + Taboola creatives
 
         // Debug logging
         function debugLog(message) {
@@ -364,6 +387,26 @@
             }
         }
 
+        async function fetchTaboolaCreatives() {
+            try {
+                debugLog('Fetching Taboola creatives...');
+                const response = await fetch(`${API_BASE}/api/taboola-creatives`);
+                debugLog(`Taboola creatives response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                debugLog(`Taboola creatives data received: ${Array.isArray(data) ? data.length : 'unknown'} creatives`);
+                
+                return Array.isArray(data) ? data : [];
+            } catch (error) {
+                debugLog(`Taboola creatives fetch failed: ${error.message}`);
+                return [];
+            }
+        }
+
         // UI update functions
         function updatePlatformStatus() {
             // Facebook status
@@ -411,18 +454,101 @@
         function updateOverviewTab() {
             if (!accountData) return;
             
-            document.getElementById('totalSpend').textContent = `£${accountData.spend.toLocaleString()}`;
-            document.getElementById('totalRevenue').textContent = `£${accountData.revenue.toLocaleString()}`;
-            document.getElementById('totalConversions').textContent = accountData.conversions.toLocaleString();
-            document.getElementById('averageCTR').textContent = `${accountData.ctr.toFixed(2)}%`;
+            // Calculate combined totals including Taboola
+            const taboolaSpend = taboolaCampaigns.reduce((sum, camp) => sum + (parseFloat(camp.spend) || 0), 0);
+            const taboolaRevenue = taboolaCampaigns.reduce((sum, camp) => sum + (parseFloat(camp.revenue) || 0), 0);
+            const taboolaConversions = taboolaCampaigns.reduce((sum, camp) => sum + (parseInt(camp.conversions) || 0), 0);
             
-            debugLog(`Updated overview UI with spend: £${accountData.spend.toFixed(2)}, revenue: £${accountData.revenue.toFixed(2)}, ROAS: ${accountData.roas.toFixed(2)}x`);
+            const totalSpend = accountData.spend + taboolaSpend;
+            const totalRevenue = accountData.revenue + taboolaRevenue;
+            const totalConversions = accountData.conversions + taboolaConversions;
+            const averageCTR = accountData.ctr; // Facebook CTR for now
+            
+            document.getElementById('totalSpend').textContent = `£${totalSpend.toLocaleString()}`;
+            document.getElementById('totalRevenue').textContent = `£${totalRevenue.toLocaleString()}`;
+            document.getElementById('totalConversions').textContent = totalConversions.toLocaleString();
+            document.getElementById('averageCTR').textContent = `${averageCTR.toFixed(2)}%`;
+            
+            // Update top performing creatives
+            updateTopCreatives();
+            
+            debugLog(`Updated overview UI with spend: £${totalSpend.toFixed(2)}, revenue: £${totalRevenue.toFixed(2)}, conversions: ${totalConversions}`);
+        }
+
+        function updateTopCreatives() {
+            const topCreativesDiv = document.getElementById('topCreatives');
+            
+            if (creatives.length === 0) {
+                topCreativesDiv.innerHTML = '<p class="text-gray-500">No creatives found yet...</p>';
+                return;
+            }
+            
+            // Sort creatives by performance score
+            const sortedCreatives = [...creatives].sort((a, b) => {
+                const scoreA = (a.ctr || 0) * 20 + (a.conversions || 0) * 5;
+                const scoreB = (b.ctr || 0) * 20 + (b.conversions || 0) * 5;
+                return scoreB - scoreA;
+            }).slice(0, 5);
+            
+            let html = '<div class="space-y-3">';
+            
+            sortedCreatives.forEach((creative, index) => {
+                const performanceScore = Math.min(100, Math.max(0, 
+                    (creative.ctr || 0) * 20 + (creative.conversions || 0) * 5
+                ));
+                
+                html += `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded-full">
+                                ${index + 1}
+                            </span>
+                            <div>
+                                <div class="font-medium text-gray-900 truncate max-w-xs">
+                                    ${creative.name || 'Unnamed Creative'}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    CTR: ${(creative.ctr || 0).toFixed(2)}% • Conversions: ${creative.conversions || 0}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold text-gray-900">${Math.round(performanceScore)}/100</div>
+                            <div class="text-sm text-gray-600">Score</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            topCreativesDiv.innerHTML = html;
         }
 
         function updateCampaignsTab() {
             const table = document.getElementById('campaignsTable');
             
-            if (campaigns.length === 0) {
+            // Combine Facebook and Taboola campaigns
+            const allCampaigns = [];
+            
+            // Add Facebook campaigns
+            campaigns.forEach(campaign => {
+                allCampaigns.push({
+                    ...campaign,
+                    platform: 'Facebook',
+                    platform_icon: '📘'
+                });
+            });
+            
+            // Add Taboola campaigns
+            taboolaCampaigns.forEach(campaign => {
+                allCampaigns.push({
+                    ...campaign,
+                    platform: 'Taboola',
+                    platform_icon: '🔶'
+                });
+            });
+            
+            if (allCampaigns.length === 0) {
                 table.innerHTML = '<p class="text-gray-500">No campaigns found or still loading...</p>';
                 return;
             }
@@ -443,8 +569,10 @@
                     <tbody>
             `;
             
-            campaigns.forEach(campaign => {
-                const roas = campaign.revenue > 0 ? campaign.revenue / campaign.spend : 0;
+            allCampaigns.forEach(campaign => {
+                const spend = parseFloat(campaign.spend) || 0;
+                const revenue = parseFloat(campaign.revenue) || 0;
+                const roas = revenue > 0 && spend > 0 ? revenue / spend : 0;
                 const statusColor = roas >= 2 ? 'bg-green-100 text-green-800' : 
                                    roas >= 1 ? 'bg-yellow-100 text-yellow-800' : 
                                    'bg-red-100 text-red-800';
@@ -452,10 +580,10 @@
                 
                 html += `
                     <tr class="border-b border-gray-100">
-                        <td class="py-3 px-4 font-medium text-gray-900">${campaign.name || 'Unnamed Campaign'}</td>
-                        <td class="py-3 px-4 text-right text-gray-900">📘 Facebook</td>
-                        <td class="py-3 px-4 text-right text-gray-900">£${(campaign.spend || 0).toLocaleString()}</td>
-                        <td class="py-3 px-4 text-right text-gray-900">£${(campaign.revenue || 0).toLocaleString()}</td>
+                        <td class="py-3 px-4 font-medium text-gray-900 max-w-xs truncate">${campaign.name || 'Unnamed Campaign'}</td>
+                        <td class="py-3 px-4 text-right text-gray-900">${campaign.platform_icon} ${campaign.platform}</td>
+                        <td class="py-3 px-4 text-right text-gray-900">£${spend.toLocaleString()}</td>
+                        <td class="py-3 px-4 text-right text-gray-900">£${revenue.toLocaleString()}</td>
                         <td class="py-3 px-4 text-right font-medium text-gray-900">${roas.toFixed(2)}x</td>
                         <td class="py-3 px-4 text-right text-gray-900">${campaign.conversions || 0}</td>
                         <td class="py-3 px-4 text-center">
@@ -469,18 +597,20 @@
             
             html += '</tbody></table>';
             table.innerHTML = html;
+            
+            debugLog(`Updated campaigns table with ${allCampaigns.length} campaigns (${campaigns.length} Facebook + ${taboolaCampaigns.length} Taboola)`);
         }
 
         function updateCreativesTab() {
             const grid = document.getElementById('creativesGrid');
             
-            if (creatives.length === 0) {
+            if (allCreatives.length === 0) {
                 grid.innerHTML = '<p class="text-gray-500 col-span-full">No creatives found or still loading...</p>';
                 return;
             }
             
             let html = '';
-            creatives.slice(0, 12).forEach(creative => {
+            allCreatives.slice(0, 12).forEach(creative => {
                 const performanceScore = Math.min(100, Math.max(0, 
                     (creative.ctr || 0) * 20 + 
                     (creative.conversions || 0) * 5 + 
@@ -496,10 +626,15 @@
                                   grade === 'C' ? 'bg-yellow-100 text-yellow-800' : 
                                   'bg-red-100 text-red-800';
                 
+                const platformIcon = creative.platform === 'Taboola' ? '🔶' : '📘';
+                
                 html += `
                     <div class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                         <div class="flex items-center justify-between mb-4">
-                            <h4 class="font-medium text-gray-900 truncate">${creative.name || 'Unnamed Creative'}</h4>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">${platformIcon}</span>
+                                <h4 class="font-medium text-gray-900 truncate flex-1">${creative.name || 'Unnamed Creative'}</h4>
+                            </div>
                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeColor}">
                                 Grade ${grade}
                             </span>
@@ -509,6 +644,10 @@
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">Performance Score</span>
                                 <span class="font-medium">${Math.round(performanceScore)}/100</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Platform</span>
+                                <span class="font-medium">${creative.platform || 'Facebook'}</span>
                             </div>
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">Spend</span>
@@ -533,6 +672,143 @@
             });
             
             grid.innerHTML = html;
+            debugLog(`Updated creatives grid with ${allCreatives.length} creatives`);
+        }
+
+        function updateVideoAnalysisTab() {
+            // Filter for video creatives only
+            const videoCreatives = allCreatives.filter(creative => 
+                creative.creative_type === 'video' || 
+                creative.video_id || 
+                creative.avg_watch_time > 0 ||
+                creative.video_views > 0
+            );
+            
+            const avgHookRateEl = document.getElementById('avgHookRate');
+            const avgRetentionEl = document.getElementById('avgRetention');
+            const avgCompletionEl = document.getElementById('avgCompletion');
+            const totalVideosEl = document.getElementById('totalVideos');
+            const table = document.getElementById('videoAnalysisTable');
+            
+            if (videoCreatives.length === 0) {
+                // Show summary with zeros
+                avgHookRateEl.textContent = '0.0%';
+                avgRetentionEl.textContent = '0.0%';
+                avgCompletionEl.textContent = '0.0%';
+                totalVideosEl.textContent = '0';
+                
+                table.innerHTML = '<p class="text-gray-500">No video creatives found. Video analysis requires video ads with engagement metrics.</p>';
+                return;
+            }
+            
+            // Calculate averages
+            const avgHookRate = videoCreatives.reduce((sum, v) => sum + (v.hook_rate || (v.ctr || 0) * 2), 0) / videoCreatives.length;
+            const avgRetention = videoCreatives.reduce((sum, v) => sum + (v.retention_25pct || (v.ctr || 0) * 3), 0) / videoCreatives.length;
+            const avgCompletion = videoCreatives.reduce((sum, v) => sum + (v.completion_rate || (v.ctr || 0) * 1.5), 0) / videoCreatives.length;
+            
+            avgHookRateEl.textContent = `${avgHookRate.toFixed(1)}%`;
+            avgRetentionEl.textContent = `${avgRetention.toFixed(1)}%`;
+            avgCompletionEl.textContent = `${avgCompletion.toFixed(1)}%`;
+            totalVideosEl.textContent = videoCreatives.length.toString();
+            
+            // Create table
+            let html = `
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortVideoTable('rank')">
+                                Rank <span class="text-gray-400">↕️</span>
+                            </th>
+                            <th class="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortVideoTable('name')">
+                                Video <span class="text-gray-400">↕️</span>
+                            </th>
+                            <th class="text-right py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortVideoTable('hookRate')">
+                                Hook Rate <span class="text-gray-400">↕️</span>
+                            </th>
+                            <th class="text-right py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortVideoTable('retention')">
+                                25% Retention <span class="text-gray-400">↕️</span>
+                            </th>
+                            <th class="text-right py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortVideoTable('completion')">
+                                Completion <span class="text-gray-400">↕️</span>
+                            </th>
+                            <th class="text-right py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortVideoTable('spend')">
+                                Spend <span class="text-gray-400">↕️</span>
+                            </th>
+                            <th class="text-right py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortVideoTable('cpc')">
+                                CPC <span class="text-gray-400">↕️</span>
+                            </th>
+                            <th class="text-right py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortVideoTable('conversions')">
+                                Conversions <span class="text-gray-400">↕️</span>
+                            </th>
+                            <th class="text-right py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100" onclick="sortVideoTable('cpa')">
+                                CPA <span class="text-gray-400">↕️</span>
+                            </th>
+                            <th class="text-center py-3 px-4 font-medium text-gray-700">Grade</th>
+                            <th class="text-center py-3 px-4 font-medium text-gray-700">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            videoCreatives.forEach((video, index) => {
+                const hookRate = video.hook_rate || (video.ctr || 0) * 2;
+                const retention = video.retention_25pct || (video.ctr || 0) * 3;
+                const completion = video.completion_rate || (video.ctr || 0) * 1.5;
+                const spend = video.spend || 0;
+                const cpc = video.cpc || 0;
+                const conversions = video.conversions || 0;
+                const cpa = conversions > 0 ? spend / conversions : 0;
+                
+                const overallScore = (hookRate + retention + completion) / 3;
+                const grade = overallScore >= 15 ? 'A' : overallScore >= 10 ? 'B' : overallScore >= 5 ? 'C' : 'D';
+                const gradeColor = grade === 'A' ? 'bg-green-100 text-green-800' :
+                                  grade === 'B' ? 'bg-blue-100 text-blue-800' :
+                                  grade === 'C' ? 'bg-yellow-100 text-yellow-800' : 
+                                  'bg-red-100 text-red-800';
+                
+                const platformIcon = video.platform === 'Taboola' ? '🔶' : '📺';
+                
+                html += `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="py-3 px-4">
+                            <span class="flex items-center justify-center w-8 h-8 bg-blue-500 text-white text-sm font-bold rounded-full">
+                                ${index + 1}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">${platformIcon}</span>
+                                <div class="max-w-xs truncate font-medium text-gray-900">
+                                    ${video.name || 'Unnamed Video'}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3 px-4 text-right font-medium">${hookRate.toFixed(1)}%</td>
+                        <td class="py-3 px-4 text-right">${retention.toFixed(1)}%</td>
+                        <td class="py-3 px-4 text-right">${completion.toFixed(1)}%</td>
+                        <td class="py-3 px-4 text-right">£${spend.toFixed(2)}</td>
+                        <td class="py-3 px-4 text-right">£${cpc.toFixed(2)}</td>
+                        <td class="py-3 px-4 text-right">${conversions}</td>
+                        <td class="py-3 px-4 text-right">${cpa > 0 ? '£' + cpa.toFixed(2) : '-'}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeColor}">
+                                ${grade}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                            <button class="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700" 
+                                    onclick="analyzeVideo('${video.id}')">
+                                Analyze
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            table.innerHTML = html;
+            
+            debugLog(`Updated video analysis with ${videoCreatives.length} video creatives`);
         }
 
         // AI Analysis functions
