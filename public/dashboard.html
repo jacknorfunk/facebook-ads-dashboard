@@ -349,20 +349,21 @@
 
         async function fetchCreatives() {
             try {
-                debugLog('Fetching creatives data...');
+                debugLog('Fetching Facebook creatives data...');
                 const response = await fetch(`${API_BASE}/api/creatives`);
-                debugLog(`Creatives response status: ${response.status}`);
+                debugLog(`Facebook creatives response status: ${response.status}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
                 
                 const data = await response.json();
-                debugLog(`Creatives data received: ${Array.isArray(data) ? data.length : 'unknown'} creatives`);
+                debugLog(`Facebook creatives data received: ${Array.isArray(data) ? data.length : 'unknown'} creatives`);
+                debugLog(`Facebook creatives sample: ${JSON.stringify(data.slice(0, 2))}`);
                 
                 return Array.isArray(data) ? data : [];
             } catch (error) {
-                debugLog(`Error fetching creatives: ${error.message}`);
+                debugLog(`Error fetching Facebook creatives: ${error.message}`);
                 return [];
             }
         }
@@ -394,11 +395,13 @@
                 debugLog(`Taboola creatives response status: ${response.status}`);
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+                    debugLog(`Taboola creatives API returned ${response.status}, skipping...`);
+                    return [];
                 }
                 
                 const data = await response.json();
                 debugLog(`Taboola creatives data received: ${Array.isArray(data) ? data.length : 'unknown'} creatives`);
+                debugLog(`Taboola creatives sample: ${JSON.stringify(data.slice(0, 2))}`);
                 
                 return Array.isArray(data) ? data : [];
             } catch (error) {
@@ -604,8 +607,20 @@
         function updateCreativesTab() {
             const grid = document.getElementById('creativesGrid');
             
+            debugLog(`Updating creatives tab with ${allCreatives.length} total creatives (${creatives.length} Facebook + ${taboolaCreatives.length} Taboola)`);
+            
             if (allCreatives.length === 0) {
-                grid.innerHTML = '<p class="text-gray-500 col-span-full">No creatives found or still loading...</p>';
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-8">
+                        <p class="text-gray-500 mb-4">No creatives found or still loading...</p>
+                        <div class="text-sm text-gray-400">
+                            Facebook creatives: ${creatives.length} | Taboola creatives: ${taboolaCreatives.length}
+                        </div>
+                        <button onclick="loadData()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                            🔄 Retry Loading Creatives
+                        </button>
+                    </div>
+                `;
                 return;
             }
             
@@ -672,7 +687,7 @@
             });
             
             grid.innerHTML = html;
-            debugLog(`Updated creatives grid with ${allCreatives.length} creatives`);
+            debugLog(`Updated creatives grid with ${allCreatives.length} creatives displayed`);
         }
 
         function updateVideoAnalysisTab() {
