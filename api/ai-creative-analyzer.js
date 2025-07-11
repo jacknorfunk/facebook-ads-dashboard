@@ -1,4 +1,4 @@
-// api/ai-creative-analyzer.js - Deep AI Analysis of Creative Elements
+// api/ai-creative-analyzer.js - Enhanced AI Analysis with OpenAI Integration
 export default async function handler(req, res) {
   try {
     // Set CORS headers
@@ -10,359 +10,400 @@ export default async function handler(req, res) {
       return res.status(200).end();
     }
 
-    const { creative_id, creative_url, performance_data, analysis_type = 'full' } = req.body || req.query;
+    const { creative_id, creative_data, performance_data } = req.body || req.query;
+    
+    console.log('=== AI CREATIVE ANALYZER CALLED ===');
+    console.log('Creative ID:', creative_id);
+    console.log('Performance data:', performance_data);
 
-    if (!creative_id || !creative_url) {
+    if (!creative_id || !creative_data) {
       return res.status(400).json({ 
-        error: 'creative_id and creative_url are required' 
+        error: 'creative_id and creative_data are required',
+        received: { creative_id: !!creative_id, creative_data: !!creative_data }
       });
     }
 
-    console.log(`=== AI CREATIVE ANALYSIS STARTED ===`);
-    console.log(`Creative ID: ${creative_id}`);
-    console.log(`Analysis Type: ${analysis_type}`);
+    // Check if OpenAI is available
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    const openaiAvailable = !!OPENAI_API_KEY;
+    
+    console.log('OpenAI Available:', openaiAvailable);
+    console.log('API Key length:', OPENAI_API_KEY ? OPENAI_API_KEY.length : 0);
 
-    // Initialize analysis results
-    const analysisResults = {
+    let aiAnalysis = null;
+    
+    // Real OpenAI Analysis if available
+    if (openaiAvailable) {
+      try {
+        console.log('Calling OpenAI for creative analysis...');
+        
+        const openaiPrompt = `
+Analyze this advertising creative for performance insights:
+
+CREATIVE DATA:
+- Name: ${creative_data.name || 'Unnamed'}
+- Platform: ${creative_data.platform || 'Facebook'}
+- Type: ${creative_data.creative_type || 'unknown'}
+- Title: ${creative_data.title || 'N/A'}
+- Description: ${creative_data.body || 'N/A'}
+
+PERFORMANCE METRICS:
+- CTR: ${performance_data?.ctr || 0}%
+- Spend: £${performance_data?.spend || 0}
+- Conversions: ${performance_data?.conversions || 0}
+- Impressions: ${performance_data?.impressions || 0}
+
+Please analyze WHY this creative is performing at this level. Consider:
+
+1. VISUAL ELEMENTS: What visual components drive performance?
+2. PSYCHOLOGICAL TRIGGERS: What emotions/motivations does it tap into?
+3. HOOK STRENGTH: How compelling is the opening/headline?
+4. TARGET AUDIENCE FIT: How well does it match audience psychology?
+5. PLATFORM OPTIMIZATION: How well suited is it for the platform?
+
+Provide specific, actionable insights about what's working or failing.
+
+Respond in JSON format:
+{
+  "success_factors": [
+    {"factor": "element_name", "impact_score": 0.8, "category": "visual|psychological|textual", "explanation": "why this works"}
+  ],
+  "failure_points": [
+    {"issue": "problem_name", "severity": 0.6, "category": "visual|psychological|textual", "solution": "how to fix"}
+  ],
+  "psychological_analysis": {
+    "primary_emotion": "emotion_name",
+    "motivation_triggers": ["trigger1", "trigger2"],
+    "audience_match": 0.7
+  },
+  "optimization_recommendations": [
+    {"recommendation": "specific action", "expected_impact": 0.3, "priority": "high|medium|low"}
+  ],
+  "confidence_score": 0.85
+}`;
+
+        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert advertising creative analyst specializing in performance marketing psychology. Analyze creatives to identify specific success factors and optimization opportunities.'
+              },
+              {
+                role: 'user',
+                content: openaiPrompt
+              }
+            ],
+            temperature: 0.7,
+            max_tokens: 1500
+          })
+        });
+
+        if (openaiResponse.ok) {
+          const openaiData = await openaiResponse.json();
+          const analysisText = openaiData.choices[0].message.content;
+          
+          try {
+            // Try to parse as JSON
+            aiAnalysis = JSON.parse(analysisText);
+            console.log('OpenAI analysis successful');
+          } catch (parseError) {
+            console.log('OpenAI response not JSON, using text analysis');
+            // Fallback: parse the text response
+            aiAnalysis = parseTextAnalysis(analysisText, performance_data);
+          }
+        } else {
+          console.error('OpenAI API error:', openaiResponse.status);
+        }
+      } catch (openaiError) {
+        console.error('OpenAI call failed:', openaiError.message);
+      }
+    }
+
+    // Enhanced simulation if OpenAI unavailable or failed
+    if (!aiAnalysis) {
+      console.log('Using enhanced simulation analysis');
+      aiAnalysis = generateEnhancedAnalysis(creative_data, performance_data);
+    }
+
+    // Calculate overall performance score
+    const ctr = parseFloat(performance_data?.ctr || 0);
+    const conversions = parseInt(performance_data?.conversions || 0);
+    const spend = parseFloat(performance_data?.spend || 0);
+    const impressions = parseInt(performance_data?.impressions || 0);
+
+    const performanceScore = Math.min(100, Math.max(0,
+      (ctr * 15) + // CTR weight
+      (conversions * 10) + // Conversion weight  
+      (impressions > 1000 ? 20 : impressions / 50) + // Volume weight
+      (spend > 0 && conversions > 0 ? Math.min(25, (conversions * 50 / spend)) : 0) // Efficiency weight
+    ));
+
+    // Generate specific insights based on performance
+    const insights = generatePerformanceInsights(creative_data, performance_data, performanceScore);
+
+    // Final response
+    const response = {
       creative_id,
-      creative_url,
-      analysis_timestamp: new Date().toISOString(),
-      performance_data,
-      ai_insights: {},
-      success_factors: [],
-      failure_points: [],
-      recommendations: [],
-      confidence_score: 0
+      analysis_method: openaiAvailable ? 'openai_gpt4' : 'enhanced_simulation',
+      openai_powered: openaiAvailable,
+      confidence_score: aiAnalysis.confidence_score || (openaiAvailable ? 90 : 75),
+      performance_score: performanceScore,
+      
+      // Core analysis
+      success_factors: aiAnalysis.success_factors || [],
+      failure_points: aiAnalysis.failure_points || [],
+      psychological_analysis: aiAnalysis.psychological_analysis || {},
+      optimization_recommendations: aiAnalysis.optimization_recommendations || [],
+      
+      // Performance insights
+      performance_insights: insights,
+      
+      // Metadata
+      analyzed_at: new Date().toISOString(),
+      creative_metadata: {
+        name: creative_data.name,
+        platform: creative_data.platform,
+        type: creative_data.creative_type,
+        performance_tier: performanceScore >= 70 ? 'top' : performanceScore >= 40 ? 'mid' : 'low'
+      }
     };
 
-    // Step 1: Visual Element Detection
-    console.log('Step 1: Analyzing visual elements...');
-    const visualAnalysis = await analyzeVisualElements(creative_url, performance_data);
-    analysisResults.ai_insights.visual = visualAnalysis;
+    console.log('=== AI ANALYSIS COMPLETE ===');
+    console.log('Method:', response.analysis_method);
+    console.log('Confidence:', response.confidence_score);
+    console.log('Success factors:', response.success_factors.length);
 
-    // Step 2: Text/Copy Analysis  
-    console.log('Step 2: Analyzing text and copy...');
-    const textAnalysis = await analyzeTextElements(creative_url, performance_data);
-    analysisResults.ai_insights.text = textAnalysis;
-
-    // Step 3: Performance Correlation Analysis
-    console.log('Step 3: Correlating elements with performance...');
-    const correlationAnalysis = await analyzePerformanceCorrelations(visualAnalysis, textAnalysis, performance_data);
-    analysisResults.ai_insights.correlations = correlationAnalysis;
-
-    // Step 4: Success Factor Identification
-    console.log('Step 4: Identifying success factors...');
-    analysisResults.success_factors = identifySuccessFactors(analysisResults.ai_insights, performance_data);
-
-    // Step 5: Generate AI Recommendations
-    console.log('Step 5: Generating AI recommendations...');
-    analysisResults.recommendations = await generateAIRecommendations(analysisResults);
-
-    // Step 6: Calculate Confidence Score
-    analysisResults.confidence_score = calculateConfidenceScore(analysisResults);
-
-    console.log(`=== AI ANALYSIS COMPLETED ===`);
-    console.log(`Confidence Score: ${analysisResults.confidence_score}%`);
-    console.log(`Success Factors Found: ${analysisResults.success_factors.length}`);
-
-    res.json(analysisResults);
+    res.json(response);
 
   } catch (error) {
-    console.error('Error in AI creative analysis:', error);
+    console.error('AI Creative Analyzer error:', error);
     res.status(500).json({
       error: error.message,
-      stage: 'AI Creative Analysis'
+      service: 'ai-creative-analyzer'
     });
   }
 }
 
-// Visual Element Analysis (Computer Vision Simulation)
-async function analyzeVisualElements(creative_url, performance_data) {
-  // In production, this would use Google Vision API, OpenAI CLIP, or similar
-  console.log('Analyzing visual elements with AI...');
+// Enhanced simulation analysis for fallback
+function generateEnhancedAnalysis(creative_data, performance_data) {
+  const ctr = parseFloat(performance_data?.ctr || 0);
+  const conversions = parseInt(performance_data?.conversions || 0);
+  const spend = parseFloat(performance_data?.spend || 0);
   
-  return {
-    dominant_colors: ['#FF6B6B', '#4ECDC4', '#45B7D1'], // Red, Teal, Blue
-    detected_objects: [
-      { object: 'human_face', confidence: 0.95, location: 'center', emotion: 'surprised' },
-      { object: 'text_overlay', confidence: 0.89, location: 'top', urgency_level: 'high' },
-      { object: 'product', confidence: 0.82, location: 'bottom_right', visibility: 'prominent' },
-      { object: 'background', confidence: 0.91, type: 'domestic_setting', mood: 'comfortable' }
-    ],
-    composition_analysis: {
-      rule_of_thirds: 'followed',
-      focal_point: 'human_face',
-      visual_hierarchy: 'clear',
-      contrast_ratio: 4.2,
-      color_harmony: 'complementary'
-    },
-    emotional_triggers: [
-      { trigger: 'surprise', strength: 0.87 },
-      { trigger: 'urgency', strength: 0.76 },
-      { trigger: 'trust', strength: 0.71 },
-      { trigger: 'curiosity', strength: 0.84 }
-    ],
-    brand_elements: {
-      logo_visible: true,
-      brand_colors_used: true,
-      consistent_style: true
-    }
-  };
-}
-
-// Text/Copy Analysis using AI
-async function analyzeTextElements(creative_url, performance_data) {
-  console.log('Analyzing text elements with NLP...');
-  
-  return {
-    headline_analysis: {
-      text: "Shocking: Retired Woman Gets £4,000 Payout",
-      sentiment: 'positive',
-      urgency_words: ['shocking', 'gets'],
-      emotional_words: ['shocking', 'payout'],
-      character_count: 42,
-      readability_score: 85,
-      hook_strength: 0.89
-    },
-    body_text_analysis: {
-      text: "See if you're owed money from old accounts",
-      call_to_action_strength: 0.78,
-      clarity_score: 0.92,
-      persuasion_elements: ['social_proof', 'benefit_focused'],
-      word_count: 8,
-      action_verbs: ['see']
-    },
-    psychological_triggers: [
-      { trigger: 'loss_aversion', strength: 0.82 },
-      { trigger: 'social_proof', strength: 0.67 },
-      { trigger: 'curiosity_gap', strength: 0.91 },
-      { trigger: 'authority', strength: 0.54 }
-    ],
-    copy_structure: {
-      hook_present: true,
-      problem_identified: true,
-      solution_offered: true,
-      call_to_action: true,
-      urgency_created: true
-    }
-  };
-}
-
-// Performance Correlation Analysis
-async function analyzePerformanceCorrelations(visual, text, performance) {
-  console.log('Analyzing performance correlations...');
-  
-  const ctr = parseFloat(performance.ctr) || 0;
-  const conversions = parseInt(performance.conversions) || 0;
-  const spend = parseFloat(performance.spend) || 0;
-  
-  return {
-    visual_performance_correlations: [
-      {
-        element: 'human_face_center',
-        performance_impact: ctr > 1.5 ? 'positive' : 'negative',
-        correlation_strength: 0.87,
-        insight: ctr > 1.5 ? 'Human faces in center position correlate with higher CTR' : 'Consider repositioning human element for better performance'
-      },
-      {
-        element: 'red_color_dominant',
-        performance_impact: conversions > 0 ? 'positive' : 'neutral',
-        correlation_strength: 0.73,
-        insight: conversions > 0 ? 'Red color scheme drives action and conversions' : 'Red color not converting - test cooler colors'
-      },
-      {
-        element: 'text_overlay_urgency',
-        performance_impact: ctr > 1.0 ? 'positive' : 'negative',
-        correlation_strength: 0.91,
-        insight: ctr > 1.0 ? 'Urgent text overlays significantly boost engagement' : 'Urgency messaging not resonating - try softer approach'
-      }
-    ],
-    text_performance_correlations: [
-      {
-        element: 'shock_value_headline',
-        performance_impact: ctr > 1.2 ? 'positive' : 'negative',
-        correlation_strength: 0.89,
-        insight: ctr > 1.2 ? 'Shock value headlines drive initial engagement' : 'Shock value backfiring - try curiosity instead'
-      },
-      {
-        element: 'monetary_benefit',
-        performance_impact: conversions > 0 ? 'positive' : 'negative',
-        correlation_strength: 0.84,
-        insight: conversions > 0 ? 'Specific monetary benefits drive conversions' : 'Money mentions not converting - focus on lifestyle benefits'
-      }
-    ],
-    performance_patterns: {
-      hook_effectiveness: ctr > 1.5 ? 'excellent' : ctr > 1.0 ? 'good' : 'poor',
-      conversion_efficiency: conversions > 2 ? 'excellent' : conversions > 0 ? 'good' : 'poor',
-      cost_efficiency: spend > 0 && conversions > 0 ? (spend / conversions < 50 ? 'excellent' : 'average') : 'poor'
-    }
-  };
-}
-
-// Success Factor Identification
-function identifySuccessFactors(ai_insights, performance_data) {
-  const factors = [];
-  const ctr = parseFloat(performance_data.ctr) || 0;
-  const conversions = parseInt(performance_data.conversions) || 0;
-  
-  // Check visual success factors
-  ai_insights.visual.detected_objects.forEach(obj => {
-    if (obj.confidence > 0.85) {
-      factors.push({
-        category: 'visual',
-        factor: obj.object,
-        reason: `High confidence detection (${(obj.confidence * 100).toFixed(1)}%) correlates with performance`,
-        impact_score: obj.confidence * (ctr > 1.0 ? 1.5 : 0.8),
-        recommendation: `Replicate ${obj.object} placement and prominence in future creatives`
-      });
-    }
-  });
-
-  // Check emotional trigger success
-  ai_insights.visual.emotional_triggers.forEach(trigger => {
-    if (trigger.strength > 0.8 && ctr > 1.0) {
-      factors.push({
-        category: 'emotional',
-        factor: trigger.trigger,
-        reason: `Strong ${trigger.trigger} emotion (${(trigger.strength * 100).toFixed(1)}%) drives engagement`,
-        impact_score: trigger.strength * 1.2,
-        recommendation: `Amplify ${trigger.trigger} emotion in variations`
-      });
-    }
-  });
-
-  // Check copy success factors
-  if (ai_insights.text.headline_analysis.hook_strength > 0.8 && ctr > 1.2) {
-    factors.push({
-      category: 'copy',
-      factor: 'strong_hook',
-      reason: `Hook strength of ${(ai_insights.text.headline_analysis.hook_strength * 100).toFixed(1)}% drives high CTR`,
-      impact_score: ai_insights.text.headline_analysis.hook_strength * 1.3,
-      recommendation: 'Use similar hook structure and urgency in new creatives'
-    });
-  }
-
-  return factors.sort((a, b) => b.impact_score - a.impact_score);
-}
-
-// AI Recommendations Generator
-async function generateAIRecommendations(analysisResults) {
-  console.log('Generating AI-powered recommendations...');
-  
+  const successFactors = [];
+  const failurePoints = [];
   const recommendations = [];
-  const performance = analysisResults.performance_data;
-  const ctr = parseFloat(performance.ctr) || 0;
-  const conversions = parseInt(performance.conversions) || 0;
-  
-  // Performance-based recommendations
-  if (ctr < 1.0) {
-    recommendations.push({
-      priority: 'high',
-      category: 'hook_optimization',
-      title: 'Improve Initial Engagement',
-      description: 'CTR below 1% indicates weak hook. Test stronger opening elements.',
-      specific_actions: [
-        'Add shock value or surprise element in first frame',
-        'Use contrasting colors for text overlays',
-        'Test question-based headlines instead of statements',
-        'Add human faces showing strong emotions'
-      ],
-      expected_improvement: '+45-80% CTR increase',
-      confidence: 0.87
+
+  // Analyze based on creative name and content
+  const name = (creative_data.name || '').toLowerCase();
+  const title = (creative_data.title || '').toLowerCase();
+  const body = (creative_data.body || '').toLowerCase();
+  const content = `${name} ${title} ${body}`;
+
+  // Visual/content analysis
+  if (content.includes('dragon') || content.includes('magic') || content.includes('fantasy')) {
+    successFactors.push({
+      factor: 'fantasy_elements',
+      impact_score: 0.85,
+      category: 'visual',
+      explanation: 'Fantasy elements like dragons create strong emotional engagement and memorable imagery'
     });
   }
 
-  if (conversions === 0) {
-    recommendations.push({
-      priority: 'high',
-      category: 'conversion_optimization',
-      title: 'Fix Conversion Funnel',
-      description: 'Zero conversions indicate disconnect between creative and landing experience.',
-      specific_actions: [
-        'Ensure creative promise matches landing page',
-        'Test more specific benefits instead of generic claims',
-        'Add urgency or scarcity elements',
-        'Simplify call-to-action language'
-      ],
-      expected_improvement: '2-5 conversions expected',
-      confidence: 0.79
+  if (content.includes('shock') || content.includes('surprise') || content.includes('amazing')) {
+    successFactors.push({
+      factor: 'surprise_element',
+      impact_score: 0.75,
+      category: 'psychological',
+      explanation: 'Surprise elements trigger pattern interrupts that capture attention in social feeds'
     });
   }
 
-  // Element-specific recommendations based on analysis
-  analysisResults.success_factors.forEach(factor => {
-    if (factor.impact_score > 0.8) {
+  if (content.includes('£') || content.includes('money') || content.includes('save') || content.includes('discount')) {
+    successFactors.push({
+      factor: 'financial_incentive',
+      impact_score: 0.70,
+      category: 'psychological',
+      explanation: 'Financial triggers tap into loss aversion and value-seeking behavior'
+    });
+  }
+
+  // Performance-based analysis
+  if (ctr >= 2.0) {
+    successFactors.push({
+      factor: 'strong_hook',
+      impact_score: 0.90,
+      category: 'textual',
+      explanation: 'High CTR indicates effective hook that stops the scroll and generates interest'
+    });
+  } else if (ctr < 0.5) {
+    failurePoints.push({
+      issue: 'weak_hook',
+      severity: 0.8,
+      category: 'textual',
+      solution: 'Test question-based headlines, urgency language, or curiosity gaps'
+    });
+  }
+
+  if (conversions === 0 && spend > 50) {
+    failurePoints.push({
+      issue: 'conversion_disconnect',
+      severity: 0.9,
+      category: 'psychological',
+      solution: 'Audit landing page match, check conversion tracking, or test different CTA language'
+    });
+  }
+
+  // Platform-specific insights
+  if (creative_data.platform === 'Facebook') {
+    if (creative_data.creative_type === 'video') {
       recommendations.push({
-        priority: 'medium',
-        category: 'scale_winners',
-        title: `Scale ${factor.factor} Success`,
-        description: factor.reason,
-        specific_actions: [
-          factor.recommendation,
-          `Create 3-5 variations emphasizing ${factor.factor}`,
-          `Test ${factor.factor} in different creative formats`,
-          `Apply ${factor.factor} learnings to other campaigns`
-        ],
-        expected_improvement: '+20-35% performance boost',
-        confidence: factor.impact_score
+        recommendation: 'Add captions for silent viewing - 85% of Facebook videos are watched without sound',
+        expected_impact: 0.4,
+        priority: 'high'
       });
     }
-  });
+  } else if (creative_data.platform === 'Taboola') {
+    recommendations.push({
+      recommendation: 'Test more curiosity-driven headlines - Taboola users respond to intrigue over direct selling',
+      expected_impact: 0.3,
+      priority: 'medium'
+    });
+  }
 
-  // AI Generation recommendations
-  recommendations.push({
-    priority: 'medium',
-    category: 'ai_generation',
-    title: 'Generate AI Variations',
-    description: 'Create systematic variations to test specific elements.',
-    specific_actions: [
-      'Generate 5 color scheme variations using Google Gemini',
-      'Create hook variations using ChatGPT',
-      'Test different emotional triggers with AI-generated copy',
-      'Generate background variations while keeping successful elements'
-    ],
-    expected_improvement: 'Identify 1-2 outperformers',
-    confidence: 0.72
-  });
-
-  return recommendations.sort((a, b) => {
-    const priorityOrder = { high: 3, medium: 2, low: 1 };
-    if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
-      return priorityOrder[b.priority] - priorityOrder[a.priority];
-    }
-    return b.confidence - a.confidence;
-  });
+  return {
+    success_factors: successFactors,
+    failure_points: failurePoints,
+    psychological_analysis: {
+      primary_emotion: ctr > 1.5 ? 'curiosity' : 'indifference',
+      motivation_triggers: extractMotivationTriggers(content),
+      audience_match: Math.min(1.0, ctr / 2.0)
+    },
+    optimization_recommendations: recommendations,
+    confidence_score: 0.75
+  };
 }
 
-// Confidence Score Calculator
-function calculateConfidenceScore(analysisResults) {
-  let score = 0;
-  let factors = 0;
-
-  // Visual analysis confidence
-  if (analysisResults.ai_insights.visual.detected_objects.length > 0) {
-    const avgConfidence = analysisResults.ai_insights.visual.detected_objects
-      .reduce((sum, obj) => sum + obj.confidence, 0) / analysisResults.ai_insights.visual.detected_objects.length;
-    score += avgConfidence * 30;
-    factors += 30;
+function extractMotivationTriggers(content) {
+  const triggers = [];
+  
+  if (content.includes('free') || content.includes('save') || content.includes('discount')) {
+    triggers.push('loss_aversion');
+  }
+  if (content.includes('limited') || content.includes('today') || content.includes('now')) {
+    triggers.push('scarcity');
+  }
+  if (content.includes('people') || content.includes('others') || content.includes('everyone')) {
+    triggers.push('social_proof');
+  }
+  if (content.includes('secret') || content.includes('trick') || content.includes('method')) {
+    triggers.push('curiosity');
+  }
+  if (content.includes('guaranteed') || content.includes('proven') || content.includes('results')) {
+    triggers.push('certainty');
   }
 
-  // Performance data quality
-  if (analysisResults.performance_data.ctr > 0) {
-    score += 25;
-    factors += 25;
+  return triggers;
+}
+
+function parseTextAnalysis(text, performance_data) {
+  // Simple text parsing for non-JSON OpenAI responses
+  try {
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    return {
+      success_factors: [
+        {
+          factor: 'openai_identified_strength',
+          impact_score: 0.8,
+          category: 'psychological',
+          explanation: text.substring(0, 200) + '...'
+        }
+      ],
+      failure_points: [],
+      psychological_analysis: {
+        primary_emotion: 'analyzed_by_openai',
+        motivation_triggers: ['openai_analysis'],
+        audience_match: 0.8
+      },
+      optimization_recommendations: [
+        {
+          recommendation: 'Review full OpenAI analysis for detailed optimization suggestions',
+          expected_impact: 0.5,
+          priority: 'high'
+        }
+      ],
+      confidence_score: 0.85
+    };
+  } catch (e) {
+    return generateEnhancedAnalysis({}, performance_data);
+  }
+}
+
+function generatePerformanceInsights(creative_data, performance_data, performanceScore) {
+  const insights = [];
+  
+  const ctr = parseFloat(performance_data?.ctr || 0);
+  const conversions = parseInt(performance_data?.conversions || 0);
+  const spend = parseFloat(performance_data?.spend || 0);
+
+  // Performance tier insights
+  if (performanceScore >= 70) {
+    insights.push({
+      type: 'success',
+      category: 'performance',
+      message: `Top performer (${Math.round(performanceScore)}/100) - Scale this creative or use as template`,
+      action: 'scale'
+    });
+  } else if (performanceScore >= 40) {
+    insights.push({
+      type: 'warning',
+      category: 'performance', 
+      message: `Mid-tier performer (${Math.round(performanceScore)}/100) - Test variations to optimize`,
+      action: 'optimize'
+    });
+  } else {
+    insights.push({
+      type: 'error',
+      category: 'performance',
+      message: `Low performer (${Math.round(performanceScore)}/100) - Consider pausing or major revision`,
+      action: 'revise'
+    });
   }
 
-  if (analysisResults.performance_data.impressions > 1000) {
-    score += 20;
-    factors += 20;
+  // CTR insights
+  if (ctr >= 2.0) {
+    insights.push({
+      type: 'success',
+      category: 'engagement',
+      message: `Excellent CTR (${ctr.toFixed(2)}%) - Strong hook effectiveness`,
+      action: 'replicate_hook'
+    });
+  } else if (ctr < 0.5) {
+    insights.push({
+      type: 'warning',
+      category: 'engagement',
+      message: `Low CTR (${ctr.toFixed(2)}%) - Hook needs improvement`,
+      action: 'improve_hook'
+    });
   }
 
-  // Success factors found
-  if (analysisResults.success_factors.length > 0) {
-    score += Math.min(analysisResults.success_factors.length * 5, 25);
-    factors += 25;
+  // Conversion insights
+  if (conversions === 0 && spend > 30) {
+    insights.push({
+      type: 'error',
+      category: 'conversion',
+      message: 'No conversions with significant spend - Check tracking and landing page',
+      action: 'audit_funnel'
+    });
   }
 
-  return Math.round((score / factors) * 100);
+  return insights;
 }
