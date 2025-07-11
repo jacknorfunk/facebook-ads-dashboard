@@ -327,37 +327,56 @@
         // Data loading functions using YOUR existing working APIs
         async function fetchAccountData() {
             try {
-                debugLog('📊 Fetching overview data...');
-                const response = await fetch(`${API_BASE}/api/facebook-overview`);
-                debugLog(`Overview response status: ${response.status}`);
+                debugLog('📊 Calculating overview from campaigns and creatives...');
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
+                // Since you don't have facebook-overview, let's calculate from campaigns
+                const campaignsData = await fetchCampaigns();
+                const creativesData = await fetchCreatives();
                 
-                const data = await response.json();
-                debugLog('✅ Overview data received successfully');
+                // Calculate totals from campaigns
+                const totalSpend = campaignsData.reduce((sum, camp) => sum + (parseFloat(camp.spend) || 0), 0);
+                const totalRevenue = campaignsData.reduce((sum, camp) => sum + (parseFloat(camp.revenue) || 0), 0);
+                const totalConversions = campaignsData.reduce((sum, camp) => sum + (parseInt(camp.conversions) || 0), 0);
+                const totalClicks = creativesData.reduce((sum, creative) => sum + (parseInt(creative.clicks) || 0), 0);
+                const totalImpressions = creativesData.reduce((sum, creative) => sum + (parseInt(creative.impressions) || 0), 0);
+                
+                const averageCTR = creativesData.length > 0 ? 
+                    creativesData.reduce((sum, creative) => sum + (parseFloat(creative.ctr) || 0), 0) / creativesData.length : 0;
+                const averageCPC = creativesData.length > 0 ? 
+                    creativesData.reduce((sum, creative) => sum + (parseFloat(creative.cpc) || 0), 0) / creativesData.length : 0;
+                const totalROAS = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+                
+                debugLog(`✅ Overview calculated: £${totalSpend} spend, ${totalConversions} conversions`);
                 
                 return {
-                    totalSpend: parseFloat(data.totalSpend || data.spend || 0),
-                    totalRevenue: parseFloat(data.totalRevenue || data.revenue || 0),
-                    totalConversions: parseInt(data.totalConversions || data.conversions || 0),
-                    totalClicks: parseInt(data.totalClicks || data.clicks || 0),
-                    totalImpressions: parseInt(data.totalImpressions || data.impressions || 0),
-                    averageCTR: parseFloat(data.averageCTR || data.ctr || 0),
-                    averageCPC: parseFloat(data.averageCPC || data.cpc || 0),
-                    totalROAS: parseFloat(data.totalROAS || data.roas || 0)
+                    totalSpend,
+                    totalRevenue,
+                    totalConversions,
+                    totalClicks,
+                    totalImpressions,
+                    averageCTR,
+                    averageCPC,
+                    totalROAS
                 };
             } catch (error) {
-                debugLog(`❌ Error fetching overview: ${error.message}`);
-                throw error;
+                debugLog(`❌ Error calculating overview: ${error.message}`);
+                return {
+                    totalSpend: 0,
+                    totalRevenue: 0,
+                    totalConversions: 0,
+                    totalClicks: 0,
+                    totalImpressions: 0,
+                    averageCTR: 0,
+                    averageCPC: 0,
+                    totalROAS: 0
+                };
             }
         }
 
         async function fetchCampaigns() {
             try {
                 debugLog('🎯 Fetching campaigns data...');
-                const response = await fetch(`${API_BASE}/api/facebook-campaigns`);
+                const response = await fetch(`${API_BASE}/api/campaigns`);
                 debugLog(`Campaigns response status: ${response.status}`);
                 
                 if (!response.ok) {
@@ -365,7 +384,7 @@
                 }
                 
                 const data = await response.json();
-                const campaignsArray = data.campaigns || data || [];
+                const campaignsArray = Array.isArray(data) ? data : [];
                 debugLog(`✅ Campaigns data received: ${campaignsArray.length} campaigns`);
                 
                 return campaignsArray;
@@ -407,7 +426,7 @@
                 }
                 
                 const data = await response.json();
-                const campaignsArray = data.campaigns || data || [];
+                const campaignsArray = Array.isArray(data) ? data : (data.results || []);
                 debugLog(`✅ Taboola campaigns data received: ${campaignsArray.length} campaigns`);
                 
                 return campaignsArray;
@@ -429,7 +448,7 @@
                 }
                 
                 const data = await response.json();
-                const creativesArray = data.creatives || data || [];
+                const creativesArray = Array.isArray(data) ? data : (data.results || []);
                 debugLog(`✅ Taboola creatives data received: ${creativesArray.length} creatives`);
                 
                 return creativesArray;
