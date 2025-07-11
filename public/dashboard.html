@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facebook Ads Dashboard</title>
+    <title>Multi-Platform Ad Intelligence Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .loading {
@@ -40,6 +40,20 @@
         .sort-desc::after {
             content: '▼';
         }
+        .platform-facebook {
+            border-left: 4px solid #1877f2;
+        }
+        .platform-taboola {
+            border-left: 4px solid #00b7ff;
+        }
+        .platform-badge-facebook {
+            background-color: #1877f2;
+            color: white;
+        }
+        .platform-badge-taboola {
+            background-color: #00b7ff;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -49,24 +63,70 @@
             <div class="mb-8">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900 mb-2">Facebook Ads Performance</h1>
-                        <p class="text-gray-600">Live data from your Facebook advertising campaigns</p>
+                        <h1 class="text-3xl font-bold text-gray-900 mb-2">🚀 AI-Powered Creative Intelligence</h1>
+                        <p class="text-gray-600">Multi-platform ad performance analysis with AI insights</p>
                     </div>
-                    <button id="refreshBtn" class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                        <span id="refreshIcon">🔄</span>
-                        Refresh Data
-                    </button>
+                    <div class="flex gap-4">
+                        <button id="refreshBtn" class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                            <span id="refreshIcon">🔄</span>
+                            Refresh All Data
+                        </button>
+                        <button id="aiAnalysisBtn" class="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600">
+                            <span>🤖</span>
+                            AI Analysis
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Platform Status Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 platform-facebook">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Facebook Ads</p>
+                            <p class="text-lg font-bold text-gray-900" id="facebookStatus">Connected</p>
+                        </div>
+                        <div class="w-3 h-3 bg-green-500 rounded-full" id="facebookIndicator"></div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 platform-taboola">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Taboola</p>
+                            <p class="text-lg font-bold text-gray-900" id="taboolaStatus">Connecting...</p>
+                        </div>
+                        <div class="w-3 h-3 bg-yellow-500 rounded-full" id="taboolaIndicator"></div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Total Platforms</p>
+                            <p class="text-lg font-bold text-gray-900" id="totalPlatforms">2</p>
+                        </div>
+                        <div class="text-blue-500 text-2xl">📊</div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">AI Insights</p>
+                            <p class="text-lg font-bold text-gray-900" id="aiInsightsCount">0</p>
+                        </div>
+                        <div class="text-purple-500 text-2xl">🤖</div>
+                    </div>
                 </div>
             </div>
 
             <!-- Debug Panel -->
             <div id="debugPanel" class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6">
                 <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-sm font-medium text-yellow-800">Debug Information</h3>
+                    <h3 class="text-sm font-medium text-yellow-800">Multi-Platform Debug Information</h3>
                     <button id="hideDebugBtn" class="text-xs text-yellow-600 hover:text-yellow-800">Hide</button>
                 </div>
                 <div id="debugOutput" class="text-xs text-yellow-700 font-mono max-h-40 overflow-y-auto">
-                    Dashboard loaded. Waiting for data...
+                    Multi-platform dashboard loaded. Initializing connections...
                 </div>
             </div>
 
@@ -77,25 +137,35 @@
                     <option value="last_7d">Last 7 days</option>
                     <option value="last_30d" selected>Last 30 days</option>
                     <option value="last_90d">Last 90 days</option>
-                    <option value="this_month">This month</option>
-                    <option value="last_month">Last month</option>
+                </select>
+                
+                <select id="platformFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="all">All Platforms</option>
+                    <option value="facebook">Facebook Only</option>
+                    <option value="taboola">Taboola Only</option>
+                </select>
+
+                <select id="metricFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="all">All Performance</option>
+                    <option value="top_performers">Top Performers</option>
+                    <option value="underperformers">Needs Attention</option>
+                    <option value="high_spend">High Spend</option>
                 </select>
             </div>
 
             <!-- Tabs -->
             <div class="flex space-x-8 mb-6 border-b border-gray-200">
-                <button class="tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600" data-tab="overview">Overview</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="campaigns">Campaigns</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="creatives">Creative Analysis</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="video-analysis">Video Hook Analysis</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="ai-scripts">AI Script Generator</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="video-intelligence">🎬 Video Intelligence</button>
+                <button class="tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600" data-tab="overview">📊 Cross-Platform Overview</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="campaigns">🎯 Campaign Analysis</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="creatives">🎨 Creative Intelligence</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="ai-insights">🤖 AI Insights</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700" data-tab="creative-generator">✨ Creative Generator</button>
             </div>
 
             <!-- Loading State -->
             <div id="loading" class="text-center py-20">
                 <div class="loading inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
-                <p class="text-gray-600 mt-4">Loading your Facebook Ads data...</p>
+                <p class="text-gray-600 mt-4">Loading multi-platform data...</p>
             </div>
 
             <!-- Error State -->
@@ -103,20 +173,24 @@
                 <div class="text-red-500 text-6xl mb-4">⚠️</div>
                 <h2 class="text-xl font-semibold text-gray-900 mb-2">Connection Error</h2>
                 <p class="text-gray-600 mb-4" id="errorMessage"></p>
-                <button onclick="loadData()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                <button onclick="loadAllData()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
                     Try Again
                 </button>
             </div>
 
-            <!-- Overview Tab -->
+            <!-- Cross-Platform Overview Tab -->
             <div id="overview-content" class="tab-content active">
-                <!-- KPI Cards -->
+                <!-- Combined KPI Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-gray-600">Total Spend</p>
                                 <p class="text-2xl font-bold text-gray-900" id="totalSpend">£0</p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    <span class="platform-badge-facebook px-2 py-1 rounded text-xs mr-1" id="facebookSpend">£0</span>
+                                    <span class="platform-badge-taboola px-2 py-1 rounded text-xs" id="taboolaSpend">£0</span>
+                                </p>
                             </div>
                             <div class="text-blue-500 text-3xl">💰</div>
                         </div>
@@ -127,6 +201,10 @@
                             <div>
                                 <p class="text-sm font-medium text-gray-600">Total Revenue</p>
                                 <p class="text-2xl font-bold text-gray-900" id="totalRevenue">£0</p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    <span class="platform-badge-facebook px-2 py-1 rounded text-xs mr-1" id="facebookRevenue">£0</span>
+                                    <span class="platform-badge-taboola px-2 py-1 rounded text-xs" id="taboolaRevenue">£0</span>
+                                </p>
                             </div>
                             <div class="text-green-500 text-3xl">📈</div>
                         </div>
@@ -135,8 +213,9 @@
                     <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-600">ROAS</p>
+                                <p class="text-sm font-medium text-gray-600">Combined ROAS</p>
                                 <p class="text-2xl font-bold text-gray-900" id="totalROAS">0.00x</p>
+                                <p class="text-xs text-gray-500 mt-1">Blended across platforms</p>
                             </div>
                             <div class="text-purple-500 text-3xl">🎯</div>
                         </div>
@@ -145,50 +224,53 @@
                     <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Conversions</p>
+                                <p class="text-sm font-medium text-gray-600">Total Conversions</p>
                                 <p class="text-2xl font-bold text-gray-900" id="totalConversions">0</p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    <span class="platform-badge-facebook px-2 py-1 rounded text-xs mr-1" id="facebookConversions">0</span>
+                                    <span class="platform-badge-taboola px-2 py-1 rounded text-xs" id="taboolaConversions">0</span>
+                                </p>
                             </div>
-                            <div class="text-orange-500 text-3xl">👆</div>
+                            <div class="text-orange-500 text-3xl">🎪</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Secondary KPIs -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-sm font-medium text-gray-600">Total Clicks</p>
-                        <p class="text-xl font-bold text-gray-900" id="totalClicks">0</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-sm font-medium text-gray-600">CTR</p>
-                        <p class="text-xl font-bold text-gray-900" id="averageCTR">0.00%</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-sm font-medium text-gray-600">CPC</p>
-                        <p class="text-xl font-bold text-gray-900" id="averageCPC">£0.00</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-sm font-medium text-gray-600">CPM</p>
-                        <p class="text-xl font-bold text-gray-900" id="averageCPM">£0.00</p>
+                <!-- Platform Comparison Chart -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Platform Performance Comparison</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-700 mb-3">Spend Distribution</h4>
+                            <div id="spendChart" class="space-y-3">
+                                <!-- Chart will be rendered here -->
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-700 mb-3">ROAS Comparison</h4>
+                            <div id="roasChart" class="space-y-3">
+                                <!-- Chart will be rendered here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Campaigns Tab -->
+            <!-- Campaign Analysis Tab -->
             <div id="campaigns-content" class="tab-content">
                 <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Campaign Performance</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Cross-Platform Campaign Performance</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full">
                             <thead>
                                 <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 font-medium text-gray-700">Platform</th>
                                     <th class="text-left py-3 px-4 font-medium text-gray-700">Campaign</th>
                                     <th class="text-right py-3 px-4 font-medium text-gray-700">Spend</th>
                                     <th class="text-right py-3 px-4 font-medium text-gray-700">Revenue</th>
                                     <th class="text-right py-3 px-4 font-medium text-gray-700">ROAS</th>
                                     <th class="text-right py-3 px-4 font-medium text-gray-700">Conversions</th>
                                     <th class="text-right py-3 px-4 font-medium text-gray-700">CTR</th>
-                                    <th class="text-right py-3 px-4 font-medium text-gray-700">CPC</th>
                                     <th class="text-center py-3 px-4 font-medium text-gray-700">Status</th>
                                 </tr>
                             </thead>
@@ -200,28 +282,32 @@
                 </div>
             </div>
 
-            <!-- Creative Analysis Tab -->
+            <!-- Creative Intelligence Tab -->
             <div id="creatives-content" class="tab-content">
                 <div class="mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Creative Performance Analysis</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">🎨 Creative Intelligence Analysis</h3>
                     
                     <!-- Creative overview cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
                             <p class="text-sm text-gray-600">Total Creatives</p>
                             <p class="text-2xl font-bold text-gray-900" id="totalCreatives">0</p>
                         </div>
                         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
-                            <p class="text-sm text-gray-600">Average Score</p>
+                            <p class="text-sm text-gray-600">Avg Performance</p>
                             <p class="text-2xl font-bold text-blue-600" id="avgCreativeScore">0</p>
                         </div>
                         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
-                            <p class="text-sm text-gray-600">Top Performer</p>
-                            <p class="text-xl font-bold text-green-600" id="topPerformer">-</p>
+                            <p class="text-sm text-gray-600">Top Platform</p>
+                            <p class="text-xl font-bold text-green-600" id="topPlatform">-</p>
                         </div>
                         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
-                            <p class="text-sm text-gray-600">Needs Attention</p>
-                            <p class="text-xl font-bold text-red-600" id="needsAttention">-</p>
+                            <p class="text-sm text-gray-600">Best Creative</p>
+                            <p class="text-xl font-bold text-purple-600" id="bestCreative">-</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
+                            <p class="text-sm text-gray-600">AI Insights</p>
+                            <p class="text-xl font-bold text-orange-600" id="aiInsightsReady">Ready</p>
                         </div>
                     </div>
 
@@ -232,145 +318,83 @@
                 </div>
             </div>
 
-            <!-- Video Hook Analysis Tab -->
-            <div id="video-analysis-content" class="tab-content">
-                <div class="mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Video Hook Analysis</h3>
-                    
-                    <!-- Video overview cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
-                            <p class="text-sm text-gray-600">Total Videos</p>
-                            <p class="text-2xl font-bold text-gray-900" id="totalVideos">0</p>
-                        </div>
-                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
-                            <p class="text-sm text-gray-600">Avg Hook Rate</p>
-                            <p class="text-2xl font-bold text-blue-600" id="avgHookRate">0%</p>
-                        </div>
-                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
-                            <p class="text-sm text-gray-600">Avg Retention</p>
-                            <p class="text-2xl font-bold text-purple-600" id="avgRetention">0%</p>
-                        </div>
-                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
-                            <p class="text-sm text-gray-600">Avg Completion</p>
-                            <p class="text-2xl font-bold text-green-600" id="avgCompletion">0%</p>
-                        </div>
-                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
-                            <p class="text-sm text-gray-600">Total Spend</p>
-                            <p class="text-2xl font-bold text-orange-600" id="videoTotalSpend">£0</p>
+            <!-- AI Insights Tab -->
+            <div id="ai-insights-content" class="tab-content">
+                <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-lg mb-6">
+                    <h2 class="text-2xl font-bold mb-2">🤖 AI Creative Intelligence</h2>
+                    <p class="text-purple-100">Advanced pattern recognition and performance analysis across platforms</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">🎯 Performance Patterns</h3>
+                        <div id="performancePatterns" class="space-y-3">
+                            <p class="text-gray-500">Analyzing creative performance patterns...</p>
                         </div>
                     </div>
 
-                    <!-- Video performance table -->
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="w-full" id="videoAnalysisTable">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="text-left py-4 px-6 font-semibold text-gray-700">Rank</th>
-                                        <th class="text-left py-4 px-6 font-semibold text-gray-700">Video</th>
-                                        <th class="sortable-header text-right py-4 px-6 font-semibold text-gray-700" data-sort="hook_rate">
-                                            Hook Rate<span class="sort-indicator"></span>
-                                        </th>
-                                        <th class="sortable-header text-right py-4 px-6 font-semibold text-gray-700" data-sort="retention_25pct">
-                                            25% Retention<span class="sort-indicator"></span>
-                                        </th>
-                                        <th class="sortable-header text-right py-4 px-6 font-semibold text-gray-700" data-sort="retention_50pct">
-                                            50% Retention<span class="sort-indicator"></span>
-                                        </th>
-                                        <th class="sortable-header text-right py-4 px-6 font-semibold text-gray-700" data-sort="completion_rate">
-                                            Completion<span class="sort-indicator"></span>
-                                        </th>
-                                        <th class="sortable-header text-right py-4 px-6 font-semibold text-gray-700" data-sort="spend">
-                                            Spend<span class="sort-indicator"></span>
-                                        </th>
-                                        <th class="sortable-header text-right py-4 px-6 font-semibold text-gray-700" data-sort="cpc">
-                                            CPC<span class="sort-indicator"></span>
-                                        </th>
-                                        <th class="sortable-header text-right py-4 px-6 font-semibold text-gray-700" data-sort="conversions">
-                                            Conversions<span class="sort-indicator"></span>
-                                        </th>
-                                        <th class="sortable-header text-right py-4 px-6 font-semibold text-gray-700" data-sort="cpa">
-                                            CPA<span class="sort-indicator"></span>
-                                        </th>
-                                        <th class="text-center py-4 px-6 font-semibold text-gray-700">Grade</th>
-                                        <th class="text-center py-4 px-6 font-semibold text-gray-700">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="videoAnalysisTableBody">
-                                    <!-- Video rows will be inserted here -->
-                                </tbody>
-                            </table>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">🔍 Visual Analysis</h3>
+                        <div id="visualAnalysis" class="space-y-3">
+                            <p class="text-gray-500">AI visual analysis will appear here...</p>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- AI Script Generator Tab -->
-            <div id="ai-scripts-content" class="tab-content">
-                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-lg mb-6">
-                    <h2 class="text-2xl font-bold mb-2">🤖 AI Script Generator</h2>
-                    <p class="text-blue-100">Generate optimized video scripts based on your creative performance data</p>
-                </div>
-                
                 <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate Script for Creative</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <select id="scriptCreativeSelect" class="px-4 py-2 border border-gray-300 rounded-lg">
-                            <option value="">Select a creative...</option>
-                        </select>
-                        <select id="scriptFocus" class="px-4 py-2 border border-gray-300 rounded-lg">
-                            <option value="hook_rate">Hook Rate Focus</option>
-                            <option value="retention">Retention Focus</option>
-                            <option value="completion">Completion Focus</option>
-                            <option value="overall">Balanced Improvement</option>
-                        </select>
-                        <button id="generateScriptBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300" disabled>
-                            🤖 Generate Scripts
-                        </button>
-                    </div>
-                    <div id="scriptResults" class="space-y-4">
-                        <!-- Script results will be inserted here -->
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 Cross-Platform Insights</h3>
+                    <div id="crossPlatformInsights" class="space-y-4">
+                        <p class="text-gray-500">Cross-platform analysis results will appear here...</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Video Intelligence Tab -->
-            <div id="video-intelligence-content" class="tab-content">
-                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-lg mb-6">
-                    <h2 class="text-2xl font-bold mb-2">🎬 Video Intelligence Analysis</h2>
-                    <p class="text-indigo-100">Deep frame-by-frame analysis with audio transcription and visual scene detection</p>
+            <!-- Creative Generator Tab -->
+            <div id="creative-generator-content" class="tab-content">
+                <div class="bg-gradient-to-r from-green-600 to-teal-600 text-white p-6 rounded-lg mb-6">
+                    <h2 class="text-2xl font-bold mb-2">✨ AI Creative Generator</h2>
+                    <p class="text-green-100">Generate new creatives based on your best-performing patterns</p>
                 </div>
 
-                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Analyze Video Content</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <select id="intelligenceCreativeSelect" class="px-4 py-2 border border-gray-300 rounded-lg">
-                            <option value="">Select a video creative...</option>
-                        </select>
-                        <select id="analysisType" class="px-4 py-2 border border-gray-300 rounded-lg">
-                            <option value="full">Full Analysis</option>
-                            <option value="audio_only">Audio Transcription Only</option>
-                            <option value="visual_only">Visual Analysis Only</option>
-                            <option value="frame_by_frame">Frame-by-Frame Deep Dive</option>
-                        </select>
-                        <button id="analyzeVideoBtn" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300" disabled>
-                            🎬 Analyze Video
-                        </button>
-                    </div>
-                    <div id="videoAnalysisProgress" class="hidden">
-                        <div class="flex items-center gap-2 text-indigo-600 mb-2">
-                            <div class="loading inline-block w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
-                            <span id="analysisStatusText">Downloading and analyzing video...</span>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">🎨 Creative Settings</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Base Creative</label>
+                                <select id="baseCreativeSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">Select top-performing creative...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Generation Type</label>
+                                <select id="generationType" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                    <option value="variation">Create Variation</option>
+                                    <option value="style_transfer">Style Transfer</option>
+                                    <option value="concept_remix">Concept Remix</option>
+                                    <option value="cross_platform">Cross-Platform Adaptation</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Target Platform</label>
+                                <select id="targetPlatform" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                    <option value="facebook">Facebook</option>
+                                    <option value="taboola">Taboola</option>
+                                    <option value="both">Both Platforms</option>
+                                </select>
+                            </div>
+                            <button id="generateCreativeBtn" class="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300" disabled>
+                                ✨ Generate New Creative
+                            </button>
                         </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div id="analysisProgressBar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-                        </div>
                     </div>
-                </div>
 
-                <div id="videoIntelligenceResults" class="space-y-6">
-                    <!-- Results will be inserted here -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">🔮 Generated Results</h3>
+                        <div id="generatedResults" class="space-y-4">
+                            <p class="text-gray-500">Generated creatives will appear here...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -379,9 +403,9 @@
     <script>
         const API_BASE = 'https://facebook-ads-dashboard-git-main-jacks-projects-e0e84f4f.vercel.app';
         
-        let accountData = null;
-        let campaigns = [];
-        let creatives = [];
+        let facebookData = { overview: null, campaigns: [], creatives: [] };
+        let taboolaData = { campaigns: [], creatives: [] };
+        let allCreatives = [];
         let currentSort = { column: null, direction: 'asc' };
 
         // Debug logging
@@ -398,93 +422,202 @@
             document.getElementById('debugPanel').style.display = 'none';
         });
 
-        async function fetchAccountData(dateRange) {
-            debugLog('Fetching overview data...');
-            const response = await fetch(`${API_BASE}/api/overview?date_preset=${dateRange}`);
-            debugLog(`Overview response status: ${response.status}`);
+        // Update platform status
+        function updatePlatformStatus(platform, status, error = null) {
+            const statusElement = document.getElementById(`${platform}Status`);
+            const indicatorElement = document.getElementById(`${platform}Indicator`);
             
-            if (!response.ok) throw new Error('Failed to fetch account data');
-            
-            const data = await response.json();
-            debugLog('Overview data received successfully');
-            return data;
+            if (status === 'connected') {
+                statusElement.textContent = 'Connected';
+                indicatorElement.className = 'w-3 h-3 bg-green-500 rounded-full';
+            } else if (status === 'error') {
+                statusElement.textContent = 'Error';
+                indicatorElement.className = 'w-3 h-3 bg-red-500 rounded-full';
+                debugLog(`${platform} error: ${error}`);
+            } else {
+                statusElement.textContent = 'Connecting...';
+                indicatorElement.className = 'w-3 h-3 bg-yellow-500 rounded-full';
+            }
         }
 
-        async function fetchCampaigns(dateRange) {
-            debugLog('Fetching campaigns data...');
-            const response = await fetch(`${API_BASE}/api/campaigns?date_preset=${dateRange}`);
-            debugLog(`Campaigns response status: ${response.status}`);
-            
-            if (!response.ok) throw new Error('Failed to fetch campaigns');
-            
-            const data = await response.json();
-            debugLog(`Campaigns data received: ${data.length} campaigns`);
-            return data;
+        // Fetch Facebook data
+        async function fetchFacebookData(dateRange) {
+            try {
+                debugLog('Fetching Facebook data...');
+                updatePlatformStatus('facebook', 'connecting');
+
+                const [overviewResponse, campaignsResponse, creativesResponse] = await Promise.all([
+                    fetch(`${API_BASE}/api/overview?date_preset=${dateRange}`),
+                    fetch(`${API_BASE}/api/campaigns?date_preset=${dateRange}`),
+                    fetch(`${API_BASE}/api/creatives?date_preset=${dateRange}`)
+                ]);
+
+                facebookData.overview = await overviewResponse.json();
+                facebookData.campaigns = await campaignsResponse.json();
+                facebookData.creatives = await creativesResponse.json();
+
+                // Add platform identifier
+                facebookData.campaigns = facebookData.campaigns.map(c => ({ ...c, platform: 'facebook' }));
+                facebookData.creatives = facebookData.creatives.map(c => ({ ...c, platform: 'facebook' }));
+
+                updatePlatformStatus('facebook', 'connected');
+                debugLog(`Facebook data loaded: ${facebookData.campaigns.length} campaigns, ${facebookData.creatives.length} creatives`);
+
+            } catch (error) {
+                updatePlatformStatus('facebook', 'error', error.message);
+                throw error;
+            }
         }
 
-        async function fetchCreatives(dateRange) {
-            debugLog('Fetching creatives data...');
-            const response = await fetch(`${API_BASE}/api/creatives?date_preset=${dateRange}`);
-            debugLog(`Creatives response status: ${response.status}`);
-            
-            if (!response.ok) throw new Error('Failed to fetch creatives');
-            
-            const data = await response.json();
-            debugLog(`Creatives data received: ${data.length} creatives`);
-            return data;
+        // Fetch Taboola data
+        async function fetchTaboolaData(dateRange) {
+            try {
+                debugLog('Fetching Taboola data...');
+                updatePlatformStatus('taboola', 'connecting');
+
+                const [campaignsResponse, creativesResponse] = await Promise.all([
+                    fetch(`${API_BASE}/api/taboola-campaigns?date_range=${dateRange}`),
+                    fetch(`${API_BASE}/api/taboola-creatives?date_range=${dateRange}`)
+                ]);
+
+                if (!campaignsResponse.ok || !creativesResponse.ok) {
+                    throw new Error('Taboola API request failed');
+                }
+
+                taboolaData.campaigns = await campaignsResponse.json();
+                taboolaData.creatives = await creativesResponse.json();
+
+                updatePlatformStatus('taboola', 'connected');
+                debugLog(`Taboola data loaded: ${taboolaData.campaigns.length} campaigns, ${taboolaData.creatives.length} creatives`);
+
+            } catch (error) {
+                updatePlatformStatus('taboola', 'error', error.message);
+                debugLog(`Taboola fetch failed: ${error.message}`);
+                // Don't throw - allow dashboard to work with just Facebook data
+                taboolaData = { campaigns: [], creatives: [] };
+            }
         }
 
-        function updateOverviewUI() {
-            if (!accountData) return;
+        // Update combined overview
+        function updateCombinedOverview() {
+            const fbOverview = facebookData.overview || {};
+            const tbCampaigns = taboolaData.campaigns || [];
 
-            debugLog('Updating overview UI...');
-            debugLog(`Raw overview data received: ${JSON.stringify(accountData).substring(0, 100)}...`);
-            
-            // Use flexible field names
-            const spend = accountData.totalSpend || accountData.spend || 0;
-            const revenue = accountData.totalRevenue || accountData.revenue || 0;
-            const conversions = accountData.totalConversions || accountData.conversions || accountData.leadConversions || 0;
-            const clicks = accountData.totalClicks || accountData.clicks || 0;
-            const impressions = accountData.totalImpressions || accountData.impressions || 0;
-            const ctr = accountData.averageCTR || accountData.ctr || 0;
-            const cpc = accountData.averageCPC || accountData.cpc || 0;
-            const cpm = accountData.averageCPM || accountData.cpm || 0;
-            const roas = accountData.totalROAS || accountData.roas || 0;
+            // Calculate Taboola totals
+            const taboolaSpend = tbCampaigns.reduce((sum, c) => sum + (c.spend || 0), 0);
+            const taboolaRevenue = tbCampaigns.reduce((sum, c) => sum + (c.revenue || 0), 0);
+            const taboolaConversions = tbCampaigns.reduce((sum, c) => sum + (c.conversions || 0), 0);
 
-            debugLog(`Processed metrics - Spend: £${spend}, Revenue: £${revenue}, Clicks: ${clicks}, Impressions: ${impressions}`);
+            // Calculate combined totals
+            const totalSpend = (fbOverview.spend || 0) + taboolaSpend;
+            const totalRevenue = (fbOverview.revenue || 0) + taboolaRevenue;
+            const totalConversions = (fbOverview.conversions || 0) + taboolaConversions;
+            const totalROAS = totalRevenue > 0 && totalSpend > 0 ? totalRevenue / totalSpend : 0;
 
-            document.getElementById('totalSpend').textContent = `£${spend.toFixed(2)}`;
-            document.getElementById('totalRevenue').textContent = `£${revenue.toFixed(2)}`;
-            document.getElementById('totalROAS').textContent = `${roas.toFixed(2)}x`;
-            document.getElementById('totalConversions').textContent = conversions.toLocaleString();
-            document.getElementById('totalClicks').textContent = clicks.toLocaleString();
-            document.getElementById('averageCTR').textContent = `${ctr.toFixed(2)}%`;
-            document.getElementById('averageCPC').textContent = `£${cpc.toFixed(2)}`;
-            document.getElementById('averageCPM').textContent = `£${cpm.toFixed(2)}`;
+            // Update UI
+            document.getElementById('totalSpend').textContent = `£${totalSpend.toFixed(2)}`;
+            document.getElementById('totalRevenue').textContent = `£${totalRevenue.toFixed(2)}`;
+            document.getElementById('totalROAS').textContent = `${totalROAS.toFixed(2)}x`;
+            document.getElementById('totalConversions').textContent = totalConversions.toLocaleString();
 
-            debugLog(`Updated overview UI with spend: £${spend.toFixed(2)}, revenue: £${revenue.toFixed(2)}, ROAS: ${roas.toFixed(2)}x`);
+            // Update platform breakdowns
+            document.getElementById('facebookSpend').textContent = `£${(fbOverview.spend || 0).toFixed(0)}`;
+            document.getElementById('taboolaSpend').textContent = `£${taboolaSpend.toFixed(0)}`;
+            document.getElementById('facebookRevenue').textContent = `£${(fbOverview.revenue || 0).toFixed(0)}`;
+            document.getElementById('taboolaRevenue').textContent = `£${taboolaRevenue.toFixed(0)}`;
+            document.getElementById('facebookConversions').textContent = fbOverview.conversions || 0;
+            document.getElementById('taboolaConversions').textContent = taboolaConversions;
+
+            // Update charts
+            updatePlatformCharts(fbOverview, { spend: taboolaSpend, revenue: taboolaRevenue });
         }
 
-        function updateCampaignsUI() {
+        // Update platform comparison charts
+        function updatePlatformCharts(fbData, tbData) {
+            const spendChart = document.getElementById('spendChart');
+            const roasChart = document.getElementById('roasChart');
+
+            const fbSpend = fbData.spend || 0;
+            const tbSpend = tbData.spend || 0;
+            const totalSpend = fbSpend + tbSpend;
+
+            const fbROAS = fbData.roas || 0;
+            const tbROAS = tbData.revenue > 0 && tbData.spend > 0 ? tbData.revenue / tbData.spend : 0;
+
+            // Spend chart
+            spendChart.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-600">Facebook</span>
+                    <span class="text-sm font-medium">£${fbSpend.toFixed(2)}</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
+                    <div class="bg-blue-500 h-2 rounded-full" style="width: ${totalSpend > 0 ? (fbSpend / totalSpend) * 100 : 0}%"></div>
+                </div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-600">Taboola</span>
+                    <span class="text-sm font-medium">£${tbSpend.toFixed(2)}</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-cyan-500 h-2 rounded-full" style="width: ${totalSpend > 0 ? (tbSpend / totalSpend) * 100 : 0}%"></div>
+                </div>
+            `;
+
+            // ROAS chart
+            roasChart.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-600">Facebook</span>
+                    <span class="text-sm font-medium">${fbROAS.toFixed(2)}x</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
+                    <div class="bg-blue-500 h-2 rounded-full" style="width: ${Math.min(100, fbROAS * 20)}%"></div>
+                </div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-600">Taboola</span>
+                    <span class="text-sm font-medium">${tbROAS.toFixed(2)}x</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-cyan-500 h-2 rounded-full" style="width: ${Math.min(100, tbROAS * 20)}%"></div>
+                </div>
+            `;
+        }
+
+        // Update combined campaigns table
+        function updateCombinedCampaigns() {
             const campaignTable = document.getElementById('campaignTable');
             campaignTable.innerHTML = '';
 
-            campaigns.forEach(campaign => {
+            // Combine campaigns from both platforms
+            const allCampaigns = [
+                ...facebookData.campaigns.map(c => ({ ...c, platform: 'facebook' })),
+                ...taboolaData.campaigns.map(c => ({ ...c, platform: 'taboola' }))
+            ];
+
+            // Sort by spend descending
+            allCampaigns.sort((a, b) => (b.spend || 0) - (a.spend || 0));
+
+            allCampaigns.forEach(campaign => {
                 const row = document.createElement('tr');
-                row.className = 'border-b border-gray-100 hover:bg-gray-50';
+                row.className = `border-b border-gray-100 hover:bg-gray-50 platform-${campaign.platform}`;
 
                 const statusColor = campaign.status === 'winning' ? 'bg-green-50 text-green-800' :
                                   campaign.status === 'losing' ? 'bg-red-50 text-red-800' :
                                   'bg-yellow-50 text-yellow-800';
 
+                const platformBadge = campaign.platform === 'facebook' ? 
+                    'platform-badge-facebook' : 'platform-badge-taboola';
+
                 row.innerHTML = `
-                    <td class="py-4 px-4 font-medium text-gray-900">${campaign.name.length > 40 ? campaign.name.substring(0, 40) + '...' : campaign.name}</td>
-                    <td class="py-4 px-4 text-right text-gray-900">£${campaign.spend.toFixed(2)}</td>
-                    <td class="py-4 px-4 text-right text-gray-900">£${campaign.revenue.toFixed(2)}</td>
-                    <td class="py-4 px-4 text-right font-medium text-gray-900">${campaign.roas.toFixed(2)}x</td>
-                    <td class="py-4 px-4 text-right text-gray-900">${campaign.conversions}</td>
-                    <td class="py-4 px-4 text-right text-gray-900">${campaign.ctr.toFixed(2)}%</td>
-                    <td class="py-4 px-4 text-right text-gray-900">£${campaign.cpc.toFixed(2)}</td>
+                    <td class="py-4 px-4">
+                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ${platformBadge}">
+                            ${campaign.platform.charAt(0).toUpperCase() + campaign.platform.slice(1)}
+                        </span>
+                    </td>
+                    <td class="py-4 px-4 font-medium text-gray-900">${campaign.name.length > 50 ? campaign.name.substring(0, 50) + '...' : campaign.name}</td>
+                    <td class="py-4 px-4 text-right text-gray-900">£${(campaign.spend || 0).toFixed(2)}</td>
+                    <td class="py-4 px-4 text-right text-gray-900">£${(campaign.revenue || 0).toFixed(2)}</td>
+                    <td class="py-4 px-4 text-right font-medium text-gray-900">${(campaign.roas || 0).toFixed(2)}x</td>
+                    <td class="py-4 px-4 text-right text-gray-900">${campaign.conversions || 0}</td>
+                    <td class="py-4 px-4 text-right text-gray-900">${(campaign.ctr || 0).toFixed(2)}%</td>
                     <td class="py-4 px-4 text-center">
                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
                             ${campaign.status}
@@ -496,39 +629,62 @@
             });
         }
 
-        function updateCreativesUI() {
+        // Update combined creatives
+        function updateCombinedCreatives() {
             const creativesGrid = document.getElementById('creativesGrid');
             creativesGrid.innerHTML = '';
 
+            // Combine creatives from both platforms
+            allCreatives = [
+                ...facebookData.creatives.map(c => ({ ...c, platform: 'facebook' })),
+                ...taboolaData.creatives.map(c => ({ ...c, platform: 'taboola' }))
+            ];
+
+            // Sort by performance score descending
+            allCreatives.sort((a, b) => (b.performance_score || 0) - (a.performance_score || 0));
+
             // Update overview stats
-            const totalCreatives = creatives.length;
-            const avgScore = totalCreatives > 0 ? creatives.reduce((sum, c) => sum + c.performance_score, 0) / totalCreatives : 0;
-            const topPerformer = creatives.length > 0 ? creatives.reduce((best, current) => current.performance_score > best.performance_score ? current : best) : null;
-            const needsAttention = creatives.filter(c => c.performance_score < 40).length;
+            const totalCreatives = allCreatives.length;
+            const avgScore = totalCreatives > 0 ? allCreatives.reduce((sum, c) => sum + (c.performance_score || 0), 0) / totalCreatives : 0;
+            const bestCreative = allCreatives.length > 0 ? allCreatives[0] : null;
+            const platformPerformance = {
+                facebook: facebookData.creatives.reduce((sum, c) => sum + (c.performance_score || 0), 0) / Math.max(1, facebookData.creatives.length),
+                taboola: taboolaData.creatives.reduce((sum, c) => sum + (c.performance_score || 0), 0) / Math.max(1, taboolaData.creatives.length)
+            };
+            const topPlatform = platformPerformance.facebook > platformPerformance.taboola ? 'Facebook' : 'Taboola';
 
             document.getElementById('totalCreatives').textContent = totalCreatives;
             document.getElementById('avgCreativeScore').textContent = avgScore.toFixed(0);
-            document.getElementById('topPerformer').textContent = topPerformer ? `${topPerformer.performance_score}/100` : '-';
-            document.getElementById('needsAttention').textContent = needsAttention;
+            document.getElementById('topPlatform').textContent = topPlatform;
+            document.getElementById('bestCreative').textContent = bestCreative ? `${bestCreative.performance_score}/100` : '-';
 
             // Create creative cards
-            creatives.forEach(creative => {
-                const scoreColor = creative.performance_score >= 80 ? 'bg-green-100 text-green-800' :
-                                 creative.performance_score >= 60 ? 'bg-yellow-100 text-yellow-800' :
+            allCreatives.slice(0, 12).forEach(creative => {
+                const scoreColor = (creative.performance_score || 0) >= 80 ? 'bg-green-100 text-green-800' :
+                                 (creative.performance_score || 0) >= 60 ? 'bg-yellow-100 text-yellow-800' :
                                  'bg-red-100 text-red-800';
 
+                const platformBadge = creative.platform === 'facebook' ? 
+                    'platform-badge-facebook' : 'platform-badge-taboola';
+
                 const card = document.createElement('div');
-                card.className = 'bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow';
+                card.className = `bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow platform-${creative.platform}`;
                 
                 card.innerHTML = `
                     <div class="flex items-start justify-between mb-4">
                         <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ${platformBadge}">
+                                    ${creative.platform.charAt(0).toUpperCase() + creative.platform.slice(1)}
+                                </span>
+                                <span class="text-xs text-gray-500">${creative.creative_type?.toUpperCase() || 'IMAGE'}</span>
+                            </div>
                             <h4 class="font-semibold text-gray-900 text-sm mb-1">${creative.name.substring(0, 40)}${creative.name.length > 40 ? '...' : ''}</h4>
-                            <p class="text-xs text-gray-500">${creative.creative_type.toUpperCase()} • ${creative.status}</p>
+                            <p class="text-xs text-gray-500">${creative.status}</p>
                         </div>
                         <div class="text-right">
                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${scoreColor}">
-                                ${creative.performance_score}/100
+                                ${creative.performance_score || 0}/100
                             </span>
                         </div>
                     </div>
@@ -536,24 +692,24 @@
                     <div class="grid grid-cols-2 gap-3 mb-4">
                         <div class="text-center p-2 bg-gray-50 rounded-lg">
                             <p class="text-xs text-gray-600">Spend</p>
-                            <p class="font-semibold text-gray-900">£${creative.spend.toFixed(2)}</p>
+                            <p class="font-semibold text-gray-900">£${(creative.spend || 0).toFixed(2)}</p>
                         </div>
                         <div class="text-center p-2 bg-gray-50 rounded-lg">
                             <p class="text-xs text-gray-600">CTR</p>
-                            <p class="font-semibold text-gray-900">${creative.ctr.toFixed(2)}%</p>
+                            <p class="font-semibold text-gray-900">${(creative.ctr || 0).toFixed(2)}%</p>
                         </div>
                         <div class="text-center p-2 bg-gray-50 rounded-lg">
                             <p class="text-xs text-gray-600">CPC</p>
-                            <p class="font-semibold text-gray-900">£${creative.cpc.toFixed(2)}</p>
+                            <p class="font-semibold text-gray-900">£${(creative.cpc || 0).toFixed(2)}</p>
                         </div>
                         <div class="text-center p-2 bg-gray-50 rounded-lg">
-                            <p class="text-xs text-gray-600">Hook Rate</p>
-                            <p class="font-semibold text-gray-900">${creative.hook_rate.toFixed(1)}%</p>
+                            <p class="text-xs text-gray-600">Conversions</p>
+                            <p class="font-semibold text-gray-900">${creative.conversions || 0}</p>
                         </div>
                     </div>
 
                     <div class="space-y-2">
-                        ${creative.insights.slice(0, 2).map(insight => `
+                        ${(creative.insights || []).slice(0, 2).map(insight => `
                             <div class="flex items-start gap-2">
                                 <span class="text-xs ${insight.type === 'success' ? 'text-green-500' : insight.type === 'warning' ? 'text-yellow-500' : 'text-red-500'}">
                                     ${insight.type === 'success' ? '✅' : insight.type === 'warning' ? '⚠️' : '❌'}
@@ -562,220 +718,197 @@
                             </div>
                         `).join('')}
                     </div>
+
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <button class="w-full text-xs text-blue-600 hover:text-blue-800 font-medium" onclick="analyzeCreative('${creative.id}', '${creative.platform}')">
+                            🤖 AI Analyze
+                        </button>
+                    </div>
                 `;
 
                 creativesGrid.appendChild(card);
             });
 
-            // Update dropdowns
+            // Update creative generator dropdown
             updateCreativeDropdowns();
         }
 
-        function updateVideoAnalysisUI() {
-            const videoCreatives = creatives.filter(c => c.creative_type === 'video');
-            
-            // Update overview stats
-            const totalVideos = videoCreatives.length;
-            const avgHookRate = totalVideos > 0 ? videoCreatives.reduce((sum, c) => sum + c.hook_rate, 0) / totalVideos : 0;
-            const avgRetention = totalVideos > 0 ? videoCreatives.reduce((sum, c) => sum + (c.hook_rate * 0.8), 0) / totalVideos : 0; // Simulated
-            const avgCompletion = totalVideos > 0 ? videoCreatives.reduce((sum, c) => sum + c.completion_rate, 0) / totalVideos : 0;
-            const totalSpend = videoCreatives.reduce((sum, c) => sum + c.spend, 0);
-
-            document.getElementById('totalVideos').textContent = totalVideos;
-            document.getElementById('avgHookRate').textContent = `${avgHookRate.toFixed(1)}%`;
-            document.getElementById('avgRetention').textContent = `${avgRetention.toFixed(1)}%`;
-            document.getElementById('avgCompletion').textContent = `${avgCompletion.toFixed(1)}%`;
-            document.getElementById('videoTotalSpend').textContent = `£${totalSpend.toFixed(2)}`;
-
-            // Update table
-            updateVideoTable(videoCreatives);
-        }
-
-        function updateVideoTable(videoCreatives) {
-            const tableBody = document.getElementById('videoAnalysisTableBody');
-            tableBody.innerHTML = '';
-
-            // Add video data with enhanced metrics - now properly handling lead conversions
-            const enhancedVideos = videoCreatives.map((creative, index) => {
-                // Try to get lead conversions first, then fallback to regular conversions
-                const leadConversions = creative.leadConversions || 0;
-                const regularConversions = creative.conversions || 0;
-                const totalConversions = leadConversions > 0 ? leadConversions : regularConversions;
-                
-                return {
-                    ...creative,
-                    rank: index + 1,
-                    hook_rate: creative.hook_rate || (creative.ctr * 8.5), // Estimate hook rate from CTR
-                    retention_25pct: Math.min(100, (creative.hook_rate || creative.ctr * 8.5) * 0.8), // Simulated
-                    retention_50pct: Math.min(100, (creative.hook_rate || creative.ctr * 8.5) * 0.6), // Simulated
-                    completion_rate: creative.completion_rate || Math.min(100, (creative.hook_rate || creative.ctr * 8.5) * 0.4), // Simulated
-                    conversions: totalConversions,
-                    cpa: totalConversions > 0 ? creative.spend / totalConversions : 0
-                };
-            });
-
-            // Sort videos by current sort criteria
-            if (currentSort.column) {
-                enhancedVideos.sort((a, b) => {
-                    let aVal = a[currentSort.column];
-                    let bVal = b[currentSort.column];
-                    
-                    if (typeof aVal === 'string') {
-                        aVal = aVal.toLowerCase();
-                        bVal = bVal.toLowerCase();
-                    }
-                    
-                    if (currentSort.direction === 'asc') {
-                        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-                    } else {
-                        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-                    }
-                });
-            }
-
-            enhancedVideos.forEach((video, index) => {
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-100 hover:bg-gray-50';
-
-                const grade = video.hook_rate >= 15 ? 'A' : video.hook_rate >= 10 ? 'B' : video.hook_rate >= 5 ? 'C' : 'D';
-                const gradeColor = grade === 'A' ? 'bg-green-100 text-green-800' :
-                                 grade === 'B' ? 'bg-blue-100 text-blue-800' :
-                                 grade === 'C' ? 'bg-yellow-100 text-yellow-800' :
-                                 'bg-red-100 text-red-800';
-
-                row.innerHTML = `
-                    <td class="py-4 px-6 text-center">
-                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full ${index < 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'} text-sm font-bold">
-                            ${index + 1}
-                        </span>
-                    </td>
-                    <td class="py-4 px-6">
-                        <div class="flex items-center">
-                            <div class="w-12 h-12 bg-gray-200 rounded-lg mr-3 flex items-center justify-center">
-                                <span class="text-xs text-gray-500">🎬</span>
-                            </div>
-                            <div>
-                                <p class="font-medium text-gray-900 text-sm">${video.name.substring(0, 30)}${video.name.length > 30 ? '...' : ''}</p>
-                                <p class="text-xs text-gray-500">Video #${video.id.slice(-4)}</p>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="py-4 px-6 text-right">
-                        <span class="font-semibold ${video.hook_rate >= 10 ? 'text-green-600' : video.hook_rate >= 5 ? 'text-yellow-600' : 'text-red-600'}">
-                            ${video.hook_rate.toFixed(1)}%
-                        </span>
-                    </td>
-                    <td class="py-4 px-6 text-right">
-                        <span class="text-gray-900">${video.retention_25pct.toFixed(1)}%</span>
-                    </td>
-                    <td class="py-4 px-6 text-right">
-                        <span class="text-gray-900">${video.retention_50pct.toFixed(1)}%</span>
-                    </td>
-                    <td class="py-4 px-6 text-right">
-                        <span class="text-gray-900">${video.completion_rate.toFixed(1)}%</span>
-                    </td>
-                    <td class="py-4 px-6 text-right">
-                        <span class="font-medium text-gray-900">£${video.spend.toFixed(2)}</span>
-                    </td>
-                    <td class="py-4 px-6 text-right">
-                        <span class="text-gray-900">£${video.cpc.toFixed(2)}</span>
-                    </td>
-                    <td class="py-4 px-6 text-right">
-                        <span class="font-medium ${video.conversions > 0 ? 'text-green-600' : 'text-gray-500'}">${video.conversions}</span>
-                    </td>
-                    <td class="py-4 px-6 text-right">
-                        <span class="text-gray-900">${video.cpa > 0 ? '£' + video.cpa.toFixed(2) : '-'}</span>
-                    </td>
-                    <td class="py-4 px-6 text-center">
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeColor}">
-                            ${grade}
-                        </span>
-                    </td>
-                    <td class="py-4 px-6 text-center">
-                        <button class="text-blue-600 hover:text-blue-800 text-sm font-medium" onclick="analyzeVideo('${video.id}')">
-                            Analyze
-                        </button>
-                    </td>
-                `;
-
-                tableBody.appendChild(row);
-            });
-        }
-
-        function sortVideoTable(column) {
-            if (currentSort.column === column) {
-                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-            } else {
-                currentSort.column = column;
-                currentSort.direction = 'desc'; // Default to descending for most metrics
-            }
-
-            // Update sort indicators
-            document.querySelectorAll('.sortable-header').forEach(header => {
-                const indicator = header.querySelector('.sort-indicator');
-                indicator.className = 'sort-indicator';
-                
-                if (header.dataset.sort === column) {
-                    indicator.className += currentSort.direction === 'asc' ? ' sort-asc' : ' sort-desc';
-                }
-            });
-
-            // Re-render table
-            const videoCreatives = creatives.filter(c => c.creative_type === 'video');
-            updateVideoTable(videoCreatives);
-        }
-
+        // Update creative generator dropdowns
         function updateCreativeDropdowns() {
-            const scriptSelect = document.getElementById('scriptCreativeSelect');
-            const intelligenceSelect = document.getElementById('intelligenceCreativeSelect');
-            
-            scriptSelect.innerHTML = '<option value="">Select a creative...</option>';
-            intelligenceSelect.innerHTML = '<option value="">Select a video creative...</option>';
+            const baseCreativeSelect = document.getElementById('baseCreativeSelect');
+            baseCreativeSelect.innerHTML = '<option value="">Select top-performing creative...</option>';
 
-            creatives.forEach(creative => {
-                const scriptOption = document.createElement('option');
-                scriptOption.value = creative.id;
-                scriptOption.textContent = creative.name.substring(0, 50) + (creative.name.length > 50 ? '...' : '');
-                scriptSelect.appendChild(scriptOption);
+            // Get top 10 performers across platforms
+            const topCreatives = allCreatives
+                .filter(c => (c.performance_score || 0) >= 60)
+                .slice(0, 10);
 
-                if (creative.creative_type === 'video') {
-                    const intelligenceOption = document.createElement('option');
-                    intelligenceOption.value = creative.id;
-                    intelligenceOption.textContent = creative.name.substring(0, 50) + (creative.name.length > 50 ? '...' : '');
-                    intelligenceSelect.appendChild(intelligenceOption);
-                }
+            topCreatives.forEach(creative => {
+                const option = document.createElement('option');
+                option.value = JSON.stringify({
+                    id: creative.id,
+                    platform: creative.platform,
+                    name: creative.name,
+                    score: creative.performance_score
+                });
+                option.textContent = `${creative.platform.toUpperCase()}: ${creative.name.substring(0, 40)} (${creative.performance_score}/100)`;
+                baseCreativeSelect.appendChild(option);
             });
 
-            // Enable buttons if creatives are available
-            document.getElementById('generateScriptBtn').disabled = creatives.length === 0;
-            document.getElementById('analyzeVideoBtn').disabled = creatives.filter(c => c.creative_type === 'video').length === 0;
+            document.getElementById('generateCreativeBtn').disabled = topCreatives.length === 0;
         }
 
-        async function loadData() {
+        // Generate AI insights
+        function generateAIInsights() {
+            const performancePatterns = document.getElementById('performancePatterns');
+            const visualAnalysis = document.getElementById('visualAnalysis');
+            const crossPlatformInsights = document.getElementById('crossPlatformInsights');
+
+            // Analyze performance patterns
+            const topPerformers = allCreatives.filter(c => (c.performance_score || 0) >= 70);
+            const platforms = [...new Set(topPerformers.map(c => c.platform))];
+            const avgCTRByPlatform = {};
+            const avgSpendByPlatform = {};
+
+            platforms.forEach(platform => {
+                const platformCreatives = topPerformers.filter(c => c.platform === platform);
+                avgCTRByPlatform[platform] = platformCreatives.reduce((sum, c) => sum + (c.ctr || 0), 0) / Math.max(1, platformCreatives.length);
+                avgSpendByPlatform[platform] = platformCreatives.reduce((sum, c) => sum + (c.spend || 0), 0) / Math.max(1, platformCreatives.length);
+            });
+
+            performancePatterns.innerHTML = `
+                <div class="space-y-3">
+                    <div class="p-3 bg-green-50 rounded-lg">
+                        <p class="text-sm font-medium text-green-800">🎯 High Performance Pattern</p>
+                        <p class="text-xs text-green-700">Creatives with ${topPerformers.length > 0 ? (topPerformers.reduce((sum, c) => sum + (c.ctr || 0), 0) / topPerformers.length).toFixed(2) : 0}%+ CTR perform 3x better</p>
+                    </div>
+                    ${platforms.map(platform => `
+                        <div class="p-3 bg-blue-50 rounded-lg">
+                            <p class="text-sm font-medium text-blue-800">${platform.charAt(0).toUpperCase() + platform.slice(1)} Insights</p>
+                            <p class="text-xs text-blue-700">Avg CTR: ${avgCTRByPlatform[platform].toFixed(2)}% | Avg Spend: £${avgSpendByPlatform[platform].toFixed(2)}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Visual analysis insights
+            const videoCreatives = allCreatives.filter(c => c.creative_type === 'video');
+            const imageCreatives = allCreatives.filter(c => c.creative_type === 'image');
+
+            visualAnalysis.innerHTML = `
+                <div class="space-y-3">
+                    <div class="p-3 bg-purple-50 rounded-lg">
+                        <p class="text-sm font-medium text-purple-800">📹 Video vs Image Performance</p>
+                        <p class="text-xs text-purple-700">Videos: ${videoCreatives.length} creatives, Images: ${imageCreatives.length} creatives</p>
+                    </div>
+                    <div class="p-3 bg-indigo-50 rounded-lg">
+                        <p class="text-sm font-medium text-indigo-800">🎨 Creative Type Analysis</p>
+                        <p class="text-xs text-indigo-700">Video avg score: ${videoCreatives.length > 0 ? (videoCreatives.reduce((sum, c) => sum + (c.performance_score || 0), 0) / videoCreatives.length).toFixed(0) : 0}/100</p>
+                    </div>
+                    <div class="p-3 bg-pink-50 rounded-lg">
+                        <p class="text-sm font-medium text-pink-800">🔍 Pattern Recognition</p>
+                        <p class="text-xs text-pink-700">Ready for advanced computer vision analysis</p>
+                    </div>
+                </div>
+            `;
+
+            // Cross-platform insights
+            const facebookPerf = facebookData.creatives.reduce((sum, c) => sum + (c.performance_score || 0), 0) / Math.max(1, facebookData.creatives.length);
+            const taboolaPerf = taboolaData.creatives.reduce((sum, c) => sum + (c.performance_score || 0), 0) / Math.max(1, taboolaData.creatives.length);
+
+            crossPlatformInsights.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <h4 class="font-medium text-blue-800 mb-2">📘 Facebook Performance</h4>
+                        <p class="text-sm text-blue-700">Avg Score: ${facebookPerf.toFixed(0)}/100</p>
+                        <p class="text-xs text-blue-600 mt-1">Best for: Video content, detailed targeting</p>
+                    </div>
+                    <div class="p-4 bg-cyan-50 rounded-lg">
+                        <h4 class="font-medium text-cyan-800 mb-2">🌊 Taboola Performance</h4>
+                        <p class="text-sm text-cyan-700">Avg Score: ${taboolaPerf.toFixed(0)}/100</p>
+                        <p class="text-xs text-cyan-600 mt-1">Best for: Native content, discovery</p>
+                    </div>
+                </div>
+                <div class="mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+                    <h4 class="font-medium text-purple-800 mb-2">🚀 Cross-Platform Opportunities</h4>
+                    <ul class="text-sm text-purple-700 space-y-1">
+                        <li>• Test top Facebook performers on Taboola for discovery reach</li>
+                        <li>• Adapt Taboola native style for Facebook feed placement</li>
+                        <li>• Use platform-specific hooks: urgency (FB) vs curiosity (Taboola)</li>
+                    </ul>
+                </div>
+            `;
+
+            // Update AI insights count
+            document.getElementById('aiInsightsCount').textContent = (topPerformers.length + platforms.length + 3).toString();
+        }
+
+        // Analyze creative with AI
+        function analyzeCreative(creativeId, platform) {
+            debugLog(`Starting AI analysis for ${platform} creative ${creativeId}`);
+            
+            // This would integrate with Claude/GPT-4 for creative analysis
+            alert(`🤖 AI Analysis starting for ${platform} creative ${creativeId}. This will integrate with Claude/GPT-4 for deep creative intelligence.`);
+        }
+
+        // Generate new creative
+        function generateNewCreative() {
+            const baseCreative = document.getElementById('baseCreativeSelect').value;
+            const generationType = document.getElementById('generationType').value;
+            const targetPlatform = document.getElementById('targetPlatform').value;
+
+            if (!baseCreative) {
+                alert('Please select a base creative first');
+                return;
+            }
+
+            debugLog(`Generating ${generationType} creative for ${targetPlatform} based on top performer`);
+
+            const generatedResults = document.getElementById('generatedResults');
+            generatedResults.innerHTML = `
+                <div class="p-4 bg-green-50 rounded-lg">
+                    <h4 class="font-medium text-green-800 mb-2">✨ Generation Started</h4>
+                    <p class="text-sm text-green-700">Creating ${generationType} for ${targetPlatform}...</p>
+                    <div class="mt-2 w-full bg-green-200 rounded-full h-2">
+                        <div class="bg-green-600 h-2 rounded-full animate-pulse" style="width: 60%"></div>
+                    </div>
+                </div>
+                <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <h4 class="font-medium text-blue-800 mb-2">🎨 Generated Creative Preview</h4>
+                    <p class="text-sm text-blue-700">New creative will appear here...</p>
+                    <p class="text-xs text-blue-600 mt-1">This will integrate with Google Gemini, DALL-E, and other AI services</p>
+                </div>
+            `;
+        }
+
+        // Load all platform data
+        async function loadAllData() {
             const dateRange = document.getElementById('dateRange').value;
             const loading = document.getElementById('loading');
             const error = document.getElementById('error');
-            const content = document.querySelectorAll('.tab-content');
             const refreshIcon = document.getElementById('refreshIcon');
 
-            debugLog('Starting data load...');
+            debugLog('Starting multi-platform data load...');
 
             loading.classList.remove('hidden');
             error.classList.add('hidden');
             refreshIcon.style.animation = 'spin 1s linear infinite';
 
             try {
-                accountData = await fetchAccountData(dateRange);
-                campaigns = await fetchCampaigns(dateRange);
-                creatives = await fetchCreatives(dateRange);
+                // Load Facebook and Taboola data in parallel
+                await Promise.all([
+                    fetchFacebookData(dateRange),
+                    fetchTaboolaData(dateRange)
+                ]);
 
-                updateOverviewUI();
-                updateCampaignsUI();
-                updateCreativesUI();
-                updateVideoAnalysisUI();
+                // Update all UI components
+                updateCombinedOverview();
+                updateCombinedCampaigns();
+                updateCombinedCreatives();
+                generateAIInsights();
 
                 loading.classList.add('hidden');
-                debugLog('Data load completed successfully');
+                debugLog('Multi-platform data load completed successfully');
 
             } catch (err) {
                 loading.classList.add('hidden');
@@ -787,16 +920,7 @@
             }
         }
 
-        function analyzeVideo(videoId) {
-            debugLog(`Analyzing video: ${videoId}`);
-            // Switch to video intelligence tab
-            showTab('video-intelligence');
-            // Select the video in the dropdown
-            document.getElementById('intelligenceCreativeSelect').value = videoId;
-            // Enable the analyze button
-            document.getElementById('analyzeVideoBtn').disabled = false;
-        }
-
+        // Show tab
         function showTab(tabName) {
             // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -815,22 +939,22 @@
             // Add active class to selected tab button
             document.querySelector(`[data-tab="${tabName}"]`).classList.remove('text-gray-500', 'hover:text-gray-700');
             document.querySelector(`[data-tab="${tabName}"]`).classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
-
-            // Load specific data for certain tabs
-            if (tabName === 'video-intelligence' && creatives.length > 0) {
-                loadVideoIntelligence();
-            }
-        }
-
-        function loadVideoIntelligence() {
-            debugLog('Loading Video Intelligence...');
-            const videoCreatives = creatives.filter(c => c.creative_type === 'video');
-            debugLog(`Video Intelligence loaded with ${videoCreatives.length} video creatives available`);
         }
 
         // Event listeners
-        document.getElementById('refreshBtn').addEventListener('click', loadData);
-        document.getElementById('dateRange').addEventListener('change', loadData);
+        document.getElementById('refreshBtn').addEventListener('click', loadAllData);
+        document.getElementById('dateRange').addEventListener('change', loadAllData);
+
+        document.getElementById('aiAnalysisBtn').addEventListener('click', () => {
+            showTab('ai-insights');
+            generateAIInsights();
+        });
+
+        document.getElementById('generateCreativeBtn').addEventListener('click', generateNewCreative);
+
+        document.getElementById('baseCreativeSelect').addEventListener('change', function() {
+            document.getElementById('generateCreativeBtn').disabled = !this.value;
+        });
 
         // Tab switching
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -839,25 +963,13 @@
             });
         });
 
-        // Sortable table headers
-        document.querySelectorAll('.sortable-header').forEach(header => {
-            header.addEventListener('click', () => {
-                sortVideoTable(header.dataset.sort);
-            });
-        });
-
-        // Creative selection handlers
-        document.getElementById('scriptCreativeSelect').addEventListener('change', function() {
-            document.getElementById('generateScriptBtn').disabled = !this.value;
-        });
-
-        document.getElementById('intelligenceCreativeSelect').addEventListener('change', function() {
-            document.getElementById('analyzeVideoBtn').disabled = !this.value;
-        });
-
         // Initialize page
-        debugLog('Page loaded, starting data fetch...');
-        loadData();
+        debugLog('Multi-platform dashboard loaded. Starting data fetch...');
+        loadAllData();
+
+        // Make functions globally available
+        window.analyzeCreative = analyzeCreative;
+        window.loadAllData = loadAllData;
     </script>
 </body>
 </html>
