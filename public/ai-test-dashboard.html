@@ -760,19 +760,54 @@
             creatives.forEach((creative, index) => {
                 const item = document.createElement('div');
                 item.className = 'creative-item';
+                
+                // Check if this is an image creative with URL
+                const hasImageUrl = creative.creative_data?.image_url || creative.creative_data?.download_url;
+                const imageUrl = creative.creative_data?.image_url || creative.creative_data?.download_url;
+                
+                let imageDisplay = '';
+                if (hasImageUrl) {
+                    imageDisplay = `
+                        <div style="margin: 15px 0;">
+                            <strong>🖼️ Generated Image:</strong><br>
+                            <img src="${imageUrl}" alt="Generated Creative" style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin: 10px 0; border: 2px solid #667eea;">
+                            <br>
+                            <a href="${imageUrl}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: bold;">
+                                📥 Download Full Resolution Image
+                            </a>
+                        </div>
+                    `;
+                }
+                
+                // Check for headline variations
+                const headlineDisplay = creative.creative_data?.new_headline ? 
+                    `<p><strong>New Headline:</strong> "${creative.creative_data.new_headline}"</p>` : '';
+                
+                // Check for error details
+                const errorDisplay = creative.creative_data?.error_message ? 
+                    `<p style="color: #dc3545;"><strong>Error:</strong> ${creative.creative_data.error_message}</p>` : '';
+
                 item.innerHTML = `
                     <div class="type">${creative.type || 'Unknown'}</div>
                     <h4>Generated Creative #${index + 1}</h4>
                     <p><strong>Method:</strong> ${creative.generation_method || 'AI Generation'}</p>
                     <p><strong>Platform:</strong> ${creative.platform || 'Facebook'}</p>
                     <p><strong>Description:</strong> ${creative.creative_data?.description || 'AI-generated creative variation'}</p>
-                    <p><strong>Predicted CTR Lift:</strong> ${creative.predicted_improvements?.ctr_lift || '+15-25%'}</p>
-                    <p><strong>Priority:</strong> ${creative.testing_notes?.priority || 'Medium'}</p>
+                    ${headlineDisplay}
+                    ${imageDisplay}
+                    ${errorDisplay}
+                    <p><strong>Predicted CTR Lift:</strong> ${creative.predicted_improvements?.ctr_lift || creative.predicted_improvements?.visual_appeal_lift || '+15-25%'}</p>
+                    <p><strong>Priority:</strong> ${creative.testing_notes?.priority || creative.implementation?.testing_priority || 'Medium'}</p>
                 `;
                 itemsContainer.appendChild(item);
             });
 
             debugLog(`📱 Displayed ${creatives.length} generated creatives in preview`);
+            
+            // Count images vs text
+            const imageCount = creatives.filter(c => c.creative_data?.image_url || c.creative_data?.download_url).length;
+            const textCount = creatives.filter(c => c.type === 'headline_variation').length;
+            debugLog(`🎨 Found ${imageCount} images and ${textCount} text variations`);
         }
 
         // Initialize dashboard
