@@ -1,386 +1,4 @@
-).join('')}
-                            </div>
-                        </div>
-                        
-                        <div class="flex gap-2">
-                            <button class="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                                    onclick="launchTest('${creative.id}')">
-                                🚀 Launch Test
-                            </button>
-                            <button class="px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
-                                    onclick="saveCreative('${creative.id}')">
-                                💾 Save
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-            
-            // Add testing recommendations
-            if (generationResult.generation_summary.testing_recommendations) {
-                html += `
-                    <div class="mt-6 bg-blue-50 p-4 rounded-lg">
-                        <h3 class="font-semibold text-blue-800 mb-3">🧪 Testing Strategy</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <strong class="text-blue-700">Approach:</strong><br>
-                                ${generationResult.generation_summary.testing_recommendations.approach}
-                            </div>
-                            <div>
-                                <strong class="text-blue-700">Duration:</strong><br>
-                                ${generationResult.generation_summary.testing_recommendations.duration}
-                            </div>
-                            <div class="md:col-span-2">
-                                <strong class="text-blue-700">Success Criteria:</strong><br>
-                                ${generationResult.generation_summary.testing_recommendations.success_criteria.join(' • ')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            generatedDiv.innerHTML = html;
-        }
-
-        // Creative actions
-        function launchTest(creativeId) {
-            debugLog(`Launching test for creative: ${creativeId}`);
-            // This would integrate with your ad platform APIs to actually create campaigns
-            alert('Test launch functionality would integrate with Facebook/Taboola APIs to create campaigns');
-        }
-
-        function saveCreative(creativeId) {
-            debugLog(`Saving creative: ${creativeId}`);
-            // This would save to your database/storage
-            alert('Creative saved to your library');
-        }
-
-        // Creative Generator functionality
-        function updateCreativeGenerator() {
-            if (allCreatives.length === 0) return;
-            
-            // Populate base creative selector with top performers
-            const baseSelect = document.getElementById('baseCreativeSelect');
-            const topCreatives = [...allCreatives]
-                .sort((a, b) => ((b.ctr || 0) * 20 + (b.conversions || 0) * 5) - ((a.ctr || 0) * 20 + (a.conversions || 0) * 5))
-                .slice(0, 10);
-            
-            baseSelect.innerHTML = '<option value="">Select top performer...</option>';
-            topCreatives.forEach(creative => {
-                const performanceScore = Math.round((creative.ctr || 0) * 20 + (creative.conversions || 0) * 5);
-                baseSelect.innerHTML += `
-                    <option value="${creative.id}">
-                        ${creative.name || 'Unnamed Creative'} (Score: ${performanceScore})
-                    </option>
-                `;
-            });
-            
-            // Enable generate button when creative is selected
-            baseSelect.addEventListener('change', () => {
-                const generateBtn = document.getElementById('generateCreatives');
-                generateBtn.disabled = !baseSelect.value;
-                generateBtn.textContent = baseSelect.value ? '🚀 Generate with AI' : '🚀 Select creative first';
-            });
-        }
-
-        // Generate creatives from current analysis
-        async function generateCreativesFromAnalysis() {
-            if (!currentAnalysis) {
-                debugLog('No current analysis available for generation');
-                return;
-            }
-            
-            debugLog('Starting creative generation from AI analysis...');
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/real-creative-generator`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        base_creative_id: currentAnalysis.creative_id,
-                        generation_type: 'variation',
-                        target_platform: 'facebook',
-                        success_factors: currentAnalysis.success_factors,
-                        creative_format: 'image'
-                    })
-                });
-                
-                if (response.ok) {
-                    const generationResult = await response.json();
-                    debugLog(`Creative generation completed: ${generationResult.generated_count} creatives generated`);
-                    
-                    // Display generated creatives
-                    displayGeneratedCreatives(generationResult);
-                    
-                    // Update AI status
-                    const aiGenerated = document.getElementById('aiGenerated');
-                    const currentGenerated = parseInt(aiGenerated.textContent) || 0;
-                    aiGenerated.textContent = currentGenerated + generationResult.generated_count;
-                    
-                } else {
-                    debugLog(`Creative generation failed: ${response.status}`);
-                }
-            } catch (error) {
-                debugLog(`Creative generation error: ${error.message}`);
-            }
-        }
-
-        // Generate creatives manually
-        document.getElementById('generateCreatives').addEventListener('click', async () => {
-            const baseCreativeId = document.getElementById('baseCreativeSelect').value;
-            const generationType = document.getElementById('generationType').value;
-            const targetPlatform = document.getElementById('targetPlatform').value;
-            
-            if (!baseCreativeId) {
-                debugLog('No base creative selected');
-                return;
-            }
-            
-            const baseCreative = allCreatives.find(c => c.id === baseCreativeId);
-            if (!baseCreative) {
-                debugLog('Base creative not found');
-                return;
-            }
-            
-            debugLog(`Starting creative generation: ${generationType} for ${targetPlatform}`);
-            
-            // Show loading state
-            const generateBtn = document.getElementById('generateCreatives');
-            const originalText = generateBtn.textContent;
-            generateBtn.textContent = '🚀 Generating...';
-            generateBtn.disabled = true;
-            
-            try {
-                // Use success factors from current analysis or create basic ones
-                const successFactors = currentAnalysis?.success_factors || [
-                    { factor: 'high_ctr', impact_score: baseCreative.ctr / 2, category: 'performance' },
-                    { factor: 'engagement', impact_score: 0.6, category: 'psychological' }
-                ];
-                
-                const response = await fetch(`${API_BASE}/api/real-creative-generator`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        base_creative_id: baseCreativeId,
-                        generation_type: generationType,
-                        target_platform: targetPlatform,
-                        success_factors: successFactors,
-                        creative_format: 'image'
-                    })
-                });
-                
-                if (response.ok) {
-                    const generationResult = await response.json();
-                    debugLog(`Creative generation completed: ${generationResult.generated_count} creatives generated`);
-                    
-                    // Display generated creatives
-                    displayGeneratedCreatives(generationResult);
-                    
-                    // Update AI status
-                    const aiGenerated = document.getElementById('aiGenerated');
-                    const currentGenerated = parseInt(aiGenerated.textContent) || 0;
-                    aiGenerated.textContent = currentGenerated + generationResult.generated_count;
-                    
-                } else {
-                    debugLog(`Creative generation failed: ${response.status}`);
-                }
-            } catch (error) {
-                debugLog(`Creative generation error: ${error.message}`);
-            } finally {
-                generateBtn.textContent = originalText;
-                generateBtn.disabled = false;
-            }
-        });
-
-        // Generate creatives from current analysis
-        async function generateCreativesFromAnalysis() {
-            if (!currentAnalysis) {
-                debugLog('No current analysis available for generation');
-                return;
-            }
-            
-            debugLog('Starting creative generation from AI analysis...');
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/real-creative-generator`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        base_creative_id: currentAnalysis.creative_id,
-                        generation_type: 'variation',
-                        target_platform: 'facebook',
-                        success_factors: currentAnalysis.success_factors,
-                        creative_format: 'image'
-                    })
-                });
-                
-                if (response.ok) {
-                    const generationResult = await response.json();
-                    debugLog(`Creative generation completed: ${generationResult.generated_count} creatives generated`);
-                    
-                    // Display generated creatives
-                    displayGeneratedCreatives(generationResult);
-                    
-                    // Update AI status
-                    const aiGenerated = document.getElementById('aiGenerated');
-                    const currentGenerated = parseInt(aiGenerated.textContent) || 0;
-                    aiGenerated.textContent = currentGenerated + generationResult.generated_count;
-                    
-                } else {
-                    debugLog(`Creative generation failed: ${response.status}`);
-                }
-            } catch (error) {
-                debugLog(`Creative generation error: ${error.message}`);
-            }
-        }
-
-        // Generate creatives manually
-        document.getElementById('generateCreatives').addEventListener('click', async () => {
-            const baseCreativeId = document.getElementById('baseCreativeSelect').value;
-            const generationType = document.getElementById('generationType').value;
-            const targetPlatform = document.getElementById('targetPlatform').value;
-            
-            if (!baseCreativeId) {
-                debugLog('No base creative selected');
-                return;
-            }
-            
-            const baseCreative = allCreatives.find(c => c.id === baseCreativeId);
-            if (!baseCreative) {
-                debugLog('Base creative not found');
-                return;
-            }
-            
-            debugLog(`Starting creative generation: ${generationType} for ${targetPlatform}`);
-            
-            // Show loading state
-            const generateBtn = document.getElementById('generateCreatives');
-            const originalText = generateBtn.textContent;
-            generateBtn.textContent = '🚀 Generating...';
-            generateBtn.disabled = true;
-            
-            try {
-                // Use success factors from current analysis or create basic ones
-                const successFactors = currentAnalysis?.success_factors || [
-                    { factor: 'high_ctr', impact_score: baseCreative.ctr / 2, category: 'performance' },
-                    { factor: 'engagement', impact_score: 0.6, category: 'psychological' }
-                ];
-                
-                const response = await fetch(`${API_BASE}/api/real-creative-generator`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        base_creative_id: baseCreativeId,
-                        generation_type: generationType,
-                        target_platform: targetPlatform,
-                        success_factors: successFactors,
-                        creative_format: 'image'
-                    })
-                });
-                
-                if (response.ok) {
-                    const generationResult = await response.json();
-                    debugLog(`Creative generation completed: ${generationResult.generated_count} creatives generated`);
-                    
-                    // Display generated creatives
-                    displayGeneratedCreatives(generationResult);
-                    
-                    // Update AI status
-                    const aiGenerated = document.getElementById('aiGenerated');
-                    const currentGenerated = parseInt(aiGenerated.textContent) || 0;
-                    aiGenerated.textContent = currentGenerated + generationResult.generated_count;
-                    
-                } else {
-                    debugLog(`Creative generation failed: ${response.status}`);
-                }
-            } catch (error) {
-                debugLog(`Creative generation error: ${error.message}`);
-            } finally {
-                generateBtn.textContent = originalText;
-                generateBtn.disabled = false;
-            }
-        });
-
-        function displayGeneratedCreatives(generationResult) {
-            const generatedDiv = document.getElementById('generatedCreatives');
-            
-            let html = `
-                <div class="bg-green-50 p-4 rounded-lg mb-6">
-                    <h3 class="font-semibold text-green-800 mb-2">✨ Generation Complete!</h3>
-                    <div class="text-sm text-green-700">
-                        Generated ${generationResult.generated_count} ${generationResult.generation_type} creatives 
-                        for ${generationResult.target_platform} using ${generationResult.services_used.join(', ')}
-                    </div>
-                    <div class="text-xs text-green-600 mt-1">
-                        Expected performance lift: ${generationResult.generation_summary.estimated_performance_lift}
-                    </div>
-                </div>
-            `;
-            
-            html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
-            
-            generationResult.creatives.forEach((creative, index) => {
-                const confidenceColor = creative.performance_prediction.confidence > 0.8 ? 'bg-green-100 text-green-800' :
-                                       creative.performance_prediction.confidence > 0.6 ? 'bg-yellow-100 text-yellow-800' :
-                                       'bg-red-100 text-red-800';
-                
-                html += `
-                    <div class="bg-white border border-gray-200 rounded-lg p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <h4 class="font-medium text-gray-900">${creative.name}</h4>
-                            <span class="text-xs px-2 py-1 ${confidenceColor} rounded">
-                                ${Math.round(creative.performance_prediction.confidence * 100)}% Confidence
-                            </span>
-                        </div>
-                        
-                        ${creative.content.type === 'generated_image' ? `
-                            <div class="mb-4">
-                                <img src="${creative.content.image_url}" 
-                                     alt="Generated creative" 
-                                     class="w-full h-32 object-cover rounded-lg">
-                                <a href="${creative.content.download_url}" 
-                                   class="mt-2 inline-block text-xs text-blue-600 hover:underline">
-                                   📥 Download Full Size
-                                </a>
-                            </div>
-                        ` : `
-                            <div class="mb-4 p-3 bg-gray-50 rounded text-sm">
-                                <strong>Creative Concept:</strong><br>
-                                ${creative.content.concept || creative.content.title || 'Detailed creative brief generated'}
-                            </div>
-                        `}
-                        
-                        <div class="space-y-2 text-sm mb-4">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Generated with:</span>
-                                <span class="font-medium">${creative.generation_method}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Expected CTR:</span>
-                                <span class="font-medium">${creative.performance_prediction.expected_ctr_range}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Test Budget:</span>
-                                <span class="font-medium">${creative.testing_strategy.recommended_budget}</span>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <div class="text-xs text-gray-600 mb-1">Applied Success Factors:</div>
-                            <div class="flex flex-wrap gap-1">
-                                ${creative.applied_factors.map(factor => 
-                                    `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">${factor.factor.replace(/_/g, ' ')}</span>`
-                                ).<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -390,53 +8,9 @@
     <style>
         .loading { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        
-        /* Tab styling */
-        .tab-btn {
-            transition: all 0.2s ease;
-            border-bottom: 2px solid transparent;
-        }
-        .tab-btn.active { 
-            color: #3B82F6 !important; 
-            border-bottom-color: #3B82F6 !important;
-        }
-        .tab-btn:hover {
-            color: #6B7280 !important;
-        }
-        
-        /* Tab content */
-        .tab-content { 
-            display: none; 
-        }
-        .tab-content.active { 
-            display: block; 
-        }
-        
-        /* Responsive tabs */
-        @media (max-width: 768px) {
-            .tab-container {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-            .tab-btn {
-                min-width: 120px;
-                text-align: center;
-            }
-        }
-        
-        /* Grid and layout fixes */
-        .grid-auto-fit {
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        }
-        
-        /* Creative cards */
-        .creative-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .creative-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        }
+        .tab-btn.active { color: #3B82F6; border-bottom-color: #3B82F6; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -536,30 +110,14 @@
             </div>
 
             <!-- Tabs -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-                <div class="tab-container flex space-x-0 overflow-x-auto">
-                    <button class="tab-btn px-6 py-4 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap flex-shrink-0" data-tab="overview">
-                        <span class="mr-2">🏠</span>Overview
-                    </button>
-                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="campaigns">
-                        <span class="mr-2">📊</span>Campaigns
-                    </button>
-                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="creatives">
-                        <span class="mr-2">🎨</span>Creative Analysis
-                    </button>
-                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="video-analysis">
-                        <span class="mr-2">📺</span>Video Hook Analysis
-                    </button>
-                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="ai-insights">
-                        <span class="mr-2">🧠</span>AI Insights
-                    </button>
-                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="creative-generator">
-                        <span class="mr-2">✨</span>Creative Generator
-                    </button>
-                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="testing-lab">
-                        <span class="mr-2">🧪</span>Testing Lab
-                    </button>
-                </div>
+            <div class="flex space-x-8 mb-6 overflow-x-auto">
+                <button class="tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap" data-tab="overview">🏠 Overview</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="campaigns">📊 Campaigns</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="creatives">🎨 Creative Analysis</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="video-analysis">📺 Video Hook Analysis</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="ai-insights">🧠 AI Insights</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="creative-generator">✨ Creative Generator</button>
+                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="testing-lab">🧪 Testing Lab</button>
             </div>
 
             <!-- Tab Content -->
@@ -659,7 +217,7 @@
                             </button>
                         </div>
                     </div>
-                    <div id="creativesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div id="creativesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         Loading creatives...
                     </div>
                 </div>
@@ -789,34 +347,24 @@
             document.getElementById('debugContent').innerHTML = 'Debug cleared.';
         });
 
-        // Tab functionality - FIXED
+        // Tab functionality
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tabName = btn.getAttribute('data-tab');
                 
                 // Update tab buttons
                 document.querySelectorAll('.tab-btn').forEach(b => {
-                    b.classList.remove('text-blue-600', 'border-blue-600', 'active');
+                    b.classList.remove('text-blue-600', 'border-blue-600');
                     b.classList.add('text-gray-500');
-                    b.style.borderBottomColor = 'transparent';
                 });
-                
-                // Activate clicked tab
                 btn.classList.remove('text-gray-500');
-                btn.classList.add('text-blue-600', 'border-blue-600', 'active');
-                btn.style.borderBottomColor = '#3B82F6';
+                btn.classList.add('text-blue-600', 'border-blue-600');
                 
                 // Update tab content
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.classList.remove('active');
-                    content.style.display = 'none';
                 });
-                
-                const activeContent = document.getElementById(`${tabName}-content`);
-                if (activeContent) {
-                    activeContent.classList.add('active');
-                    activeContent.style.display = 'block';
-                }
+                document.getElementById(`${tabName}-content`).classList.add('active');
                 
                 debugLog(`Switched to ${tabName} tab`);
                 
@@ -1247,51 +795,51 @@
                 const platformIcon = creative.platform === 'Taboola' ? '🔶' : '📘';
                 
                 html += `
-                    <div class="creative-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center gap-2 min-w-0 flex-1">
-                                <span class="text-lg flex-shrink-0">${platformIcon}</span>
-                                <h4 class="font-medium text-gray-900 truncate text-sm">${creative.name || 'Unnamed Creative'}</h4>
+                    <div class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">${platformIcon}</span>
+                                <h4 class="font-medium text-gray-900 truncate flex-1">${creative.name || 'Unnamed Creative'}</h4>
                             </div>
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeColor} flex-shrink-0">
-                                ${grade}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeColor}">
+                                Grade ${grade}
                             </span>
                         </div>
                         
                         <!-- Image preview for video creatives -->
                         ${creative.image_url || creative.thumbnail_url ? `
-                            <div class="mb-3">
+                            <div class="mb-4">
                                 <img src="${creative.image_url || creative.thumbnail_url}" 
                                      alt="Creative preview" 
-                                     class="w-full h-28 object-cover rounded-md"
+                                     class="w-full h-32 object-cover rounded-lg"
                                      onerror="this.style.display='none'">
                             </div>
                         ` : ''}
                         
-                        <div class="space-y-2 mb-3 text-xs">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Score</span>
+                        <div class="space-y-3 mb-4">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Performance Score</span>
                                 <span class="font-medium">${Math.round(performanceScore)}/100</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">Platform</span>
                                 <span class="font-medium">${creative.platform || 'Facebook'}</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">Spend</span>
-                                <span class="font-medium">£${(creative.spend || 0).toFixed(0)}</span>
+                                <span class="font-medium">£${(creative.spend || 0).toFixed(2)}</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">CTR</span>
                                 <span class="font-medium">${(creative.ctr || 0).toFixed(2)}%</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">Conversions</span>
                                 <span class="font-medium">${creative.conversions || 0}</span>
                             </div>
                         </div>
                         
-                        <button class="w-full px-3 py-2 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 transition-colors" 
+                        <button class="w-full px-3 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700" 
                                 onclick="analyzeCreative('${creative.id}')">
                             🧠 Analyze with AI
                         </button>
@@ -1453,9 +1001,6 @@
         }
 
         // AI Analysis functions
-        let currentAnalysis = null;
-        let analyzedCreatives = 0;
-
         async function analyzeCreative(creativeId) {
             debugLog(`Starting AI analysis for creative ${creativeId}`);
             
@@ -1466,13 +1011,6 @@
             }
             
             try {
-                // Show loading state
-                const button = document.querySelector(`button[onclick="analyzeCreative('${creativeId}')"]`);
-                if (button) {
-                    button.textContent = '🧠 Analyzing...';
-                    button.disabled = true;
-                }
-                
                 // Call your real AI analysis API
                 const response = await fetch(`${API_BASE}/api/ai-creative-analyzer`, {
                     method: 'POST',
@@ -1494,217 +1032,57 @@
                 if (response.ok) {
                     const analysis = await response.json();
                     debugLog(`AI analysis completed for creative ${creativeId} with confidence: ${analysis.confidence_score}%`);
-                    debugLog(`Method: ${analysis.analysis_method}, Success factors: ${analysis.success_factors.length}`);
-                    
-                    // Store current analysis
-                    currentAnalysis = analysis;
-                    analyzedCreatives++;
                     
                     // Update AI insights tab
                     updateAIInsights(analysis);
-                    updateCreativeGenerator();
-                    
-                    // Update AI status
-                    document.getElementById('aiAnalyzed').textContent = analyzedCreatives;
-                    document.getElementById('aiSuccessFactors').textContent = analysis.success_factors.length;
-                    document.getElementById('aiStatus').className = 'w-3 h-3 bg-green-500 rounded-full';
-                    
-                    // Reset button
-                    if (button) {
-                        button.textContent = '✅ Analyzed';
-                        button.disabled = false;
-                        button.classList.add('bg-green-600');
-                    }
-                    
                 } else {
                     debugLog(`AI analysis failed for creative ${creativeId}: ${response.status}`);
-                    if (button) {
-                        button.textContent = '❌ Failed';
-                        button.disabled = false;
-                    }
                 }
             } catch (error) {
                 debugLog(`AI analysis error for creative ${creativeId}: ${error.message}`);
-                if (button) {
-                    button.textContent = '❌ Error';
-                    button.disabled = false;
-                }
             }
         }
-
-        // Analyze all creatives
-        document.getElementById('analyzeAllCreatives').addEventListener('click', async () => {
-            debugLog('Starting bulk AI analysis...');
-            const topCreatives = [...allCreatives]
-                .sort((a, b) => ((b.ctr || 0) * 20 + (b.conversions || 0) * 5) - ((a.ctr || 0) * 20 + (a.conversions || 0) * 5))
-                .slice(0, 5); // Analyze top 5 to avoid rate limits
-            
-            for (const creative of topCreatives) {
-                await analyzeCreative(creative.id);
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limiting
-            }
-            
-            debugLog(`Bulk analysis completed for ${topCreatives.length} creatives`);
-        });
 
         function updateAIInsights(analysis) {
             const aiInsights = document.getElementById('aiInsights');
             
-            if (!analysis) {
-                aiInsights.innerHTML = '<p class="text-gray-500">Run creative analysis first to see AI insights...</p>';
-                return;
-            }
-            
-            debugLog(`Updating AI insights with ${analysis.success_factors.length} success factors`);
-            
             // Display AI analysis results
             let html = '<div class="space-y-6">';
             
-            // Analysis method indicator
-            html += `
-                <div class="bg-purple-50 p-4 rounded-lg">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="font-semibold text-purple-800">🤖 AI Analysis Summary</h3>
-                        <span class="text-sm px-2 py-1 bg-purple-200 text-purple-800 rounded">
-                            ${analysis.openai_powered ? 'OpenAI GPT-4' : 'Enhanced Analysis'}
-                        </span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div class="flex justify-between">
-                            <span class="text-purple-600">Confidence:</span>
-                            <span class="font-medium">${Math.round(analysis.confidence_score)}%</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-purple-600">Performance Score:</span>
-                            <span class="font-medium">${Math.round(analysis.performance_score)}/100</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Success factors
             if (analysis.success_factors && analysis.success_factors.length > 0) {
                 html += '<div class="bg-green-50 p-4 rounded-lg">';
                 html += '<h3 class="font-semibold text-green-800 mb-3">🎯 Success Factors</h3>';
-                html += '<div class="space-y-3">';
+                html += '<div class="space-y-2">';
                 analysis.success_factors.forEach(factor => {
-                    const impactScore = Math.round((factor.impact_score || 0.5) * 100);
                     html += `
-                        <div class="border border-green-200 rounded p-3">
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="font-medium text-green-800 capitalize">${factor.factor.replace(/_/g, ' ')}</span>
-                                <span class="text-xs px-2 py-1 bg-green-200 text-green-800 rounded">${impactScore}% Impact</span>
-                            </div>
-                            <div class="text-sm text-green-700">${factor.explanation || 'Strong performance indicator'}</div>
-                            <div class="text-xs text-green-600 mt-1">Category: ${factor.category || 'general'}</div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-green-700">${factor.factor}</span>
+                            <span class="font-medium text-green-800">${Math.round(factor.impact_score * 100)}% Impact</span>
                         </div>
                     `;
                 });
                 html += '</div></div>';
             }
             
-            // Failure points
-            if (analysis.failure_points && analysis.failure_points.length > 0) {
-                html += '<div class="bg-red-50 p-4 rounded-lg">';
-                html += '<h3 class="font-semibold text-red-800 mb-3">⚠️ Issues to Address</h3>';
-                html += '<div class="space-y-3">';
-                analysis.failure_points.forEach(issue => {
-                    const severityScore = Math.round((issue.severity || 0.5) * 100);
-                    html += `
-                        <div class="border border-red-200 rounded p-3">
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="font-medium text-red-800 capitalize">${issue.issue.replace(/_/g, ' ')}</span>
-                                <span class="text-xs px-2 py-1 bg-red-200 text-red-800 rounded">${severityScore}% Severity</span>
-                            </div>
-                            <div class="text-sm text-red-700 mb-1"><strong>Solution:</strong> ${issue.solution}</div>
-                            <div class="text-xs text-red-600">Category: ${issue.category || 'general'}</div>
-                        </div>
-                    `;
+            if (analysis.recommendations && analysis.recommendations.length > 0) {
+                html += '<div class="bg-purple-50 p-4 rounded-lg">';
+                html += '<h3 class="font-semibold text-purple-800 mb-3">💡 AI Recommendations</h3>';
+                html += '<div class="space-y-2">';
+                analysis.recommendations.forEach(rec => {
+                    html += `<div class="text-purple-700">• ${rec.message}</div>`;
                 });
-                html += '</div></div>';
-            }
-            
-            // Optimization recommendations
-            if (analysis.optimization_recommendations && analysis.optimization_recommendations.length > 0) {
-                html += '<div class="bg-blue-50 p-4 rounded-lg">';
-                html += '<h3 class="font-semibold text-blue-800 mb-3">💡 AI Recommendations</h3>';
-                html += '<div class="space-y-3">';
-                analysis.optimization_recommendations.forEach(rec => {
-                    const expectedImpact = Math.round((rec.expected_impact || 0.3) * 100);
-                    const priorityColor = rec.priority === 'high' ? 'bg-red-200 text-red-800' : 
-                                         rec.priority === 'medium' ? 'bg-yellow-200 text-yellow-800' : 
-                                         'bg-gray-200 text-gray-800';
-                    html += `
-                        <div class="border border-blue-200 rounded p-3">
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="font-medium text-blue-800">Action Item</span>
-                                <div class="flex gap-2">
-                                    <span class="text-xs px-2 py-1 ${priorityColor} rounded">${rec.priority || 'medium'}</span>
-                                    <span class="text-xs px-2 py-1 bg-blue-200 text-blue-800 rounded">+${expectedImpact}% Impact</span>
-                                </div>
-                            </div>
-                            <div class="text-sm text-blue-700">${rec.recommendation}</div>
-                        </div>
-                    `;
-                });
-                html += '</div></div>';
-            }
-            
-            // Psychological analysis
-            if (analysis.psychological_analysis) {
-                html += '<div class="bg-yellow-50 p-4 rounded-lg">';
-                html += '<h3 class="font-semibold text-yellow-800 mb-3">🧠 Psychological Analysis</h3>';
-                html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">';
-                
-                if (analysis.psychological_analysis.primary_emotion) {
-                    html += `
-                        <div>
-                            <span class="font-medium text-yellow-700">Primary Emotion:</span>
-                            <span class="text-yellow-800 capitalize">${analysis.psychological_analysis.primary_emotion}</span>
-                        </div>
-                    `;
-                }
-                
-                if (analysis.psychological_analysis.audience_match) {
-                    html += `
-                        <div>
-                            <span class="font-medium text-yellow-700">Audience Match:</span>
-                            <span class="text-yellow-800">${Math.round(analysis.psychological_analysis.audience_match * 100)}%</span>
-                        </div>
-                    `;
-                }
-                
-                if (analysis.psychological_analysis.motivation_triggers && analysis.psychological_analysis.motivation_triggers.length > 0) {
-                    html += `
-                        <div class="md:col-span-2">
-                            <span class="font-medium text-yellow-700">Motivation Triggers:</span>
-                            <div class="mt-1 flex flex-wrap gap-1">
-                                ${analysis.psychological_analysis.motivation_triggers.map(trigger => 
-                                    `<span class="text-xs px-2 py-1 bg-yellow-200 text-yellow-800 rounded">${trigger.replace(/_/g, ' ')}</span>`
-                                ).join('')}
-                            </div>
-                        </div>
-                    `;
-                }
-                
                 html += '</div></div>';
             }
             
             html += '</div>';
-            
-            // Add generate button if we have success factors
-            if (analysis.success_factors && analysis.success_factors.length > 0) {
-                html += `
-                    <div class="mt-6 text-center">
-                        <button onclick="generateCreativesFromAnalysis()" 
-                                class="px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700">
-                            ✨ Generate New Creatives from Analysis
-                        </button>
-                    </div>
-                `;
-            }
-            
             aiInsights.innerHTML = html;
+            
+            // Update AI status
+            const aiAnalyzed = document.getElementById('aiAnalyzed');
+            const aiSuccessFactors = document.getElementById('aiSuccessFactors');
+            const currentAnalyzed = parseInt(aiAnalyzed.textContent) || 0;
+            aiAnalyzed.textContent = currentAnalyzed + 1;
+            aiSuccessFactors.textContent = analysis.success_factors?.length || 0;
         }
 
         // Export functionality
