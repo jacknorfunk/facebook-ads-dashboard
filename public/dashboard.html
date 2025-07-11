@@ -390,9 +390,53 @@
     <style>
         .loading { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .tab-btn.active { color: #3B82F6; border-bottom-color: #3B82F6; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        
+        /* Tab styling */
+        .tab-btn {
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-btn.active { 
+            color: #3B82F6 !important; 
+            border-bottom-color: #3B82F6 !important;
+        }
+        .tab-btn:hover {
+            color: #6B7280 !important;
+        }
+        
+        /* Tab content */
+        .tab-content { 
+            display: none; 
+        }
+        .tab-content.active { 
+            display: block; 
+        }
+        
+        /* Responsive tabs */
+        @media (max-width: 768px) {
+            .tab-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .tab-btn {
+                min-width: 120px;
+                text-align: center;
+            }
+        }
+        
+        /* Grid and layout fixes */
+        .grid-auto-fit {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+        
+        /* Creative cards */
+        .creative-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .creative-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -492,14 +536,30 @@
             </div>
 
             <!-- Tabs -->
-            <div class="flex space-x-8 mb-6 overflow-x-auto">
-                <button class="tab-btn px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap" data-tab="overview">🏠 Overview</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="campaigns">📊 Campaigns</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="creatives">🎨 Creative Analysis</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="video-analysis">📺 Video Hook Analysis</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="ai-insights">🧠 AI Insights</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="creative-generator">✨ Creative Generator</button>
-                <button class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="testing-lab">🧪 Testing Lab</button>
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+                <div class="tab-container flex space-x-0 overflow-x-auto">
+                    <button class="tab-btn px-6 py-4 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap flex-shrink-0" data-tab="overview">
+                        <span class="mr-2">🏠</span>Overview
+                    </button>
+                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="campaigns">
+                        <span class="mr-2">📊</span>Campaigns
+                    </button>
+                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="creatives">
+                        <span class="mr-2">🎨</span>Creative Analysis
+                    </button>
+                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="video-analysis">
+                        <span class="mr-2">📺</span>Video Hook Analysis
+                    </button>
+                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="ai-insights">
+                        <span class="mr-2">🧠</span>AI Insights
+                    </button>
+                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="creative-generator">
+                        <span class="mr-2">✨</span>Creative Generator
+                    </button>
+                    <button class="tab-btn px-6 py-4 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap flex-shrink-0" data-tab="testing-lab">
+                        <span class="mr-2">🧪</span>Testing Lab
+                    </button>
+                </div>
             </div>
 
             <!-- Tab Content -->
@@ -599,7 +659,7 @@
                             </button>
                         </div>
                     </div>
-                    <div id="creativesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div id="creativesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         Loading creatives...
                     </div>
                 </div>
@@ -729,24 +789,34 @@
             document.getElementById('debugContent').innerHTML = 'Debug cleared.';
         });
 
-        // Tab functionality
+        // Tab functionality - FIXED
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tabName = btn.getAttribute('data-tab');
                 
                 // Update tab buttons
                 document.querySelectorAll('.tab-btn').forEach(b => {
-                    b.classList.remove('text-blue-600', 'border-blue-600');
+                    b.classList.remove('text-blue-600', 'border-blue-600', 'active');
                     b.classList.add('text-gray-500');
+                    b.style.borderBottomColor = 'transparent';
                 });
+                
+                // Activate clicked tab
                 btn.classList.remove('text-gray-500');
-                btn.classList.add('text-blue-600', 'border-blue-600');
+                btn.classList.add('text-blue-600', 'border-blue-600', 'active');
+                btn.style.borderBottomColor = '#3B82F6';
                 
                 // Update tab content
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.classList.remove('active');
+                    content.style.display = 'none';
                 });
-                document.getElementById(`${tabName}-content`).classList.add('active');
+                
+                const activeContent = document.getElementById(`${tabName}-content`);
+                if (activeContent) {
+                    activeContent.classList.add('active');
+                    activeContent.style.display = 'block';
+                }
                 
                 debugLog(`Switched to ${tabName} tab`);
                 
@@ -1177,51 +1247,51 @@
                 const platformIcon = creative.platform === 'Taboola' ? '🔶' : '📘';
                 
                 html += `
-                    <div class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="flex items-center gap-2">
-                                <span class="text-lg">${platformIcon}</span>
-                                <h4 class="font-medium text-gray-900 truncate flex-1">${creative.name || 'Unnamed Creative'}</h4>
+                    <div class="creative-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2 min-w-0 flex-1">
+                                <span class="text-lg flex-shrink-0">${platformIcon}</span>
+                                <h4 class="font-medium text-gray-900 truncate text-sm">${creative.name || 'Unnamed Creative'}</h4>
                             </div>
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeColor}">
-                                Grade ${grade}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeColor} flex-shrink-0">
+                                ${grade}
                             </span>
                         </div>
                         
                         <!-- Image preview for video creatives -->
                         ${creative.image_url || creative.thumbnail_url ? `
-                            <div class="mb-4">
+                            <div class="mb-3">
                                 <img src="${creative.image_url || creative.thumbnail_url}" 
                                      alt="Creative preview" 
-                                     class="w-full h-32 object-cover rounded-lg"
+                                     class="w-full h-28 object-cover rounded-md"
                                      onerror="this.style.display='none'">
                             </div>
                         ` : ''}
                         
-                        <div class="space-y-3 mb-4">
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-600">Performance Score</span>
+                        <div class="space-y-2 mb-3 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Score</span>
                                 <span class="font-medium">${Math.round(performanceScore)}/100</span>
                             </div>
-                            <div class="flex justify-between text-sm">
+                            <div class="flex justify-between">
                                 <span class="text-gray-600">Platform</span>
                                 <span class="font-medium">${creative.platform || 'Facebook'}</span>
                             </div>
-                            <div class="flex justify-between text-sm">
+                            <div class="flex justify-between">
                                 <span class="text-gray-600">Spend</span>
-                                <span class="font-medium">£${(creative.spend || 0).toFixed(2)}</span>
+                                <span class="font-medium">£${(creative.spend || 0).toFixed(0)}</span>
                             </div>
-                            <div class="flex justify-between text-sm">
+                            <div class="flex justify-between">
                                 <span class="text-gray-600">CTR</span>
                                 <span class="font-medium">${(creative.ctr || 0).toFixed(2)}%</span>
                             </div>
-                            <div class="flex justify-between text-sm">
+                            <div class="flex justify-between">
                                 <span class="text-gray-600">Conversions</span>
                                 <span class="font-medium">${creative.conversions || 0}</span>
                             </div>
                         </div>
                         
-                        <button class="w-full px-3 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700" 
+                        <button class="w-full px-3 py-2 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 transition-colors" 
                                 onclick="analyzeCreative('${creative.id}')">
                             🧠 Analyze with AI
                         </button>
