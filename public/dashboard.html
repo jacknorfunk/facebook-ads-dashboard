@@ -286,6 +286,11 @@
                 document.getElementById(`${tabName}-content`).classList.add('active');
                 
                 debugLog(`Switched to ${tabName} tab`);
+                
+                // Load tab-specific data if needed
+                if (tabName === 'video-analysis' && creatives.length > 0) {
+                    updateVideoAnalysisTab();
+                }
             });
         });
 
@@ -308,7 +313,7 @@
                 const processedData = {
                     spend: parseFloat(data.spend || data.totalSpend || 0),
                     revenue: parseFloat(data.revenue || data.totalRevenue || data.conversion_values || 0),
-                    conversions: parseInt(data.conversions || data.totalConversions || 0),
+                    conversions: parseInt(data.conversions || data.totalConversions || data.leadConversions || 0),
                     clicks: parseInt(data.clicks || data.totalClicks || 0),
                     impressions: parseInt(data.impressions || data.totalImpressions || 0),
                     ctr: parseFloat(data.ctr || data.averageCTR || 0),
@@ -361,7 +366,15 @@
                 debugLog(`Facebook creatives data received: ${Array.isArray(data) ? data.length : 'unknown'} creatives`);
                 debugLog(`Facebook creatives sample: ${JSON.stringify(data.slice(0, 2))}`);
                 
-                return Array.isArray(data) ? data : [];
+                // Add platform identifier to Facebook creatives
+                const processedCreatives = Array.isArray(data) ? data.map(creative => ({
+                    ...creative,
+                    platform: 'Facebook'
+                })) : [];
+                
+                debugLog(`Processed Facebook creatives: ${processedCreatives.length} with platform identifiers`);
+                
+                return processedCreatives;
             } catch (error) {
                 debugLog(`Error fetching Facebook creatives: ${error.message}`);
                 return [];
@@ -403,7 +416,13 @@
                 debugLog(`Taboola creatives data received: ${Array.isArray(data) ? data.length : 'unknown'} creatives`);
                 debugLog(`Taboola creatives sample: ${JSON.stringify(data.slice(0, 2))}`);
                 
-                return Array.isArray(data) ? data : [];
+                // Add platform identifier to Taboola creatives
+                const processedCreatives = Array.isArray(data) ? data.map(creative => ({
+                    ...creative,
+                    platform: 'Taboola'
+                })) : [];
+                
+                return processedCreatives;
             } catch (error) {
                 debugLog(`Taboola creatives fetch failed: ${error.message}`);
                 return [];
@@ -447,10 +466,28 @@
                 tabStatus.className = 'w-3 h-3 bg-yellow-500 rounded-full';
             }
             
+            // AI status
+            const aiStatus = document.getElementById('aiStatus');
+            const aiAnalyzed = document.getElementById('aiAnalyzed');
+            const aiSuccessFactors = document.getElementById('aiSuccessFactors');
+            const aiGenerated = document.getElementById('aiGenerated');
+            
+            if (allCreatives.length > 0) {
+                aiStatus.className = 'w-3 h-3 bg-green-500 rounded-full';
+                aiAnalyzed.textContent = allCreatives.length.toString();
+            } else {
+                aiStatus.className = 'w-3 h-3 bg-yellow-400 rounded-full';
+            }
+            
             // Update cross-platform ROAS
             const crossPlatformROAS = document.getElementById('crossPlatformROAS');
             if (accountData) {
-                crossPlatformROAS.textContent = `${accountData.roas.toFixed(2)}x`;
+                const taboolaRevenue = taboolaCampaigns.reduce((sum, camp) => sum + (parseFloat(camp.revenue) || 0), 0);
+                const taboolaSpend = taboolaCampaigns.reduce((sum, camp) => sum + (parseFloat(camp.spend) || 0), 0);
+                const totalRevenue = accountData.revenue + taboolaRevenue;
+                const totalSpend = accountData.spend + taboolaSpend;
+                const combinedROAS = totalRevenue > 0 ? totalRevenue / totalSpend : 0;
+                crossPlatformROAS.textContent = `${combinedROAS.toFixed(2)}x`;
             }
         }
 
@@ -481,15 +518,15 @@
         function updateTopCreatives() {
             const topCreativesDiv = document.getElementById('topCreatives');
             
-            if (creatives.length === 0) {
+            if (allCreatives.length === 0) {
                 topCreativesDiv.innerHTML = '<p class="text-gray-500">No creatives found yet...</p>';
                 return;
             }
             
             // Sort creatives by performance score
-            const sortedCreatives = [...creatives].sort((a, b) => {
-                const scoreA = (a.ctr || 0) * 20 + (a.conversions || 0) * 5;
-                const scoreB = (b.ctr || 0) * 20 + (b.conversions || 0) * 5;
+            const sortedCreatives = [...allCreatives].sort((a, b) => {
+                const scoreA = (a.ctr || 0) * 20 + (a.conversions || a.leadConversions || 0) * 5;
+                const scoreB = (b.ctr || 0) * 20 + (b.conversions || b.leadConversions || 0) * 5;
                 return scoreB - scoreA;
             }).slice(0, 5);
             
@@ -497,7 +534,7 @@
             
             sortedCreatives.forEach((creative, index) => {
                 const performanceScore = Math.min(100, Math.max(0, 
-                    (creative.ctr || 0) * 20 + (creative.conversions || 0) * 5
+                    (creative.ctr || 0) * 20 + (creative.conversions || creative.leadConversions || 0) * 5
                 ));
                 
                 html += `
@@ -511,7 +548,7 @@
                                     ${creative.name || 'Unnamed Creative'}
                                 </div>
                                 <div class="text-sm text-gray-600">
-                                    CTR: ${(creative.ctr || 0).toFixed(2)}% • Conversions: ${creative.conversions || 0}
+                                    ${creative.platform || 'Facebook'} • CTR: ${(creative.ctr || 0).toFixed(2)}% • Conversions: ${creative.conversions || creative.leadConversions || 0}
                                 </div>
                             </div>
                         </div>
@@ -628,7 +665,7 @@
             allCreatives.slice(0, 12).forEach(creative => {
                 const performanceScore = Math.min(100, Math.max(0, 
                     (creative.ctr || 0) * 20 + 
-                    (creative.conversions || 0) * 5 + 
+                    (creative.conversions || creative.leadConversions || 0) * 5 + 
                     (creative.spend > 0 ? Math.min(50, (creative.revenue || 0) / creative.spend * 20) : 0)
                 ));
                 
@@ -655,6 +692,12 @@
                             </span>
                         </div>
                         
+                        ${creative.image_url ? `
+                            <div class="mb-4">
+                                <img src="${creative.image_url}" alt="Creative Preview" class="w-full h-32 object-cover rounded-lg">
+                            </div>
+                        ` : ''}
+                        
                         <div class="space-y-3 mb-4">
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">Performance Score</span>
@@ -674,8 +717,14 @@
                             </div>
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600">Conversions</span>
-                                <span class="font-medium">${creative.conversions || 0}</span>
+                                <span class="font-medium">${creative.conversions || creative.leadConversions || 0}</span>
                             </div>
+                            ${creative.creative_type === 'video' ? `
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-600">Hook Rate</span>
+                                    <span class="font-medium">${(creative.hook_rate || 0).toFixed(1)}%</span>
+                                </div>
+                            ` : ''}
                         </div>
                         
                         <button class="w-full px-3 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700" 
@@ -771,7 +820,7 @@
                 const completion = video.completion_rate || (video.ctr || 0) * 1.5;
                 const spend = video.spend || 0;
                 const cpc = video.cpc || 0;
-                const conversions = video.conversions || 0;
+                const conversions = video.conversions || video.leadConversions || 0;
                 const cpa = conversions > 0 ? spend / conversions : 0;
                 
                 const overallScore = (hookRate + retention + completion) / 3;
@@ -829,9 +878,80 @@
         // AI Analysis functions
         async function analyzeCreative(creativeId) {
             debugLog(`Starting AI analysis for creative ${creativeId}`);
-            // Placeholder for AI analysis
-            debugLog(`AI analysis completed for creative ${creativeId}`);
+            
+            try {
+                const creative = allCreatives.find(c => c.id === creativeId);
+                if (!creative) {
+                    debugLog(`Creative ${creativeId} not found`);
+                    return;
+                }
+                
+                // Call your AI analysis API
+                const response = await fetch(`${API_BASE}/api/ai-creative-analyzer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        creative_id: creativeId,
+                        creative_url: creative.image_url,
+                        performance_data: {
+                            ctr: creative.ctr || 0,
+                            spend: creative.spend || 0,
+                            conversions: creative.conversions || creative.leadConversions || 0,
+                            impressions: creative.impressions || 0
+                        }
+                    })
+                });
+                
+                if (response.ok) {
+                    const analysis = await response.json();
+                    debugLog(`AI analysis completed for creative ${creativeId}. Confidence: ${analysis.confidence_score}%`);
+                    
+                    // Update AI status
+                    const aiAnalyzed = document.getElementById('aiAnalyzed');
+                    aiAnalyzed.textContent = (parseInt(aiAnalyzed.textContent) + 1).toString();
+                    
+                    // Show analysis results (you could implement a modal or update a side panel)
+                    alert(`AI Analysis Complete!\nConfidence: ${analysis.confidence_score}%\nKey insights: ${analysis.ai_insights?.summary || 'Analysis completed'}`);
+                } else {
+                    debugLog(`AI analysis failed for creative ${creativeId}: ${response.status}`);
+                }
+                
+            } catch (error) {
+                debugLog(`Error in AI analysis for creative ${creativeId}: ${error.message}`);
+            }
         }
+
+        // Analyze All button functionality
+        document.getElementById('analyzeAllCreatives').addEventListener('click', async () => {
+            debugLog('Starting AI analysis for all creatives...');
+            
+            if (allCreatives.length === 0) {
+                alert('No creatives found to analyze. Please ensure data is loaded first.');
+                return;
+            }
+            
+            const button = document.getElementById('analyzeAllCreatives');
+            const originalText = button.textContent;
+            button.textContent = '🧠 Analyzing...';
+            button.disabled = true;
+            
+            let analyzed = 0;
+            for (const creative of allCreatives.slice(0, 5)) { // Limit to first 5 for demo
+                await analyzeCreative(creative.id);
+                analyzed++;
+                button.textContent = `🧠 Analyzing... (${analyzed}/${Math.min(5, allCreatives.length)})`;
+                
+                // Small delay between analyses
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            button.textContent = originalText;
+            button.disabled = false;
+            
+            debugLog(`Completed AI analysis for ${analyzed} creatives`);
+        });
 
         // Load all data
         async function loadData() {
@@ -845,6 +965,11 @@
                 
                 // Load Taboola data
                 taboolaCampaigns = await fetchTaboolaCampaigns();
+                taboolaCreatives = await fetchTaboolaCreatives();
+                
+                // Combine all creatives
+                allCreatives = [...creatives, ...taboolaCreatives];
+                debugLog(`Combined creatives: ${allCreatives.length} total (${creatives.length} Facebook + ${taboolaCreatives.length} Taboola)`);
                 
                 // Update UI
                 updatePlatformStatus();
