@@ -941,14 +941,18 @@
                     <table class="w-full">
                         <thead>
                             <tr class="border-b border-gray-200">
-                                <th class="text-left py-4 px-6 font-semibold text-gray-900">Rank</th>
-                                <th class="text-left py-4 px-6 font-semibold text-gray-900">Video</th>
-                                <th class="text-left py-4 px-6 font-semibold text-gray-900">Hook Rate</th>
-                                <th class="text-left py-4 px-6 font-semibold text-gray-900">25% Retention</th>
-                                <th class="text-left py-4 px-6 font-semibold text-gray-900">50% Retention</th>
-                                <th class="text-left py-4 px-6 font-semibold text-gray-900">Completion</th>
-                                <th class="text-left py-4 px-6 font-semibold text-gray-900">Grade</th>
-                                <th class="text-left py-4 px-6 font-semibold text-gray-900">Action</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">Rank</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">Video</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">Hook Rate</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">25% Retention</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">50% Retention</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">Completion</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">Spend</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">CPC</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">Conversions</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">CPA</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">Grade</th>
+                                <th class="text-left py-4 px-3 font-semibold text-gray-900">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -966,20 +970,31 @@
                 const analysis = videoAnalyses[videoId];
                 const gradeClass = `grade-${analysis.grade.toLowerCase()}`;
                 
+                // Get real Facebook data for this video
+                const spend = parseFloat(video.spend) || parseFloat(video.amount_spent) || 0;
+                const clicks = parseInt(video.clicks) || parseInt(video.link_clicks) || 0;
+                const conversions = parseInt(video.conversions) || parseInt(video.actions) || 0;
+                const cpc = clicks > 0 ? (spend / clicks) : 0;
+                const cpa = conversions > 0 ? (spend / conversions) : 0;
+                
                 const rankColor = index === 0 ? 'text-green-600 font-bold' : 
                                 index === 1 ? 'text-blue-600 font-bold' : 
                                 index === 2 ? 'text-orange-600 font-bold' : 'text-gray-600';
                 
                 tableHTML += `
                     <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="showVideoDetails('${videoId}')">
-                        <td class="py-4 px-6 ${rankColor}">#${index + 1}</td>
-                        <td class="py-4 px-6 font-medium text-gray-900">${analysis.name}</td>
-                        <td class="py-4 px-6 font-semibold">${analysis.hookRate.toFixed(1)}%</td>
-                        <td class="py-4 px-6">${analysis.retention25.toFixed(1)}%</td>
-                        <td class="py-4 px-6">${analysis.retention50.toFixed(1)}%</td>
-                        <td class="py-4 px-6">${analysis.completion.toFixed(1)}%</td>
-                        <td class="py-4 px-6 ${gradeClass} font-bold">${analysis.grade}</td>
-                        <td class="py-4 px-6">
+                        <td class="py-4 px-3 ${rankColor}">#${index + 1}</td>
+                        <td class="py-4 px-3 font-medium text-gray-900">${analysis.name}</td>
+                        <td class="py-4 px-3 font-semibold">${analysis.hookRate.toFixed(1)}%</td>
+                        <td class="py-4 px-3">${analysis.retention25.toFixed(1)}%</td>
+                        <td class="py-4 px-3">${analysis.retention50.toFixed(1)}%</td>
+                        <td class="py-4 px-3">${analysis.completion.toFixed(1)}%</td>
+                        <td class="py-4 px-3 font-medium">£${spend.toFixed(2)}</td>
+                        <td class="py-4 px-3">£${cpc.toFixed(2)}</td>
+                        <td class="py-4 px-3 font-medium">${conversions}</td>
+                        <td class="py-4 px-3">${cpa > 0 ? '£' + cpa.toFixed(2) : '-'}</td>
+                        <td class="py-4 px-3 ${gradeClass} font-bold">${analysis.grade}</td>
+                        <td class="py-4 px-3">
                             <button class="text-blue-600 hover:text-blue-800 font-medium">View Details</button>
                         </td>
                     </tr>
