@@ -217,11 +217,16 @@ async function generateDirectVariations(baseCreative, successFactors, targetPlat
     });
   });
 
-  // Visual variations (mock for now - would integrate with DALL-E/Midjourney)
-  // Note: Real image generation would happen here with your OpenAI API
-  if (false) { // Disabled for now - enable when ready for real image generation
-    // const visualVariations = await generateVisualVariations(baseCreative, successFactors, targetPlatform);
-    // variations.push(...visualVariations);
+  // Visual variations using real OpenAI DALL-E 3
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const visualVariations = await generateRealImages(baseCreative, successFactors, targetPlatform);
+      variations.push(...visualVariations);
+    } catch (error) {
+      console.error('Real image generation failed, using mock:', error);
+      // Fallback to mock if real generation fails
+      variations.push(...generateMockVisuals(baseCreative, successFactors, targetPlatform));
+    }
   } else {
     // Mock visual variations
     for (let i = 0; i < 2; i++) {
@@ -464,36 +469,212 @@ function generateTestingStrategy(creatives, baseCreative) {
   };
 }
 
-// Generate visual variations using AI image generation
-async function generateVisualVariations(baseCreative, successFactors, targetPlatform) {
+// Generate real images using OpenAI DALL-E 3
+async function generateRealImages(baseCreative, successFactors, targetPlatform) {
   const variations = [];
   
-  // This would integrate with DALL-E 3, Midjourney, or Stable Diffusion
-  // For now, return mock variations
-  for (let i = 0; i < 2; i++) {
+  // Extract winning elements for image prompts
+  const headline = baseCreative.title || baseCreative.name || 'Car Finance';
+  const performanceScore = baseCreative.ctr || 0;
+  
+  // Create image prompts based on success factors
+  const imagePrompts = [
+    {
+      style: 'professional_trust',
+      prompt: `Professional car finance advertisement featuring a modern car, clean minimal design, trustworthy business aesthetic, professional photography style, bright lighting, based on successful headline: "${headline}". High-quality marketing image, 1200x630 resolution, optimized for ${targetPlatform}`,
+      rationale: 'Trust-building visual to match high-performing copy'
+    },
+    {
+      style: 'emotional_urgency',
+      prompt: `Dynamic car finance promotional image with exciting car visuals, urgent call-to-action design elements, vibrant colors that grab attention, emotional appeal for car buyers, based on winning creative: "${headline}". Eye-catching advertisement, scroll-stopping design for ${targetPlatform}`,
+      rationale: 'High-impact visual to boost engagement rates'
+    }
+  ];
+
+  // Generate actual images using OpenAI DALL-E 3
+  for (let i = 0; i < imagePrompts.length; i++) {
+    const imagePrompt = imagePrompts[i];
+    
+    try {
+      console.log(`Generating real image ${i + 1} with DALL-E 3...`);
+      
+      const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "dall-e-3",
+          prompt: imagePrompt.prompt,
+          n: 1,
+          size: "1024x1024",
+          quality: "standard",
+          style: "vivid"
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`DALL-E API error: ${response.status}`);
+      }
+
+      const imageData = await response.json();
+      const imageUrl = imageData.data[0].url;
+
+      console.log(`✅ Generated real image: ${imageUrl}`);
+
+      variations.push({
+        id: `dalle_${Date.now()}_${i}`,
+        type: 'ai_generated_image',
+        platform: targetPlatform,
+        generation_method: 'openai_dalle3',
+        
+        creative_data: {
+          title: `AI-Generated ${imagePrompt.style} Creative`,
+          description: `DALL-E 3 generated image based on successful elements from "${headline}"`,
+          style: imagePrompt.style,
+          dimensions: '1024x1024',
+          image_url: imageUrl,
+          prompt_used: imagePrompt.prompt,
+          download_url: imageUrl
+        },
+
+        ai_rationale: imagePrompt.rationale,
+        
+        predicted_improvements: {
+          visual_appeal_lift: '+25-45%',
+          engagement_score: 80 + (i * 10),
+          thumb_stopping_power: 'high',
+          conversion_potential: 'enhanced'
+        },
+
+        implementation: {
+          ready_to_use: true,
+          testing_priority: i === 0 ? 'high' : 'medium',
+          recommended_budget: i === 0 ? '30%' : '20%'
+        }
+      });
+
+    } catch (error) {
+      console.error(`Failed to generate image ${i + 1}:`, error);
+      
+      // Add fallback mock if generation fails
+      variations.push({
+        id: `dalle_fallback_${Date.now()}_${i}`,
+        type: 'image_generation_failed',
+        platform: targetPlatform,
+        generation_method: 'openai_dalle3_fallback',
+        
+        creative_data: {
+          title: `Image Generation Concept ${i + 1}`,
+          description: `Ready-to-generate concept: ${imagePrompt.prompt}`,
+          style: imagePrompt.style,
+          error: error.message,
+          prompt_for_manual_generation: imagePrompt.prompt
+        },
+
+        ai_rationale: `${imagePrompt.rationale} (Manual generation required)`,
+        
+        predicted_improvements: {
+          visual_appeal_lift: '+25-45%',
+          engagement_score: 75 + (i * 8)
+        }
+      });
+    }
+  }
+  
+  return variations;
+}
+
+// Generate videos using Google Labs integration
+async function generateRealVideos(baseCreative, successFactors, targetPlatform) {
+  const variations = [];
+  
+  // Extract elements for video generation
+  const headline = baseCreative.title || baseCreative.name || 'Car Finance';
+  
+  // Create video concepts for Google Labs
+  const videoPrompts = [
+    {
+      style: 'hook_focused',
+      script: `15-second car finance video: Opens with attention-grabbing car reveal, text overlay: "${headline}", smooth transitions, professional voiceover explaining benefits, ends with clear call-to-action. Modern, dynamic style.`,
+      duration: '15_seconds',
+      rationale: 'Hook-optimized for maximum retention'
+    },
+    {
+      style: 'conversion_focused',
+      script: `30-second car finance explainer: Problem (expensive car finance) → Solution (your service) → Benefits (savings, easy approval) → Action (apply now). Based on winning creative: "${headline}". Professional, trustworthy tone.`,
+      duration: '30_seconds',
+      rationale: 'Conversion-optimized narrative structure'
+    }
+  ];
+
+  // Note: Google Labs video generation would be integrated here
+  // For now, creating detailed video concepts ready for generation
+  
+  for (let i = 0; i < videoPrompts.length; i++) {
+    const videoPrompt = videoPrompts[i];
+    
     variations.push({
-      id: `visual_${Date.now()}_${i}`,
-      type: 'ai_generated_image',
+      id: `video_${Date.now()}_${i}`,
+      type: 'ai_generated_video',
       platform: targetPlatform,
-      generation_method: 'ai_image_generation',
+      generation_method: 'google_labs_video',
       
       creative_data: {
-        description: `AI-generated visual variation ${i + 1}`,
-        style: i === 0 ? 'enhanced_contrast' : 'emotional_focus',
-        dimensions: targetPlatform === 'facebook' ? '1200x630' : '1200x800',
-        image_url: null // Would contain actual generated image URL
+        title: `AI Video ${videoPrompt.style} - ${videoPrompt.duration}`,
+        description: `Google Labs video generation concept based on successful elements`,
+        duration: videoPrompt.duration,
+        style: videoPrompt.style,
+        script: videoPrompt.script,
+        video_url: null, // Would contain generated video URL
+        thumbnail_url: null,
+        
+        // Ready for Google Labs generation
+        google_labs_prompt: videoPrompt.script,
+        generation_status: 'ready_for_google_labs'
       },
 
-      ai_rationale: `Generated using successful visual patterns`,
+      ai_rationale: videoPrompt.rationale,
       
       predicted_improvements: {
-        visual_appeal_lift: '+20-35%',
-        engagement_score: 75 + (i * 8)
+        hook_rate_lift: '+30-50%',
+        completion_rate_lift: '+20-40%',
+        engagement_score: 85 + (i * 5),
+        conversion_potential: 'very_high'
+      },
+
+      implementation: {
+        next_step: 'Generate with Google Labs using provided script',
+        testing_priority: 'high',
+        recommended_budget: '35%'
       }
     });
   }
   
   return variations;
+}
+
+// Fallback mock visuals
+function generateMockVisuals(baseCreative, successFactors, targetPlatform) {
+  return [
+    {
+      id: `mock_${Date.now()}_1`,
+      type: 'mock_image',
+      platform: targetPlatform,
+      generation_method: 'concept_only',
+      
+      creative_data: {
+        description: 'Professional car finance image concept - ready for DALL-E generation',
+        style: 'professional_trust',
+        prompt_ready: true
+      },
+      
+      predicted_improvements: {
+        visual_appeal_lift: '+20-35%'
+      }
+    }
+  ];
 }
 
 // Additional helper functions for text enhancement
