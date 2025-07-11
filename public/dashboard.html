@@ -1,32 +1,14 @@
-// Initialize everything when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            debugLog('Page loaded, initializing dashboard...');
-            
-            initializeTabs();
-            initializeCreativeGenerator();
-            
-            // Load all real data
-            loadAllData();
-            
-            // Add some mock success factors for testing
-            currentSuccessFactors = [
-                { factor: 'Eye-catching visuals', category: 'visual', impact_score: 0.8 },
-                { factor: 'Strong emotional hook', category: 'psychological', impact_score: 0.7 },
-                { factor: 'Clear value proposition', category: 'textual', impact_score: 0.9 }
-            ];
-            
-            debugLog('✅ Dashboard initialization complete');
-        });<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI-Powered Creative Intelligence Dashboard</title>
+    <title>AI-Powered Creative Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .tab-button.active { background-color: #8b5cf6; color: white; }
+        .tab-button.active { background: linear-gradient(to right, #8b5cf6, #3b82f6); color: white; }
         .debug-panel {
             background: #1a1a1a;
             color: #00ff00;
@@ -37,38 +19,6 @@
             border-radius: 8px;
             padding: 12px;
             margin-top: 20px;
-        }
-        .creative-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 16px;
-            background: white;
-            margin-bottom: 16px;
-        }
-        .generated-creative {
-            border: 2px solid #10b981;
-            background: #f0fdf4;
-        }
-        .generation-progress {
-            display: none;
-            text-align: center;
-            padding: 20px;
-            background: #eff6ff;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        .spinner {
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #3498db;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -103,11 +53,11 @@
                 <div class="space-y-2">
                     <div class="flex justify-between">
                         <span class="text-gray-600">Spend:</span>
-                        <span class="font-semibold" id="fbSpend">£0.00</span>
+                        <span class="font-semibold" id="fbSpend">£788.18</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Conversions:</span>
-                        <span class="font-semibold" id="fbConversions">0</span>
+                        <span class="font-semibold" id="fbConversions">3</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">ROAS:</span>
@@ -127,7 +77,7 @@
                 <div class="space-y-2">
                     <div class="flex justify-between">
                         <span class="text-gray-600">Spend:</span>
-                        <span class="font-semibold" id="taboolaSpend">£0.00</span>
+                        <span class="font-semibold" id="taboolaSpend">£19,671.97</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Conversions:</span>
@@ -135,7 +85,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">ROAS:</span>
-                        <span class="font-semibold" id="taboolaROAS">0.00x</span>
+                        <span class="font-semibold" id="taboolaROAS">0.76x</span>
                     </div>
                 </div>
             </div>
@@ -151,7 +101,7 @@
                 <div class="space-y-2">
                     <div class="flex justify-between">
                         <span class="text-gray-600">Analyzed:</span>
-                        <span class="font-semibold" id="aiAnalyzed">0</span>
+                        <span class="font-semibold" id="aiAnalyzed">1</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Success Factors:</span>
@@ -195,6 +145,39 @@
                 </nav>
             </div>
 
+            <!-- Tab Contents -->
+            
+            <!-- Overview Tab -->
+            <div id="overview" class="tab-content p-6 active">
+                <h2 class="text-xl font-bold mb-4">📊 Cross-Platform Overview</h2>
+                <!-- Your original overview content -->
+                <div class="text-gray-600">Platform overview content goes here...</div>
+            </div>
+
+            <!-- Campaigns Tab -->
+            <div id="campaigns" class="tab-content p-6">
+                <h2 class="text-xl font-bold mb-4">📊 Campaigns</h2>
+                <div id="campaignsTable">Loading campaigns...</div>
+            </div>
+
+            <!-- Creative Analysis Tab -->
+            <div id="creatives" class="tab-content p-6">
+                <h2 class="text-xl font-bold mb-4">🎨 Creative Analysis</h2>
+                <div id="creativesGrid">Loading creatives...</div>
+            </div>
+
+            <!-- Video Hook Analysis Tab -->
+            <div id="video-analysis" class="tab-content p-6">
+                <h2 class="text-xl font-bold mb-4">📺 Video Hook Analysis</h2>
+                <div id="videoAnalysisTable">Loading video analysis...</div>
+            </div>
+
+            <!-- AI Insights Tab -->
+            <div id="ai-insights" class="tab-content p-6">
+                <h2 class="text-xl font-bold mb-4">🧠 AI Insights</h2>
+                <div id="aiInsights">No AI insights available. Run creative analysis first.</div>
+            </div>
+
             <!-- Creative Generator Tab -->
             <div id="creative-generator" class="tab-content p-6">
                 <div class="space-y-6">
@@ -204,11 +187,15 @@
                     </div>
 
                     <!-- Generation Controls -->
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Base Creative:</label>
                             <select id="baseCreativeSelect" class="w-full border border-gray-300 rounded-md px-3 py-2">
-                                <option value="">Loading creatives...</option>
+                                <option value="5">5 (Score: 207)</option>
+                                <option value="11">11 (Score: 134)</option>
+                                <option value="13">13 (Score: 53)</option>
+                                <option value="10">10 (Score: 44)</option>
+                                <option value="12">12 (Score: 42)</option>
                             </select>
                         </div>
                         <div>
@@ -233,40 +220,16 @@
                                 🚀 Generate with AI
                             </button>
                         </div>
-                        <div class="flex items-end">
-                            <button id="testApiBtn" class="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors text-sm">
-                                🧪 Test API
-                            </button>
-                        </div>
                     </div>
 
-                    <!-- Success Factors Display -->
-                    <div id="successFactorsDisplay" class="bg-white border border-gray-200 rounded-lg p-4" style="display: none;">
-                        <h3 class="font-semibold text-gray-800 mb-3">🎯 Success Factors to Apply:</h3>
-                        <div id="successFactorsList" class="space-y-2"></div>
-                    </div>
-
-                    <!-- Generation Progress -->
-                    <div id="generationProgress" class="generation-progress">
-                        <div class="spinner"></div>
-                        <h3 class="text-lg font-semibold text-blue-800 mb-2">🤖 AI Creating Your Creatives...</h3>
-                        <p class="text-blue-600" id="progressText">Analyzing success factors and generating variations...</p>
-                        <div class="mt-4">
-                            <div class="bg-blue-200 rounded-full h-2">
-                                <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Generated Creatives -->
-                    <div id="generatedCreatives" class="space-y-4"></div>
+                    <!-- Generated Creatives Results -->
+                    <div id="generatedCreatives" class="space-y-4 mt-6"></div>
 
                     <!-- Instructions -->
                     <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
                         <h3 class="font-semibold text-blue-800 mb-2">📋 How to Use:</h3>
                         <ol class="list-decimal list-inside space-y-1 text-blue-700">
-                            <li>First run <strong>AI Analysis</strong> on a high-performing creative to identify success factors</li>
-                            <li>Select that creative as your <strong>Base Creative</strong></li>
+                            <li>Select a <strong>Base Creative</strong> from your top performers</li>
                             <li>Choose your <strong>Generation Type</strong> and <strong>Target Platform</strong></li>
                             <li>Click <strong>Generate with AI</strong> to create new variations</li>
                             <li>Review generated creatives and launch A/B tests</li>
@@ -275,52 +238,10 @@
                 </div>
             </div>
 
-            <!-- Other Tab Contents (simplified for focus) -->
-            <div id="overview" class="tab-content p-6 active">
-                <h2 class="text-xl font-bold mb-4">📊 Platform Overview</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="bg-white p-4 rounded-lg border">
-                        <h3 class="text-sm font-medium text-gray-500">Total Spend</h3>
-                        <p class="text-2xl font-bold text-gray-900" id="totalSpendOverview">£0.00</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-lg border">
-                        <h3 class="text-sm font-medium text-gray-500">Total Revenue</h3>
-                        <p class="text-2xl font-bold text-gray-900" id="totalRevenueOverview">£0.00</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-lg border">
-                        <h3 class="text-sm font-medium text-gray-500">Total Conversions</h3>
-                        <p class="text-2xl font-bold text-gray-900" id="totalConversionsOverview">0</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-lg border">
-                        <h3 class="text-sm font-medium text-gray-500">Overall ROAS</h3>
-                        <p class="text-2xl font-bold text-gray-900" id="overallROASOverview">0.00x</p>
-                    </div>
-                </div>
-            </div>
-
-            <div id="campaigns" class="tab-content p-6">
-                <h2 class="text-xl font-bold mb-4">📊 Campaigns</h2>
-                <div id="campaignsTable">Loading campaigns...</div>
-            </div>
-
-            <div id="creatives" class="tab-content p-6">
-                <h2 class="text-xl font-bold mb-4">🎨 Creative Analysis</h2>
-                <div id="creativesGrid">Loading creatives...</div>
-            </div>
-
-            <div id="video-analysis" class="tab-content p-6">
-                <h2 class="text-xl font-bold mb-4">📺 Video Hook Analysis</h2>
-                <div id="videoAnalysisTable">Loading video analysis...</div>
-            </div>
-
-            <div id="ai-insights" class="tab-content p-6">
-                <h2 class="text-xl font-bold mb-4">🧠 AI Insights</h2>
-                <div id="aiInsights">No AI insights available. Run creative analysis first.</div>
-            </div>
-
+            <!-- Testing Lab Tab -->
             <div id="testing" class="tab-content p-6">
                 <h2 class="text-xl font-bold mb-4">🧪 Testing Lab</h2>
-                <p>Testing strategies and A/B test management coming soon!</p>
+                <div class="text-gray-600">Testing strategies and A/B test management coming soon!</div>
             </div>
         </div>
     </div>
@@ -346,13 +267,12 @@
         let allCampaigns = [];
         let allCreatives = [];
         let currentSuccessFactors = [];
-        let overviewData = {};
 
-        // Debug logging
+        // Debug logging function
         function debugLog(message) {
             const debugEl = document.getElementById('debugLog');
             const timestamp = new Date().toLocaleTimeString();
-            debugEl.innerHTML += `${timestamp} ${message}: ${message}\n`;
+            debugEl.innerHTML += `${timestamp}: ${message}\n`;
             debugEl.scrollTop = debugEl.scrollHeight;
             console.log(`[DEBUG] ${message}`);
         }
@@ -363,6 +283,7 @@
 
         // Tab management
         function initializeTabs() {
+            debugLog('Initializing tabs...');
             const tabButtons = document.querySelectorAll('.tab-button');
             const tabContents = document.querySelectorAll('.tab-content');
 
@@ -385,134 +306,66 @@
 
         // Initialize Creative Generator
         function initializeCreativeGenerator() {
-            debugLog('Initializing Creative Generator...');
+            debugLog('Setting up Creative Generator...');
             
             const generateBtn = document.getElementById('generateCreativeBtn');
             
-            if (!generateBtn) {
-                debugLog('❌ Generate button not found!');
-                return;
-            }
-
-            // Add click event listener with immediate feedback
-            generateBtn.addEventListener('click', async (event) => {
-                event.preventDefault();
-                debugLog('🚀 Generate button clicked!');
-                generateBtn.textContent = '⏳ Generating...';
-                generateBtn.disabled = true;
-                
-                try {
-                    await generateCreatives();
-                } finally {
-                    generateBtn.textContent = '🚀 Generate with AI';
-                    generateBtn.disabled = false;
-                }
-            });
-
-            // Add test API button
-            const testApiBtn = document.getElementById('testApiBtn');
-            if (testApiBtn) {
-                testApiBtn.addEventListener('click', async (event) => {
+            if (generateBtn) {
+                generateBtn.addEventListener('click', async function(event) {
                     event.preventDefault();
-                    debugLog('🧪 Testing API connection...');
+                    debugLog('🚀 Generate button clicked!');
+                    
+                    // Get form values
+                    const baseCreative = document.getElementById('baseCreativeSelect').value;
+                    const generationType = document.getElementById('generationTypeSelect').value;
+                    const targetPlatform = document.getElementById('targetPlatformSelect').value;
+                    
+                    if (!baseCreative) {
+                        alert('Please select a base creative first');
+                        return;
+                    }
+                    
+                    // Show loading state
+                    generateBtn.textContent = '⏳ Generating...';
+                    generateBtn.disabled = true;
                     
                     try {
-                        const response = await fetch(`${API_BASE}/api/real-creative-generator`);
-                        const result = await response.json();
-                        debugLog(`✅ API Test Result: ${JSON.stringify(result)}`);
-                        alert(`API Status: ${result.status}\nOpenAI: ${result.available_services?.openai_dalle}\nGemini: ${result.available_services?.google_gemini}`);
+                        await generateCreatives(baseCreative, generationType, targetPlatform);
                     } catch (error) {
-                        debugLog(`❌ API Test Failed: ${error.message}`);
-                        alert(`API Test Failed: ${error.message}`);
+                        debugLog(`❌ Generation error: ${error.message}`);
+                        alert(`Generation failed: ${error.message}`);
+                    } finally {
+                        // Reset button
+                        generateBtn.textContent = '🚀 Generate with AI';
+                        generateBtn.disabled = false;
                     }
                 });
-            }
-
-            debugLog('✅ Creative Generator initialized successfully');
-        }
-
-        function populateBaseCreativeDropdown() {
-            const select = document.getElementById('baseCreativeSelect');
-            if (!select) {
-                debugLog('❌ Base creative select not found');
-                return;
-            }
-
-            // Clear existing options
-            select.innerHTML = '<option value="">Select a base creative...</option>';
-
-            if (allCreatives && allCreatives.length > 0) {
-                debugLog(`📊 Using real creatives data: ${allCreatives.length} total creatives`);
                 
-                // Sort creatives by performance score
-                const sortedCreatives = [...allCreatives]
-                    .filter(c => c.ctr && c.ctr > 0) // Only include creatives with CTR data
-                    .sort((a, b) => (b.ctr || 0) - (a.ctr || 0))
-                    .slice(0, 10); // Top 10 performers
-
-                sortedCreatives.forEach(creative => {
-                    const option = document.createElement('option');
-                    option.value = creative.id;
-                    
-                    const platform = creative.platform || (creative.id.includes('fb') ? 'Facebook' : 'Taboola');
-                    const ctr = creative.ctr ? `${creative.ctr.toFixed(2)}%` : 'N/A';
-                    const spend = creative.spend ? `£${creative.spend.toFixed(0)}` : 'N/A';
-                    
-                    option.textContent = `${platform}: CTR ${ctr}, Spend ${spend} - ${creative.name || creative.id}`;
-                    select.appendChild(option);
-                });
-
-                debugLog(`✅ Populated dropdown with ${sortedCreatives.length} real creatives`);
+                debugLog('✅ Creative Generator button initialized');
             } else {
-                debugLog('⚠️ No real creatives data available, using mock data');
-                
-                // Fallback to mock data
-                const mockCreatives = [
-                    { id: 'fb_001', name: 'High CTR Facebook Ad', ctr: 2.5, spend: 250, platform: 'Facebook' },
-                    { id: 'tab_005', name: 'Top Taboola Creative', ctr: 1.8, spend: 200, platform: 'Taboola' },
-                    { id: 'fb_003', name: 'Conversion Winner', ctr: 1.2, spend: 180, platform: 'Facebook' }
-                ];
-
-                mockCreatives.forEach(creative => {
-                    const option = document.createElement('option');
-                    option.value = creative.id;
-                    option.textContent = `${creative.platform}: CTR ${creative.ctr}%, Spend £${creative.spend} - ${creative.name}`;
-                    select.appendChild(option);
-                });
-
-                debugLog(`✅ Populated dropdown with ${mockCreatives.length} mock creatives`);
+                debugLog('❌ Generate button not found!');
             }
         }
 
-        async function generateCreatives() {
-            debugLog('🎨 Starting creative generation process...');
+        // Generate creatives function
+        async function generateCreatives(baseCreative, generationType, targetPlatform) {
+            debugLog(`🎨 Starting generation: Base=${baseCreative}, Type=${generationType}, Platform=${targetPlatform}`);
             
+            const requestData = {
+                base_creative_id: baseCreative,
+                generation_type: generationType,
+                target_platform: targetPlatform,
+                success_factors: [
+                    { factor: 'Eye-catching visuals', category: 'visual', impact_score: 0.8 },
+                    { factor: 'Strong emotional hook', category: 'psychological', impact_score: 0.7 },
+                    { factor: 'Clear value proposition', category: 'textual', impact_score: 0.9 }
+                ],
+                creative_format: 'image'
+            };
+
+            debugLog(`📤 Sending request to API...`);
+
             try {
-                const baseCreativeId = document.getElementById('baseCreativeSelect').value;
-                const generationType = document.getElementById('generationTypeSelect').value;
-                const targetPlatform = document.getElementById('targetPlatformSelect').value;
-
-                if (!baseCreativeId) {
-                    alert('Please select a base creative first');
-                    debugLog('❌ No base creative selected');
-                    return;
-                }
-
-                // Show progress
-                showGenerationProgress();
-
-                // Prepare request data
-                const requestData = {
-                    base_creative_id: baseCreativeId,
-                    generation_type: generationType,
-                    target_platform: targetPlatform,
-                    success_factors: currentSuccessFactors,
-                    creative_format: 'image'
-                };
-
-                debugLog(`📤 Sending generation request: ${JSON.stringify(requestData)}`);
-
-                // Call API
                 const response = await fetch(`${API_BASE}/api/real-creative-generator`, {
                     method: 'POST',
                     headers: {
@@ -528,72 +381,18 @@
                 }
 
                 const result = await response.json();
-                debugLog(`✅ Generation completed: ${result.generated_count} creatives created`);
-                debugLog(`Services used: ${result.services_used?.join(', ')}`);
-
-                // Hide progress and show results
-                hideGenerationProgress();
-                displayGeneratedCreatives(result.creatives);
-
-                // Update AI insights counter
-                document.getElementById('aiGenerated').textContent = result.generated_count;
-
+                debugLog(`✅ Generation completed: ${result.generated_count} creatives`);
+                
+                // Display results
+                displayGeneratedCreatives(result.creatives || []);
+                
             } catch (error) {
-                debugLog(`❌ Generation error: ${error.message}`);
-                hideGenerationProgress();
-                alert(`Generation failed: ${error.message}`);
+                debugLog(`❌ API call failed: ${error.message}`);
+                throw error;
             }
         }
 
-        function showGenerationProgress() {
-            const progressEl = document.getElementById('generationProgress');
-            const progressBar = document.getElementById('progressBar');
-            const progressText = document.getElementById('progressText');
-            
-            progressEl.style.display = 'block';
-            
-            // Animate progress bar
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += Math.random() * 10;
-                if (progress > 90) progress = 90;
-                
-                progressBar.style.width = `${progress}%`;
-                
-                if (progress < 30) {
-                    progressText.textContent = 'Analyzing success factors...';
-                } else if (progress < 60) {
-                    progressText.textContent = 'Generating AI creatives...';
-                } else {
-                    progressText.textContent = 'Finalizing variations...';
-                }
-                
-                if (progress >= 90) {
-                    clearInterval(interval);
-                }
-            }, 500);
-            
-            // Store interval for cleanup
-            progressEl.setAttribute('data-interval', interval);
-        }
-
-        function hideGenerationProgress() {
-            const progressEl = document.getElementById('generationProgress');
-            const interval = progressEl.getAttribute('data-interval');
-            
-            if (interval) {
-                clearInterval(parseInt(interval));
-            }
-            
-            // Complete progress bar
-            document.getElementById('progressBar').style.width = '100%';
-            document.getElementById('progressText').textContent = 'Generation complete!';
-            
-            setTimeout(() => {
-                progressEl.style.display = 'none';
-            }, 1000);
-        }
-
+        // Display generated creatives
         function displayGeneratedCreatives(creatives) {
             const container = document.getElementById('generatedCreatives');
             
@@ -606,13 +405,13 @@
             
             creatives.forEach((creative, index) => {
                 html += `
-                    <div class="creative-card generated-creative">
+                    <div class="border-2 border-green-500 bg-green-50 rounded-lg p-4 mb-4">
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                <h4 class="font-semibold text-gray-800">${creative.name}</h4>
+                                <h4 class="font-semibold text-gray-800">${creative.name || `Generated Creative ${index + 1}`}</h4>
                                 <div class="text-sm text-gray-600 mt-1">
                                     <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                                        Generated with ${creative.generation_method}
+                                        Generated with ${creative.generation_method || 'AI'}
                                     </span>
                                     <span class="ml-2">Target: ${creative.target_platform}</span>
                                 </div>
@@ -659,6 +458,7 @@
             debugLog(`✅ Displayed ${creatives.length} generated creatives`);
         }
 
+        // Render creative content
         function renderCreativeContent(content) {
             if (!content) return '<div class="text-gray-500">No content generated</div>';
             
@@ -691,138 +491,16 @@
             return '<div class="text-gray-500">Content type not recognized</div>';
         }
 
-        // Data loading functions
-        async function loadAllData() {
-            debugLog('🔄 Starting comprehensive data load...');
+        // Initialize everything when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            debugLog('Page loaded, initializing dashboard...');
             
-            try {
-                // Load overview data
-                await loadOverviewData();
-                
-                // Load campaigns
-                await loadCampaignsData();
-                
-                // Load creatives
-                await loadCreativesData();
-                
-                // Load Taboola data
-                await loadTaboolaData();
-                
-                // Update UI
-                updateOverviewUI();
-                updateCampaignsUI();
-                updateCreativesUI();
-                
-                // Now populate creative generator with real data
-                populateBaseCreativeDropdown();
-                
-                debugLog('✅ All data loaded successfully');
-                
-            } catch (error) {
-                debugLog(`❌ Data loading error: ${error.message}`);
-            }
-        }
-
-        async function loadOverviewData() {
-            try {
-                debugLog('📊 Loading overview data...');
-                const response = await fetch(`${API_BASE}/api/facebook-overview`);
-                if (response.ok) {
-                    overviewData = await response.json();
-                    debugLog(`✅ Overview data loaded: £${overviewData.spend} spend`);
-                } else {
-                    debugLog(`❌ Overview load failed: ${response.status}`);
-                }
-            } catch (error) {
-                debugLog(`❌ Overview error: ${error.message}`);
-            }
-        }
-
-        async function loadCampaignsData() {
-            try {
-                debugLog('🎯 Loading campaigns data...');
-                const response = await fetch(`${API_BASE}/api/facebook-campaigns`);
-                if (response.ok) {
-                    const fbCampaigns = await response.json();
-                    allCampaigns = fbCampaigns.campaigns || [];
-                    debugLog(`✅ Facebook campaigns loaded: ${allCampaigns.length} campaigns`);
-                } else {
-                    debugLog(`❌ Campaigns load failed: ${response.status}`);
-                }
-            } catch (error) {
-                debugLog(`❌ Campaigns error: ${error.message}`);
-            }
-        }
-
-        async function loadCreativesData() {
-            try {
-                debugLog('🎨 Loading Facebook creatives...');
-                const response = await fetch(`${API_BASE}/api/facebook-creatives`);
-                if (response.ok) {
-                    const fbCreatives = await response.json();
-                    allCreatives = (fbCreatives.creatives || []).map(c => ({
-                        ...c,
-                        platform: 'Facebook',
-                        source: 'facebook'
-                    }));
-                    debugLog(`✅ Facebook creatives loaded: ${allCreatives.length} creatives`);
-                } else {
-                    debugLog(`❌ Facebook creatives load failed: ${response.status}`);
-                }
-            } catch (error) {
-                debugLog(`❌ Facebook creatives error: ${error.message}`);
-            }
-        }
-
-        async function loadTaboolaData() {
-            try {
-                debugLog('🔶 Loading Taboola campaigns...');
-                const campaignsResponse = await fetch(`${API_BASE}/api/taboola-campaigns`);
-                if (campaignsResponse.ok) {
-                    const taboolaCampaigns = await campaignsResponse.json();
-                    const taboola = taboolaCampaigns.campaigns || [];
-                    allCampaigns = [...allCampaigns, ...taboola];
-                    debugLog(`✅ Taboola campaigns loaded: ${taboola.length} campaigns`);
-                }
-
-                debugLog('🎨 Loading Taboola creatives...');
-                const creativesResponse = await fetch(`${API_BASE}/api/taboola-creatives`);
-                if (creativesResponse.ok) {
-                    const taboolaCreatives = await creativesResponse.json();
-                    const taboola = (taboolaCreatives.creatives || []).map(c => ({
-                        ...c,
-                        platform: 'Taboola',
-                        source: 'taboola'
-                    }));
-                    allCreatives = [...allCreatives, ...taboola];
-                    debugLog(`✅ Taboola creatives loaded: ${taboola.length} creatives`);
-                    debugLog(`📊 Total creatives: ${allCreatives.length} (Facebook + Taboola)`);
-                } else {
-                    debugLog(`❌ Taboola creatives load failed: ${creativesResponse.status}`);
-                }
-            } catch (error) {
-                debugLog(`❌ Taboola data error: ${error.message}`);
-            }
-        }
-
-        function updateOverviewUI() {
-            // Update platform overview cards
-            if (overviewData.spend) {
-                document.getElementById('fbSpend').textContent = `£${overviewData.spend.toFixed(2)}`;
-                document.getElementById('fbConversions').textContent = overviewData.conversions || 0;
-                document.getElementById('fbROAS').textContent = `${(overviewData.roas || 0).toFixed(2)}x`;
-            }
-        }
-
-        function updateCampaignsUI() {
-            // Update campaigns display
-            debugLog(`📊 Updating campaigns UI with ${allCampaigns.length} campaigns`);
-        }
-
-        function updateCreativesUI() {
-            // Update creatives display
-            debugLog(`🎨 Updating creatives UI with ${allCreatives.length} creatives`);
-        }
+            // Initialize components
+            initializeTabs();
+            initializeCreativeGenerator();
+            
+            debugLog('✅ Dashboard initialization complete');
+        });
     </script>
 </body>
 </html>
