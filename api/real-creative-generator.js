@@ -1,4 +1,4 @@
-// api/real-creative-generator.js - Real Creative Generation with Google Gemini & OpenAI
+// api/real-creative-generator.js - Debug Version with Enhanced Logging
 export default async function handler(req, res) {
   try {
     // Set CORS headers
@@ -10,19 +10,37 @@ export default async function handler(req, res) {
       return res.status(200).end();
     }
 
+    if (req.method === 'GET') {
+      // Health check
+      const availableServices = {
+        openai_dalle: !!process.env.OPENAI_API_KEY,
+        google_gemini: !!process.env.GOOGLE_GEMINI_API_KEY
+      };
+      
+      return res.status(200).json({
+        status: 'ready',
+        available_services: availableServices,
+        openai_key_present: !!process.env.OPENAI_API_KEY,
+        gemini_key_present: !!process.env.GOOGLE_GEMINI_API_KEY,
+        endpoint: '/api/real-creative-generator'
+      });
+    }
+
     const { 
-      base_creative_id, 
+      base_creative_id = 'default_creative', 
       generation_type = 'variation',
       target_platform = 'facebook',
       success_factors = [],
       creative_format = 'image'
     } = req.body || req.query;
 
-    console.log('=== REAL CREATIVE GENERATOR CALLED ===');
+    console.log('=== REAL CREATIVE GENERATOR DEBUG ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('Base creative:', base_creative_id);
     console.log('Generation type:', generation_type);
     console.log('Target platform:', target_platform);
-    console.log('Success factors:', success_factors.length);
+    console.log('Success factors count:', success_factors.length);
+    console.log('Success factors:', JSON.stringify(success_factors, null, 2));
 
     // Check available AI services
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -34,21 +52,35 @@ export default async function handler(req, res) {
     };
 
     console.log('Available AI services:', availableServices);
+    console.log('OpenAI key length:', OPENAI_API_KEY ? OPENAI_API_KEY.length : 0);
+    console.log('Gemini key length:', GOOGLE_GEMINI_API_KEY ? GOOGLE_GEMINI_API_KEY.length : 0);
 
     if (!availableServices.openai_dalle && !availableServices.google_gemini) {
+      console.log('❌ No AI services available');
       return res.status(500).json({
-        error: 'No AI generation services available. Please configure OPENAI_API_KEY or GOOGLE_GEMINI_API_KEY',
+        error: 'No AI generation services available',
         available_services: availableServices
       });
     }
 
-    // Generate creative variations based on success factors
+    // Add default success factors if none provided
+    if (success_factors.length === 0) {
+      console.log('⚠️ No success factors provided, using defaults');
+      success_factors.push(
+        { factor: 'Eye-catching visuals', category: 'visual', impact_score: 0.8 },
+        { factor: 'Strong emotional hook', category: 'psychological', impact_score: 0.7 },
+        { factor: 'Clear value proposition', category: 'textual', impact_score: 0.9 }
+      );
+    }
+
+    // Generate creative variations
     const generatedCreatives = [];
+    const errors = [];
     
     // Generate 3 variations
     for (let i = 0; i < 3; i++) {
       try {
-        console.log(`Generating creative variant ${i + 1}/3...`);
+        console.log(`\n--- Generating creative variant ${i + 1}/3 ---`);
         
         const creative = await generateSingleCreative({
           base_creative_id,
@@ -61,11 +93,25 @@ export default async function handler(req, res) {
         });
         
         if (creative) {
+          console.log(`✅ Variant ${i + 1} generated successfully`);
+          console.log('Creative type:', creative.content?.type);
           generatedCreatives.push(creative);
+        } else {
+          console.log(`❌ Variant ${i + 1} failed - no creative returned`);
+          errors.push(`Variant ${i + 1}: No creative generated`);
         }
       } catch (genError) {
-        console.error(`Error generating variant ${i + 1}:`, genError.message);
+        console.error(`❌ Error generating variant ${i + 1}:`, genError.message);
+        console.error('Full error:', genError);
+        errors.push(`Variant ${i + 1}: ${genError.message}`);
       }
+    }
+
+    console.log('\n=== GENERATION SUMMARY ===');
+    console.log('Total creatives generated:', generatedCreatives.length);
+    console.log('Errors encountered:', errors.length);
+    if (errors.length > 0) {
+      console.log('Errors:', errors);
     }
 
     // Response
@@ -80,6 +126,13 @@ export default async function handler(req, res) {
       services_used: Object.keys(availableServices).filter(key => availableServices[key]),
       generated_at: new Date().toISOString(),
       
+      // Debug info
+      debug_info: {
+        success_factors_provided: success_factors.length,
+        errors_encountered: errors,
+        api_keys_available: availableServices
+      },
+      
       // Generation summary
       generation_summary: {
         success_factors_applied: success_factors.length,
@@ -89,16 +142,17 @@ export default async function handler(req, res) {
       }
     };
 
-    console.log('=== CREATIVE GENERATION COMPLETE ===');
-    console.log('Generated creatives:', generatedCreatives.length);
-    console.log('Services used:', response.services_used);
+    console.log('=== FINAL RESPONSE ===');
+    console.log('Returning response with', generatedCreatives.length, 'creatives');
 
     res.json(response);
 
   } catch (error) {
-    console.error('Real Creative Generator error:', error);
+    console.error('❌ MAIN ERROR in Real Creative Generator:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       error: error.message,
+      stack: error.stack,
       service: 'real-creative-generator'
     });
   }
@@ -114,91 +168,113 @@ async function generateSingleCreative({
   availableServices 
 }) {
   
-  // Create generation prompt based on success factors
-  const prompt = buildGenerationPrompt({
-    generation_type,
-    target_platform,
-    success_factors,
-    creative_format,
-    variant_number
-  });
+  console.log(`\n🎨 Starting generation for variant ${variant_number}`);
+  
+  try {
+    // Create generation prompt based on success factors
+    const prompt = buildGenerationPrompt({
+      generation_type,
+      target_platform,
+      success_factors,
+      creative_format,
+      variant_number
+    });
 
-  console.log(`Variant ${variant_number} prompt:`, prompt.substring(0, 100) + '...');
+    console.log(`📝 Prompt built for variant ${variant_number}`);
+    console.log('Image prompt preview:', prompt.image_prompt.substring(0, 150) + '...');
 
-  let generatedContent = null;
-  let serviceUsed = null;
+    let generatedContent = null;
+    let serviceUsed = null;
 
-  // Try DALL-E 3 first for images
-  if (creative_format === 'image' && availableServices.openai_dalle) {
-    try {
-      console.log(`Generating with DALL-E 3 (variant ${variant_number})...`);
-      generatedContent = await generateWithDALLE3(prompt.image_prompt);
-      serviceUsed = 'dalle3';
-    } catch (dalleError) {
-      console.error('DALL-E 3 generation failed:', dalleError.message);
+    // Try DALL-E 3 first for images
+    if (creative_format === 'image' && availableServices.openai_dalle) {
+      try {
+        console.log(`🖼️ Attempting DALL-E 3 generation (variant ${variant_number})...`);
+        generatedContent = await generateWithDALLE3(prompt.image_prompt);
+        serviceUsed = 'dalle3';
+        console.log(`✅ DALL-E 3 generation successful for variant ${variant_number}`);
+      } catch (dalleError) {
+        console.error(`❌ DALL-E 3 generation failed for variant ${variant_number}:`, dalleError.message);
+        console.error('DALL-E error details:', dalleError);
+      }
     }
-  }
 
-  // Try Google Gemini for text/conceptual generation
-  if (!generatedContent && availableServices.google_gemini) {
-    try {
-      console.log(`Generating with Google Gemini (variant ${variant_number})...`);
-      generatedContent = await generateWithGemini(prompt.text_prompt, creative_format);
-      serviceUsed = 'gemini';
-    } catch (geminiError) {
-      console.error('Google Gemini generation failed:', geminiError.message);
+    // Try Google Gemini for text/conceptual generation
+    if (!generatedContent && availableServices.google_gemini) {
+      try {
+        console.log(`🧠 Attempting Google Gemini generation (variant ${variant_number})...`);
+        generatedContent = await generateWithGemini(prompt.text_prompt, creative_format);
+        serviceUsed = 'gemini';
+        console.log(`✅ Gemini generation successful for variant ${variant_number}`);
+      } catch (geminiError) {
+        console.error(`❌ Gemini generation failed for variant ${variant_number}:`, geminiError.message);
+        console.error('Gemini error details:', geminiError);
+      }
     }
+
+    // Fallback: Create detailed creative brief
+    if (!generatedContent) {
+      console.log(`📄 Creating detailed brief fallback for variant ${variant_number}`);
+      generatedContent = generateDetailedBrief(prompt, success_factors, variant_number);
+      serviceUsed = 'detailed_brief';
+      console.log(`✅ Detailed brief created for variant ${variant_number}`);
+    }
+
+    // Calculate performance prediction
+    const performancePrediction = predictPerformance(success_factors, generation_type, target_platform);
+
+    const creative = {
+      id: `generated_${base_creative_id}_v${variant_number}`,
+      name: `AI Generated Variant ${variant_number}`,
+      generation_method: serviceUsed,
+      generation_type,
+      target_platform,
+      creative_format,
+      
+      // Generated content
+      content: generatedContent,
+      
+      // Applied success factors
+      applied_factors: success_factors.map(factor => ({
+        factor: factor.factor,
+        how_applied: getFactorApplication(factor, generation_type),
+        expected_impact: factor.impact_score || 0.5
+      })),
+      
+      // Performance prediction
+      performance_prediction: performancePrediction,
+      
+      // Testing info
+      testing_strategy: {
+        recommended_budget: calculateRecommendedBudget(performancePrediction.confidence),
+        test_duration: '7-14 days',
+        success_metrics: ['CTR > 1.5%', 'CPC < £3.00', 'ROAS > 2.0x'],
+        launch_priority: performancePrediction.confidence > 0.7 ? 'high' : 'medium'
+      },
+      
+      created_at: new Date().toISOString()
+    };
+
+    console.log(`✅ Creative object created for variant ${variant_number}, service: ${serviceUsed}`);
+    return creative;
+
+  } catch (error) {
+    console.error(`❌ ERROR in generateSingleCreative for variant ${variant_number}:`, error);
+    console.error('Error stack:', error.stack);
+    throw error;
   }
-
-  // Fallback: Create detailed creative brief
-  if (!generatedContent) {
-    console.log(`Creating detailed brief (variant ${variant_number})...`);
-    generatedContent = generateDetailedBrief(prompt, success_factors, variant_number);
-    serviceUsed = 'detailed_brief';
-  }
-
-  // Calculate performance prediction
-  const performancePrediction = predictPerformance(success_factors, generation_type, target_platform);
-
-  return {
-    id: `generated_${base_creative_id}_v${variant_number}`,
-    name: `AI Generated Variant ${variant_number}`,
-    generation_method: serviceUsed,
-    generation_type,
-    target_platform,
-    creative_format,
-    
-    // Generated content
-    content: generatedContent,
-    
-    // Applied success factors
-    applied_factors: success_factors.map(factor => ({
-      factor: factor.factor,
-      how_applied: getFactorApplication(factor, generation_type),
-      expected_impact: factor.impact_score || 0.5
-    })),
-    
-    // Performance prediction
-    performance_prediction: performancePrediction,
-    
-    // Testing info
-    testing_strategy: {
-      recommended_budget: calculateRecommendedBudget(performancePrediction.confidence),
-      test_duration: '7-14 days',
-      success_metrics: ['CTR > 1.5%', 'CPC < £3.00', 'ROAS > 2.0x'],
-      launch_priority: performancePrediction.confidence > 0.7 ? 'high' : 'medium'
-    },
-    
-    created_at: new Date().toISOString()
-  };
 }
 
+// Keep all the other functions the same...
 function buildGenerationPrompt({ generation_type, target_platform, success_factors, creative_format, variant_number }) {
+  console.log(`🔧 Building prompt for variant ${variant_number}`);
   
   // Extract key success factors
   const visualFactors = success_factors.filter(f => f.category === 'visual');
   const psychologicalFactors = success_factors.filter(f => f.category === 'psychological');
   const textualFactors = success_factors.filter(f => f.category === 'textual');
+
+  console.log(`Visual factors: ${visualFactors.length}, Psychological: ${psychologicalFactors.length}, Textual: ${textualFactors.length}`);
 
   // Build context
   const context = {
@@ -239,6 +315,7 @@ function buildGenerationPrompt({ generation_type, target_platform, success_facto
   // Text generation prompt (Gemini)  
   const text_prompt = basePrompt + buildTextPrompt(success_factors, target_platform, creative_format);
 
+  console.log(`✅ Prompts built for variant ${variant_number}`);
   return { image_prompt, text_prompt, context };
 }
 
@@ -280,7 +357,7 @@ function buildTextPrompt(success_factors, target_platform, creative_format) {
   
   prompt += '1. HEADLINE: Compelling hook that incorporates these success factors:\n';
   success_factors.forEach(factor => {
-    prompt += `   - ${factor.factor}: ${factor.explanation}\n`;
+    prompt += `   - ${factor.factor}: ${factor.explanation || 'Apply this element effectively'}\n`;
   });
   
   prompt += '\n2. VISUAL DESCRIPTION: Detailed description of the image/video concept\n';
@@ -299,7 +376,11 @@ function buildTextPrompt(success_factors, target_platform, creative_format) {
 }
 
 async function generateWithDALLE3(prompt) {
+  console.log('🔑 Starting DALL-E 3 API call...');
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  
+  console.log('OpenAI API Key present:', !!OPENAI_API_KEY);
+  console.log('Prompt length:', prompt.length);
   
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
@@ -316,12 +397,16 @@ async function generateWithDALLE3(prompt) {
     })
   });
 
+  console.log('DALL-E API response status:', response.status);
+
   if (!response.ok) {
     const errorData = await response.json();
+    console.error('DALL-E API error response:', errorData);
     throw new Error(`DALL-E 3 API error: ${errorData.error?.message || response.status}`);
   }
 
   const data = await response.json();
+  console.log('✅ DALL-E API successful, image URL:', data.data[0].url);
   
   return {
     type: 'generated_image',
@@ -337,7 +422,11 @@ async function generateWithDALLE3(prompt) {
 }
 
 async function generateWithGemini(prompt, creative_format) {
+  console.log('🔑 Starting Gemini API call...');
   const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
+  
+  console.log('Gemini API Key present:', !!GOOGLE_GEMINI_API_KEY);
+  console.log('Prompt length:', prompt.length);
   
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GOOGLE_GEMINI_API_KEY}`, {
     method: 'POST',
@@ -357,13 +446,18 @@ async function generateWithGemini(prompt, creative_format) {
     })
   });
 
+  console.log('Gemini API response status:', response.status);
+
   if (!response.ok) {
     const errorData = await response.json();
+    console.error('Gemini API error response:', errorData);
     throw new Error(`Gemini API error: ${errorData.error?.message || response.status}`);
   }
 
   const data = await response.json();
   const generatedText = data.candidates[0].content.parts[0].text;
+  
+  console.log('✅ Gemini API successful, text length:', generatedText.length);
   
   return {
     type: 'creative_concept',
@@ -377,6 +471,8 @@ async function generateWithGemini(prompt, creative_format) {
 }
 
 function generateDetailedBrief(prompt, success_factors, variant_number) {
+  console.log(`📄 Creating detailed brief for variant ${variant_number}`);
+  
   return {
     type: 'detailed_brief',
     title: `AI-Optimized Creative Brief - Variant ${variant_number}`,
@@ -392,8 +488,8 @@ function generateDetailedBrief(prompt, success_factors, variant_number) {
     
     copy_direction: {
       headline_approach: getHeadlineApproach(success_factors, variant_number),
-      key_messages: success_factors.map(f => f.explanation).slice(0, 3),
-      cta_recommendation: getCTARecommendation(prompt.context.platform)
+      key_messages: success_factors.map(f => f.explanation || f.factor).slice(0, 3),
+      cta_recommendation: getCTARecommendation(prompt.context?.platform || 'facebook')
     },
     
     production_notes: [
@@ -405,6 +501,7 @@ function generateDetailedBrief(prompt, success_factors, variant_number) {
   };
 }
 
+// Keep all other helper functions the same...
 function getHeadlineApproach(success_factors, variant_number) {
   const approaches = [
     'Question-based hook to create curiosity',
