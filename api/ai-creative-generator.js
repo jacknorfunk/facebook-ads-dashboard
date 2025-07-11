@@ -217,10 +217,11 @@ async function generateDirectVariations(baseCreative, successFactors, targetPlat
     });
   });
 
-  // Visual variations (if using image generation APIs)
-  if (process.env.OPENAI_API_KEY) {
-    const visualVariations = await generateVisualVariations(baseCreative, successFactors, targetPlatform);
-    variations.push(...visualVariations);
+  // Visual variations (mock for now - would integrate with DALL-E/Midjourney)
+  // Note: Real image generation would happen here with your OpenAI API
+  if (false) { // Disabled for now - enable when ready for real image generation
+    // const visualVariations = await generateVisualVariations(baseCreative, successFactors, targetPlatform);
+    // variations.push(...visualVariations);
   } else {
     // Mock visual variations
     for (let i = 0; i < 2; i++) {
@@ -463,7 +464,39 @@ function generateTestingStrategy(creatives, baseCreative) {
   };
 }
 
-// Helper functions for text enhancement
+// Generate visual variations using AI image generation
+async function generateVisualVariations(baseCreative, successFactors, targetPlatform) {
+  const variations = [];
+  
+  // This would integrate with DALL-E 3, Midjourney, or Stable Diffusion
+  // For now, return mock variations
+  for (let i = 0; i < 2; i++) {
+    variations.push({
+      id: `visual_${Date.now()}_${i}`,
+      type: 'ai_generated_image',
+      platform: targetPlatform,
+      generation_method: 'ai_image_generation',
+      
+      creative_data: {
+        description: `AI-generated visual variation ${i + 1}`,
+        style: i === 0 ? 'enhanced_contrast' : 'emotional_focus',
+        dimensions: targetPlatform === 'facebook' ? '1200x630' : '1200x800',
+        image_url: null // Would contain actual generated image URL
+      },
+
+      ai_rationale: `Generated using successful visual patterns`,
+      
+      predicted_improvements: {
+        visual_appeal_lift: '+20-35%',
+        engagement_score: 75 + (i * 8)
+      }
+    });
+  }
+  
+  return variations;
+}
+
+// Additional helper functions for text enhancement
 function enhanceHeadlineEmotion(original) {
   const emotionalWords = ['Amazing', 'Incredible', 'Shocking', 'Exclusive', 'Secret'];
   const randomEmotional = emotionalWords[Math.floor(Math.random() * emotionalWords.length)];
