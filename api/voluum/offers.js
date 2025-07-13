@@ -96,23 +96,17 @@ export default async function handler(req, res) {
         const { fromDate, toDate } = getDateRange(dateRange);
         log(`Date range: ${fromDate} to ${toDate}`);
 
-        // Step 3: Fetch offer-level data for multiple periods
+        // Step 3: Fetch offer-level data for the campaign
         const { fromDate, toDate } = getDateRange(dateRange);
-        const { fromDate: prev7From, toDate: prev7To } = getDateRange('last_7_days');
-        const { fromDate: prev14From, toDate: prev14To } = getDateRange('last_14_days');
-        const { fromDate: prev30From, toDate: prev30To } = getDateRange('last_30_days');
-        
-        log(`Current period: ${fromDate} to ${toDate}`);
-        log(`7D period: ${prev7From} to ${prev7To}`);
-        log(`14D period: ${prev14From} to ${prev14To}`);
-        log(`30D period: ${prev30From} to ${prev30To}`);
+        log(`Date range: ${fromDate} to ${toDate}`);
 
-        // Fetch current period offer data
-        const offerReportUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=offer&campaignId=${campaignId}&limit=1000&columns=offerId,offerName,offerUrl,visits,clicks,conversions,revenue,cost,impressions`;
+        // Try different approaches to get offer data
+        // First, try the direct offer groupBy approach
+        let offerReportUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=offer&campaignId=${campaignId}&limit=1000`;
         
-        log(`Fetching current offers: ${offerReportUrl}`);
+        log(`Fetching offers (attempt 1): ${offerReportUrl}`);
         
-        const offerResponse = await fetch(offerReportUrl, {
+        let offerResponse = await fetch(offerReportUrl, {
             method: 'GET',
             headers: {
                 'cwauth-token': sessionToken,
@@ -120,56 +114,56 @@ export default async function handler(req, res) {
             }
         });
 
+        let offerData = null;
+
+        if (!offerResponse.ok) {
+            log(`First attempt failed with status: ${offerResponse.status}`);
+            
+            // Try alternative approach - get campaign data and then filter by offers
+            offerReportUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=campaign,offer&campaignId=${campaignId}&limit=1000`;
+            log(`Fetching offers (attempt 2): ${offerReportUrl}`);
+            
+            offerResponse = await fetch(offerReportUrl, {
+                method: 'GET',
+                headers: {
+                    'cwauth-token': sessionToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+        }
+
+        if (!offerResponse.ok) {
+            log(`Second attempt failed with status: ${offerResponse.status}`);
+            
+            // Try third approach - basic report with campaign filter
+            offerReportUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&campaignId=${campaignId}&limit=1000`;
+            log(`Fetching offers (attempt 3): ${offerReportUrl}`);
+            
+            offerResponse = await fetch(offerReportUrl, {
+                method: 'GET',
+                headers: {
+                    'cwauth-token': sessionToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+        }
+
         if (!offerResponse.ok) {
             const reportError = await offerResponse.text();
-            log(`OFFER REPORT FAILED - Status: ${offerResponse.status}, Error: ${reportError.substring(0, 200)}`);
+            log(`ALL ATTEMPTS FAILED - Status: ${offerResponse.status}, Error: ${reportError.substring(0, 200)}`);
             return res.status(200).json({
                 success: false,
-                error: `Offer report fetch failed: ${offerResponse.status}`,
+                error: `Offer report fetch failed: ${offerResponse.status}. ${reportError.substring(0, 100)}`,
                 debug_logs: debugLogs
             });
         }
 
-        const offerData = await offerResponse.json();
+        offerData = await offerResponse.json();
         log(`Offer data received - Total rows: ${offerData.totalRows || 0}`);
+        log(`Column mappings available: ${Object.keys(offerData.columnMappings || {}).join(', ')}`);
 
-        // Fetch multi-period data for comparison
-        const periods = [
-            { name: '7d', from: prev7From, to: prev7To },
-            { name: '14d', from: prev14From, to: prev14To },
-            { name: '30d', from: prev30From, to: prev30To }
-        ];
-
-        const multiPeriodData = {};
-        
-        for (const period of periods) {
-            try {
-                const periodUrl = `https://api.voluum.com/report?from=${period.from}&to=${period.to}&groupBy=offer&campaignId=${campaignId}&limit=1000&columns=offerId,offerName,visits,clicks,conversions,revenue,cost`;
-                
-                const periodResponse = await fetch(periodUrl, {
-                    method: 'GET',
-                    headers: {
-                        'cwauth-token': sessionToken,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (periodResponse.ok) {
-                    const periodData = await periodResponse.json();
-                    multiPeriodData[period.name] = periodData.rows || [];
-                    log(`${period.name} data: ${periodData.totalRows || 0} rows`);
-                } else {
-                    log(`${period.name} data fetch failed: ${periodResponse.status}`);
-                    multiPeriodData[period.name] = [];
-                }
-            } catch (error) {
-                log(`Error fetching ${period.name} data: ${error.message}`);
-                multiPeriodData[period.name] = [];
-            }
-        }
-
-        // Step 4: Process offer data with multi-period information
-        const processedOffers = processOfferDataWithPeriods(offerData, multiPeriodData, debugLogs);
+        // Step 4: Process offer data (simplified approach)
+        const processedOffers = processOfferDataSimple(offerData, debugLogs);
         
         log(`Processing complete - ${processedOffers.length} offers processed`);
 
