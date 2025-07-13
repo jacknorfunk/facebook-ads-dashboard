@@ -440,22 +440,31 @@
                 showLoadingState();
                 debugLog('Loading campaigns from Voluum API...');
                 
-                // Get current date range selection
+                // Get current date range selection and convert to API format
                 const dateRange = document.getElementById('dateRange').value;
-                const dateParams = getDateRangeParams(dateRange);
+                const apiDateRange = convertDateRangeForAPI(dateRange);
                 
-                debugLog(`Fetching data for date range: ${dateRange} (${dateParams.from} to ${dateParams.to})`);
+                debugLog(`Fetching data for date range: ${dateRange} (API format: ${apiDateRange})`);
                 
-                const url = `/api/voluum/campaigns?from=${dateParams.from}&to=${dateParams.to}`;
+                const url = `/api/voluum/campaigns?date_range=${apiDateRange}`;
                 const response = await fetch(url);
                 const data = await response.json();
                 
-                if (data.campaigns) {
-                    allCampaigns = data.campaigns;
-                    debugLog(`✅ Loaded ${allCampaigns.length} campaigns from Voluum for ${dateRange}`);
-                    updateConnectionStatus('connected', `✅ Connected - ${allCampaigns.length} campaigns loaded (${dateRange})`);
+                debugLog(`API Response: ${JSON.stringify(data.debug_info || {})}`);
+                
+                // Handle the correct API response structure
+                if (data.data && data.data.campaigns) {
+                    allCampaigns = data.data.campaigns;
+                    const dataSource = data.debug_info?.data_source || 'unknown';
+                    debugLog(`✅ Loaded ${allCampaigns.length} campaigns from ${dataSource} for ${dateRange}`);
+                    
+                    if (data.success) {
+                        updateConnectionStatus('connected', `✅ Real Voluum data - ${allCampaigns.length} campaigns (${dateRange})`);
+                    } else {
+                        updateConnectionStatus('warning', `⚠️ Using mock data - ${allCampaigns.length} campaigns (${dateRange})`);
+                    }
                 } else {
-                    throw new Error(data.error || 'Failed to load campaigns');
+                    throw new Error(data.error || 'Invalid API response structure');
                 }
                 
                 applyFilters();
@@ -466,11 +475,23 @@
                 debugLog(`❌ Error loading campaigns: ${error.message}`);
                 updateConnectionStatus('error', `❌ Connection failed: ${error.message}`);
                 
-                // Use mock data as fallback
+                // Use local fallback mock data
                 allCampaigns = generateMockCampaigns();
                 applyFilters();
                 updateOverviewCards();
                 hideLoadingState();
+            }
+        }
+
+        function convertDateRangeForAPI(dateRange) {
+            // Convert dashboard date range to API format
+            switch (dateRange) {
+                case 'today': return 'today';
+                case 'yesterday': return 'yesterday';
+                case '7d': return 'last_7_days';
+                case '14d': return 'last_14_days';
+                case '30d': return 'last_30_days';
+                default: return 'last_7_days';
             }
         }
 
@@ -569,10 +590,10 @@
                 const change24h = formatPercentage(campaign.change24h || 0);
                 
                 return `
-                    <tr class="campaign-row hover:bg-gray-50" onclick="openOffersModal('${campaign.campaignId || campaign.id}', '${escapeHtml(campaign.campaignName || campaign.name || 'Unknown')}')">
+                    <tr class="campaign-row hover:bg-gray-50" onclick="openOffersModal('${campaign.id || campaign.campaignId}', '${escapeHtml(campaign.name || campaign.campaignName || 'Unknown')}')">
                         <td class="px-6 py-4">
-                            <div class="font-medium text-gray-900 max-w-xs truncate">${campaign.campaignName || campaign.name || 'Unknown Campaign'}</div>
-                            <div class="text-sm text-gray-500">ID: ${campaign.campaignId || campaign.id || 'N/A'}</div>
+                            <div class="font-medium text-gray-900 max-w-xs truncate">${campaign.name || campaign.campaignName || 'Unknown Campaign'}</div>
+                            <div class="text-sm text-gray-500">ID: ${campaign.id || campaign.campaignId || 'N/A'}</div>
                         </td>
                         <td class="px-6 py-4">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${statusClass}">
@@ -854,6 +875,8 @@
             
             if (status === 'connected') {
                 dot.className = 'w-3 h-3 bg-green-400 rounded-full';
+            } else if (status === 'warning') {
+                dot.className = 'w-3 h-3 bg-yellow-400 rounded-full';
             } else if (status === 'error') {
                 dot.className = 'w-3 h-3 bg-red-400 rounded-full';
             } else {
@@ -909,7 +932,12 @@
         }
 
         function generateMockCampaigns() {
-            // Mock data for fallback
+            // Get current date range for realistic mock data
+            const dateRange = document.getElementById('dateRange').value;
+            const multiplier = getDateMultiplier(dateRange);
+            
+            debugLog(`Generating mock data for ${dateRange} (multiplier: ${multiplier})`);
+            
             const campaigns = [];
             const campaignNames = [
                 'NewsBreak ROAS - SENIORS - MOBILE',
@@ -924,14 +952,14 @@
 
             for (let i = 0; i < 20; i++) {
                 const hasTraffic = Math.random() > 0.3; // 70% chance of traffic
-                const baseRevenue = hasTraffic ? Math.random() * 8000 + 1000 : 0;
+                const baseRevenue = hasTraffic ? (Math.random() * 8000 + 1000) * multiplier : 0;
                 const baseSpend = hasTraffic ? baseRevenue * (0.8 + Math.random() * 0.4) : 0; // 0.8-1.2 ratio
                 
                 campaigns.push({
                     campaignId: `camp_${1000 + i}`,
                     campaignName: campaignNames[i % campaignNames.length] + ` ${i + 1}`,
-                    visits: hasTraffic ? Math.floor(Math.random() * 30000) + 1000 : 0,
-                    conversions: hasTraffic ? Math.floor(Math.random() * 500) + 10 : 0,
+                    visits: hasTraffic ? Math.floor((Math.random() * 30000 + 1000) * multiplier) : 0,
+                    conversions: hasTraffic ? Math.floor((Math.random() * 500 + 10) * multiplier) : 0,
                     revenue: baseRevenue,
                     cost: baseSpend,
                     status: hasTraffic ? (Math.random() > 0.5 ? 'UP' : 'STABLE') : 'PAUSED',
@@ -940,6 +968,18 @@
             }
 
             return campaigns;
+        }
+
+        function getDateMultiplier(dateRange) {
+            // Adjust data volume based on date range
+            switch (dateRange) {
+                case 'today': return 0.3;
+                case 'yesterday': return 0.3;
+                case '7d': return 1.0;
+                case '14d': return 1.8;
+                case '30d': return 3.5;
+                default: return 1.0;
+            }
         }
 
         function debugLog(message) {
