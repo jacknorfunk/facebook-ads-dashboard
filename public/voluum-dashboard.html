@@ -452,6 +452,11 @@
                 
                 debugLog(`API Response: ${JSON.stringify(data.debug_info || {})}`);
                 
+                // Log the first few campaigns to see the actual data structure
+                if (data.data && data.data.campaigns && data.data.campaigns.length > 0) {
+                    debugLog(`Sample campaign data: ${JSON.stringify(data.data.campaigns[0], null, 2)}`);
+                }
+                
                 // Handle the correct API response structure
                 if (data.data && data.data.campaigns) {
                     allCampaigns = data.data.campaigns;
@@ -501,14 +506,27 @@
             const spend = document.getElementById('spendFilter').value;
             const performance = document.getElementById('performanceFilter').value;
             
+            debugLog(`Applying filters - Status: ${status}, Spend: ${spend}, Performance: ${performance}`);
+            debugLog(`Total campaigns before filtering: ${allCampaigns.length}`);
+            
             filteredCampaigns = allCampaigns.filter(campaign => {
-                const hasTraffic = (campaign.visits || 0) > 0 || (campaign.cost || 0) > 0;
+                // More flexible traffic detection - check for visits, clicks, or any cost
+                const hasTraffic = (campaign.visits || 0) > 0 || 
+                                  (campaign.clicks || 0) > 0 || 
+                                  (campaign.cost || 0) > 0 ||
+                                  (campaign.conversions || 0) > 0;
+                
                 const campaignSpend = parseFloat(campaign.cost || 0);
                 const campaignRevenue = parseFloat(campaign.revenue || 0);
                 const roas = campaignRevenue > 0 && campaignSpend > 0 ? campaignRevenue / campaignSpend : 0;
                 
-                // Status filter
-                if (status === 'active' && !hasTraffic) return false;
+                debugLog(`Campaign: ${campaign.name}, HasTraffic: ${hasTraffic}, Visits: ${campaign.visits}, Cost: ${campaign.cost}, Revenue: ${campaign.revenue}`);
+                
+                // Status filter - be more inclusive for "active"
+                if (status === 'active' && !hasTraffic) {
+                    debugLog(`Filtered out ${campaign.name} - no traffic`);
+                    return false;
+                }
                 if (status === 'paused' && hasTraffic) return false;
                 if (status === 'profitable' && roas <= 1.0) return false;
                 
@@ -525,6 +543,8 @@
                 
                 return true;
             });
+            
+            debugLog(`Campaigns after filtering: ${filteredCampaigns.length}`);
             
             applySorting();
             updateCampaignsTable();
