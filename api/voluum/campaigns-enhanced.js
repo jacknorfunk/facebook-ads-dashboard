@@ -203,9 +203,14 @@ function processEnhancedData(currentData, prevData, debugLogs, dateRange) {
     currentRows.forEach((row, index) => {
         try {
             // Extract basic data
-            const campaignId = row.campaignId || `camp_${index}`;
-            const campaignName = row.campaignName || `Campaign ${index + 1}`;
-            const trafficSourceName = row.trafficSourceName || 'Unknown';
+            const campaignId = row.campaignId || row.id || `camp_${index}`;
+            const campaignName = row.campaignName || row.name || `Campaign ${index + 1}`;
+            const trafficSourceName = row.trafficSourceName || row.trafficSource || 'Unknown';
+            
+            // Debug log for first few campaigns to see ID structure
+            if (index < 3) {
+                debugLogs.push(`Campaign ${index + 1} ID mapping: campaignId='${row.campaignId}', id='${row.id}', name='${campaignName}'`);
+            }
             
             // Core metrics
             const visits = parseFloat(row.visits || 0);
