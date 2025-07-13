@@ -771,7 +771,12 @@
         // Modal functions
         function openOffersModal(campaignId) {
             const campaign = allCampaigns.find(c => (c.id || c.name) === campaignId);
-            if (!campaign) return;
+            if (!campaign) {
+                debugLog(`Campaign not found for ID: ${campaignId}`);
+                return;
+            }
+            
+            debugLog(`Opening offers modal for campaign: ${campaign.name} (ID: ${campaign.id || 'no-id'})`);
             
             document.getElementById('modalOfferCampaignName').textContent = `${campaign.name || 'Campaign'} - Offer Performance`;
             
@@ -793,32 +798,82 @@
             `;
             
             try {
+                // Debug the campaign data we're working with
+                debugLog(`Campaign data: ID=${campaign.id}, Name=${campaign.name}`);
+                debugLog(`Full campaign object keys: ${Object.keys(campaign).join(', ')}`);
+                
+                // Try to find a valid campaign ID
+                let campaignId = campaign.id || campaign.campaignId || campaign.name;
+                debugLog(`Using campaign ID: ${campaignId}`);
+                
+                if (!campaignId) {
+                    displayNoOfferData(campaign, 'No valid campaign ID found');
+                    return;
+                }
+                
                 // Fetch offer data from Voluum API
                 const dateRange = document.getElementById('dateRangeFilter').value;
-                const url = `/api/voluum/offers?campaign_id=${campaign.id}&date_range=${dateRange}`;
+                const url = `/api/voluum/offers?campaign_id=${encodeURIComponent(campaignId)}&date_range=${dateRange}`;
                 
                 debugLog(`Fetching offers from: ${url}`);
                 
                 const response = await fetch(url);
+                debugLog(`Offers API response status: ${response.status}`);
                 
                 if (response.ok) {
                     const data = await response.json();
-                    debugLog(`Offers API response: ${data.success}`);
+                    debugLog(`Offers API response: Success=${data.success}, Offers count=${(data.offers || []).length}`);
+                    
                     if (data.success) {
                         displayOfferData(data.offers || [], campaign);
                     } else {
-                        displayNoOfferData(campaign, data.error || 'Failed to load offers');
+                        debugLog(`API error: ${data.error}`);
+                        // Show debug logs in the modal for troubleshooting
+                        displayDebugInfo(campaign, data.error, data.debug_logs || []);
                     }
                 } else {
-                    debugLog(`Offers API failed with status: ${response.status}`);
-                    displayNoOfferData(campaign, `API request failed: ${response.status}`);
+                    const errorText = await response.text();
+                    debugLog(`Offers API failed with status: ${response.status}, Error: ${errorText.substring(0, 200)}`);
+                    displayDebugInfo(campaign, `HTTP ${response.status}: ${errorText.substring(0, 100)}`, [`Response: ${errorText.substring(0, 500)}`]);
                 }
                 
             } catch (error) {
                 console.error('Error loading offer data:', error);
                 debugLog(`Error loading offers: ${error.message}`);
-                displayNoOfferData(campaign, error.message);
+                displayDebugInfo(campaign, error.message, [`Stack: ${error.stack}`]);
             }
+        }
+
+        function displayDebugInfo(campaign, errorMessage, debugLogs) {
+            const modalContent = document.getElementById('offerModalContent');
+            modalContent.innerHTML = `
+                <div class="p-6">
+                    <div class="text-center mb-6">
+                        <i class="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-2">Offer Data Debug Information</h3>
+                        <p class="text-gray-600 mb-4">Campaign: ${campaign.name}</p>
+                        <p class="text-red-600 font-medium mb-4">Error: ${errorMessage}</p>
+                    </div>
+                    
+                    <div class="bg-gray-100 rounded-lg p-4 mb-4">
+                        <h4 class="font-semibold mb-2">Campaign Information:</h4>
+                        <pre class="text-xs text-gray-700 overflow-auto">${JSON.stringify(campaign, null, 2)}</pre>
+                    </div>
+                    
+                    <div class="bg-gray-100 rounded-lg p-4 mb-4">
+                        <h4 class="font-semibold mb-2">Debug Logs:</h4>
+                        <div class="text-xs text-gray-700 space-y-1 max-h-40 overflow-auto">
+                            ${debugLogs.map(log => `<div>${log}</div>`).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button onclick="closeOfferModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
         function displayNoOfferData(campaign, errorMessage) {
