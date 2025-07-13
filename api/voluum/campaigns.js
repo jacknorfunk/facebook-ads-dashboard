@@ -102,16 +102,19 @@ export default async function handler(req, res) {
     try {
       console.log('📊 Fetching campaign data...');
       
-      // Try different API endpoints
+      // Try different API endpoints focused on traffic sources
       const apiEndpoints = [
-        // Standard campaign report
-        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign`,
+        // Standard campaign report with traffic source grouping
+        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign,trafficSource`,
         
-        // Campaign report with specific columns
-        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign&columns=campaignName,visits,conversions,revenue,cost`,
+        // Campaign report grouped by traffic source
+        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=trafficSource&columns=campaignName,trafficSourceName,visits,conversions,revenue,cost`,
+        
+        // Standard campaign report
+        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign&columns=campaignName,trafficSourceName,visits,conversions,revenue,cost`,
         
         // Campaign report without filters
-        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign&include=VISITS,CONVERSIONS,REVENUE,COST`,
+        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign`,
         
         // Direct campaigns endpoint (alternative)
         `https://api.voluum.com/campaigns?from=${dateRanges.fromDate}&to=${dateRanges.toDate}`
@@ -260,14 +263,51 @@ function processRealCampaignsData(rawData, dateRange, apiEndpoint) {
       campaigns = [rawData];
     }
 
-    console.log(`Processing ${campaigns.length} campaigns from Voluum`);
-    console.log('Sample campaign structure:', campaigns[0] ? Object.keys(campaigns[0]) : 'No campaigns');
+    console.log(`Raw campaigns count: ${campaigns.length}`);
     
-    if (campaigns.length > 0) {
-      console.log('First campaign sample:', JSON.stringify(campaigns[0], null, 2));
+    // Filter campaigns to only include NewsBreak, Taboola, and Facebook traffic sources
+    const filteredCampaigns = campaigns.filter(campaign => {
+      const campaignName = (
+        campaign.campaignName || 
+        campaign.campaign_name ||
+        campaign.name || 
+        campaign.campaign ||
+        campaign.label ||
+        ''
+      ).toLowerCase();
+      
+      const trafficSourceName = (
+        campaign.trafficSourceName ||
+        campaign.traffic_source_name ||
+        campaign.trafficSource ||
+        campaign.traffic_source ||
+        campaign.source ||
+        ''
+      ).toLowerCase();
+      
+      // Check if campaign name or traffic source contains our target sources
+      const targetSources = ['newsbreak', 'taboola', 'facebook'];
+      const matchesSource = targetSources.some(source => 
+        campaignName.includes(source) || trafficSourceName.includes(source)
+      );
+      
+      if (matchesSource) {
+        console.log(`✅ MATCHED campaign: ${campaignName} (traffic source: ${trafficSourceName})`);
+      } else {
+        console.log(`❌ FILTERED OUT campaign: ${campaignName} (traffic source: ${trafficSourceName})`);
+      }
+      
+      return matchesSource;
+    });
+
+    console.log(`Filtered campaigns count: ${filteredCampaigns.length} (from ${campaigns.length} total)`);
+    
+    if (filteredCampaigns.length > 0) {
+      console.log('Sample filtered campaign structure:', filteredCampaigns[0] ? Object.keys(filteredCampaigns[0]) : 'No campaigns');
+      console.log('First filtered campaign sample:', JSON.stringify(filteredCampaigns[0], null, 2));
     }
 
-    const processedCampaigns = campaigns.map((campaign, index) => {
+    const processedCampaigns = filteredCampaigns.map((campaign, index) => {
       // More comprehensive field mapping for Voluum API
       const visits = parseInt(
         campaign.visits || 
@@ -314,6 +354,15 @@ function processRealCampaignsData(rawData, dateRange, apiEndpoint) {
         campaign.label ||
         `Campaign ${index + 1}`;
 
+      // Traffic source name
+      const trafficSourceName = 
+        campaign.trafficSourceName ||
+        campaign.traffic_source_name ||
+        campaign.trafficSource ||
+        campaign.traffic_source ||
+        campaign.source ||
+        'Unknown Source';
+
       // Campaign ID with multiple fallbacks
       const campaignId = 
         campaign.campaignId || 
@@ -338,6 +387,7 @@ function processRealCampaignsData(rawData, dateRange, apiEndpoint) {
       const processedCampaign = {
         id: campaignId,
         name: campaignName,
+        trafficSource: trafficSourceName,
         status: status,
         visits: visits,
         conversions: conversions,
@@ -358,12 +408,14 @@ function processRealCampaignsData(rawData, dateRange, apiEndpoint) {
         _original: campaign
       };
 
-      console.log(`Processed campaign: ${campaignName} - Visits: ${visits}, Revenue: ${revenue}, Cost: ${cost}`);
+      console.log(`✅ Processed campaign: ${campaignName} (${trafficSourceName}) - Visits: ${visits}, Revenue: ${revenue}, Cost: ${cost}`);
       return processedCampaign;
     });
 
     // Calculate overview statistics
     const overview = calculateOverviewStats(processedCampaigns);
+
+    console.log(`Final processed campaigns: ${processedCampaigns.length}`);
 
     return {
       campaigns: processedCampaigns,
@@ -371,7 +423,9 @@ function processRealCampaignsData(rawData, dateRange, apiEndpoint) {
       lastUpdated: new Date().toISOString(),
       dataSource: 'voluum_api',
       dateRange: dateRange,
-      apiEndpointUsed: apiEndpoint
+      apiEndpointUsed: apiEndpoint,
+      totalCampaignsBeforeFilter: campaigns.length,
+      filteredCampaignsCount: processedCampaigns.length
     };
 
   } catch (error) {
