@@ -387,12 +387,12 @@
                     debugLog(`⚠️ Environment test failed: ${envError.message}`);
                 }
                 
-                // Try simplified API first
-                debugLog('📡 Trying simplified Voluum API...');
-                const simpleUrl = `/api/voluum/campaigns-simple?date_range=${dateRange}`;
-                debugLog(`📡 Fetching from: ${simpleUrl}`);
+                // Use the working Voluum API
+                debugLog('📡 Using working Voluum API...');
+                const apiUrl = `/api/voluum/campaigns-simple?date_range=${dateRange}`;
+                debugLog(`📡 Fetching from: ${apiUrl}`);
                 
-                const response = await fetch(simpleUrl);
+                const response = await fetch(apiUrl);
                 debugLog(`📊 Response status: ${response.status}`);
                 
                 if (!response.ok) {
