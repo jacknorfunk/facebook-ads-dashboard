@@ -166,12 +166,32 @@ No data loaded yet...
                 }
                 
                 const data = await response.json();
-                addDebugLog(`Received ${data.length} campaigns`);
                 
-                campaigns = data;
+                // Handle debug response format
+                if (data.debug) {
+                    addDebugLog(`Debug info: ${data.debug.message}`);
+                    
+                    // Show debug information
+                    if (data.debug.credentials_used) {
+                        addDebugLog(`Access ID: ${data.debug.credentials_used.accessId_preview} (length: ${data.debug.credentials_used.accessId_length})`);
+                        addDebugLog(`Access Key: ${data.debug.credentials_used.accessKey_preview} (length: ${data.debug.credentials_used.accessKey_length})`);
+                    }
+                    
+                    if (data.debug.auth_error) {
+                        addDebugLog(`Auth Error: ${data.debug.auth_error}`);
+                    }
+                    
+                    campaigns = data.campaigns || [];
+                } else {
+                    // Handle direct campaign array
+                    campaigns = Array.isArray(data) ? data : [];
+                }
+                
+                addDebugLog(`Received ${campaigns.length} campaigns`);
+                
                 updateStats();
                 renderTable();
-                updateStatus('success', 'Data loaded successfully');
+                updateStatus('success', `Data loaded successfully (${campaigns.length} campaigns)`);
                 
                 document.getElementById('api-response').textContent = JSON.stringify(data, null, 2);
                 
