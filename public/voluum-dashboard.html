@@ -369,8 +369,11 @@
         });
 
         function setupEventListeners() {
-            // Filter and sort event listeners
-            document.getElementById('dateRange').addEventListener('change', applyFilters);
+            // Filter and sort event listeners - reload data when date changes
+            document.getElementById('dateRange').addEventListener('change', function() {
+                debugLog(`Date range changed to: ${this.value}`);
+                loadCampaigns(); // Reload data for new date range
+            });
             document.getElementById('statusFilter').addEventListener('change', applyFilters);
             document.getElementById('spendFilter').addEventListener('change', applyFilters);
             document.getElementById('performanceFilter').addEventListener('change', applyFilters);
@@ -381,18 +384,76 @@
             document.getElementById('exportBtn').addEventListener('click', exportCSV);
         }
 
+        function getDateRangeParams(dateRange) {
+            const today = new Date();
+            const formatDate = (date) => date.toISOString().split('T')[0]; // YYYY-MM-DD format
+            
+            switch (dateRange) {
+                case 'today':
+                    return {
+                        from: formatDate(today),
+                        to: formatDate(today)
+                    };
+                    
+                case 'yesterday':
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    return {
+                        from: formatDate(yesterday),
+                        to: formatDate(yesterday)
+                    };
+                    
+                case '7d':
+                    const week = new Date(today);
+                    week.setDate(week.getDate() - 7);
+                    return {
+                        from: formatDate(week),
+                        to: formatDate(today)
+                    };
+                    
+                case '14d':
+                    const twoWeeks = new Date(today);
+                    twoWeeks.setDate(twoWeeks.getDate() - 14);
+                    return {
+                        from: formatDate(twoWeeks),
+                        to: formatDate(today)
+                    };
+                    
+                case '30d':
+                    const month = new Date(today);
+                    month.setDate(month.getDate() - 30);
+                    return {
+                        from: formatDate(month),
+                        to: formatDate(today)
+                    };
+                    
+                default:
+                    return {
+                        from: formatDate(today),
+                        to: formatDate(today)
+                    };
+            }
+        }
+
         async function loadCampaigns() {
             try {
                 showLoadingState();
                 debugLog('Loading campaigns from Voluum API...');
                 
-                const response = await fetch('/api/voluum/campaigns');
+                // Get current date range selection
+                const dateRange = document.getElementById('dateRange').value;
+                const dateParams = getDateRangeParams(dateRange);
+                
+                debugLog(`Fetching data for date range: ${dateRange} (${dateParams.from} to ${dateParams.to})`);
+                
+                const url = `/api/voluum/campaigns?from=${dateParams.from}&to=${dateParams.to}`;
+                const response = await fetch(url);
                 const data = await response.json();
                 
                 if (data.campaigns) {
                     allCampaigns = data.campaigns;
-                    debugLog(`Loaded ${allCampaigns.length} campaigns from Voluum`);
-                    updateConnectionStatus('connected', `✅ Connected - ${allCampaigns.length} campaigns loaded`);
+                    debugLog(`✅ Loaded ${allCampaigns.length} campaigns from Voluum for ${dateRange}`);
+                    updateConnectionStatus('connected', `✅ Connected - ${allCampaigns.length} campaigns loaded (${dateRange})`);
                 } else {
                     throw new Error(data.error || 'Failed to load campaigns');
                 }
