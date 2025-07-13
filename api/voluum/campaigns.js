@@ -1,4 +1,4 @@
-// api/voluum/campaigns.js - Fixed Version with Better Error Handling
+// api/voluum/campaigns.js - Updated Version with Better Campaign Data Fetching
 export default async function handler(req, res) {
   try {
     console.log('=== VOLUUM API HANDLER STARTED ===');
@@ -95,32 +95,54 @@ export default async function handler(req, res) {
       });
     }
 
-    // Try to fetch real Voluum data
+    // Try multiple API endpoints to get campaign data
     let campaignsData = null;
+    let apiEndpoint = '';
+    
     try {
       console.log('📊 Fetching campaign data...');
       
-      const reportUrl = `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign&include=ACTIVE&filters=%5B%7B%22column%22%3A%22campaignStatus%22%2C%22operator%22%3A%22EQUALS%22%2C%22value%22%3A%22ACTIVE%22%7D%5D`;
-      console.log('Report URL:', reportUrl);
+      // Try different API endpoints
+      const apiEndpoints = [
+        // Standard campaign report
+        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign`,
+        
+        // Campaign report with specific columns
+        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign&columns=campaignName,visits,conversions,revenue,cost`,
+        
+        // Campaign report without filters
+        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign&include=VISITS,CONVERSIONS,REVENUE,COST`,
+        
+        // Direct campaigns endpoint (alternative)
+        `https://api.voluum.com/campaigns?from=${dateRanges.fromDate}&to=${dateRanges.toDate}`
+      ];
 
-      const reportResponse = await fetch(reportUrl, {
-        method: 'GET',
-        headers: {
-          'cwauth-token': authToken,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        timeout: 15000 // 15 second timeout
-      });
+      for (let i = 0; i < apiEndpoints.length; i++) {
+        apiEndpoint = apiEndpoints[i];
+        console.log(`Trying API endpoint ${i + 1}:`, apiEndpoint);
 
-      console.log('Report response status:', reportResponse.status);
+        const reportResponse = await fetch(apiEndpoint, {
+          method: 'GET',
+          headers: {
+            'cwauth-token': authToken,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: 15000 // 15 second timeout
+        });
 
-      if (reportResponse.ok) {
-        campaignsData = await reportResponse.json();
-        console.log('✅ Real Voluum data retrieved');
-      } else {
-        const errorText = await reportResponse.text();
-        console.log('❌ Report failed:', reportResponse.status, errorText);
+        console.log(`Response status for endpoint ${i + 1}:`, reportResponse.status);
+
+        if (reportResponse.ok) {
+          campaignsData = await reportResponse.json();
+          console.log(`✅ Real Voluum data retrieved from endpoint ${i + 1}`);
+          console.log('Raw API response structure:', Object.keys(campaignsData));
+          console.log('Full API response (first 1000 chars):', JSON.stringify(campaignsData).substring(0, 1000));
+          break; // Success, stop trying other endpoints
+        } else {
+          const errorText = await reportResponse.text();
+          console.log(`❌ Endpoint ${i + 1} failed:`, reportResponse.status, errorText);
+        }
       }
     } catch (fetchError) {
       console.log('❌ Report fetch error:', fetchError.message);
@@ -130,7 +152,7 @@ export default async function handler(req, res) {
     let processedData;
     if (campaignsData) {
       console.log('Processing real Voluum data');
-      processedData = processRealCampaignsData(campaignsData, dateRange);
+      processedData = processRealCampaignsData(campaignsData, dateRange, apiEndpoint);
     } else {
       console.log('Using enhanced mock data as fallback');
       processedData = generateEnhancedMockData();
@@ -143,7 +165,9 @@ export default async function handler(req, res) {
         auth_successful: !!authToken,
         data_source: campaignsData ? 'real' : 'mock',
         date_range: dateRange,
-        campaigns_count: processedData.campaigns?.length || 0
+        campaigns_count: processedData.campaigns?.length || 0,
+        api_endpoint_used: apiEndpoint,
+        raw_data_structure: campaignsData ? Object.keys(campaignsData) : []
       }
     });
 
@@ -207,42 +231,113 @@ function calculateDateRange(dateRange) {
   return { fromDate, toDate };
 }
 
-function processRealCampaignsData(rawData, dateRange) {
+function processRealCampaignsData(rawData, dateRange, apiEndpoint) {
   console.log('🔄 Processing real Voluum data...');
+  console.log('Raw data keys:', Object.keys(rawData));
+  console.log('API endpoint used:', apiEndpoint);
   
   try {
     let campaigns = [];
     
-    // Handle different Voluum response structures
-    if (rawData.rows) {
+    // Handle different Voluum response structures more comprehensively
+    if (rawData.rows && Array.isArray(rawData.rows)) {
       campaigns = rawData.rows;
-    } else if (rawData.data) {
-      campaigns = Array.isArray(rawData.data) ? rawData.data : [rawData.data];
+      console.log('Using rawData.rows structure');
+    } else if (rawData.data && Array.isArray(rawData.data)) {
+      campaigns = rawData.data;
+      console.log('Using rawData.data structure');
+    } else if (rawData.campaigns && Array.isArray(rawData.campaigns)) {
+      campaigns = rawData.campaigns;
+      console.log('Using rawData.campaigns structure');
     } else if (Array.isArray(rawData)) {
       campaigns = rawData;
+      console.log('Using direct array structure');
+    } else if (rawData.result && Array.isArray(rawData.result)) {
+      campaigns = rawData.result;
+      console.log('Using rawData.result structure');
+    } else {
+      console.log('Unknown data structure, creating single campaign from root object');
+      campaigns = [rawData];
     }
 
     console.log(`Processing ${campaigns.length} campaigns from Voluum`);
+    console.log('Sample campaign structure:', campaigns[0] ? Object.keys(campaigns[0]) : 'No campaigns');
+    
+    if (campaigns.length > 0) {
+      console.log('First campaign sample:', JSON.stringify(campaigns[0], null, 2));
+    }
 
     const processedCampaigns = campaigns.map((campaign, index) => {
-      // Extract metrics with multiple field name fallbacks
-      const visits = parseInt(campaign.visits || campaign.clicks || campaign.sessions || 0);
-      const conversions = parseInt(campaign.conversions || campaign.leads || campaign.sales || 0);
-      const revenue = parseFloat(campaign.revenue || campaign.payout || campaign.earnings || 0);
-      const cost = parseFloat(campaign.cost || campaign.spend || campaign.adCost || 0);
+      // More comprehensive field mapping for Voluum API
+      const visits = parseInt(
+        campaign.visits || 
+        campaign.clicks || 
+        campaign.sessions || 
+        campaign.unique_visits ||
+        campaign.uniqueVisits ||
+        0
+      );
+      
+      const conversions = parseInt(
+        campaign.conversions || 
+        campaign.leads || 
+        campaign.sales || 
+        campaign.cv ||
+        0
+      );
+      
+      const revenue = parseFloat(
+        campaign.revenue || 
+        campaign.payout || 
+        campaign.earnings || 
+        campaign.totalRevenue ||
+        campaign.total_revenue ||
+        0
+      );
+      
+      const cost = parseFloat(
+        campaign.cost || 
+        campaign.spend || 
+        campaign.adCost || 
+        campaign.ad_cost ||
+        campaign.totalCost ||
+        campaign.total_cost ||
+        0
+      );
+
+      // Campaign name with multiple fallbacks
+      const campaignName = 
+        campaign.campaignName || 
+        campaign.campaign_name ||
+        campaign.name || 
+        campaign.campaign ||
+        campaign.label ||
+        `Campaign ${index + 1}`;
+
+      // Campaign ID with multiple fallbacks
+      const campaignId = 
+        campaign.campaignId || 
+        campaign.campaign_id ||
+        campaign.id || 
+        campaign.cid ||
+        `voluum_${index}`;
       
       const ctr = visits > 0 ? ((conversions / visits) * 100) : 0;
       const roas = cost > 0 ? (revenue / cost) : 0;
       const cpa = conversions > 0 ? (cost / conversions) : 0;
 
-      // Generate realistic trend data
-      const trendValue = Math.random();
-      const status = trendValue > 0.6 ? 'UP' : trendValue > 0.3 ? 'DOWN' : 'STABLE';
+      // Determine status based on activity
+      let status = 'STABLE';
+      if (visits > 0 || cost > 0) {
+        const trendValue = Math.random();
+        status = trendValue > 0.6 ? 'UP' : trendValue > 0.3 ? 'DOWN' : 'STABLE';
+      }
+      
       const change24h = (Math.random() - 0.5) * 40; // -20% to +20%
 
-      return {
-        id: campaign.campaignId || campaign.id || `voluum_${index}`,
-        name: campaign.campaignName || campaign.name || `Campaign ${index + 1}`,
+      const processedCampaign = {
+        id: campaignId,
+        name: campaignName,
         status: status,
         visits: visits,
         conversions: conversions,
@@ -252,14 +347,19 @@ function processRealCampaignsData(rawData, dateRange) {
         ctr: ctr,
         cpa: cpa,
         change24h: change24h,
-        offer: campaign.offerName || campaign.offer || 'Voluum Campaign',
+        offer: campaign.offerName || campaign.offer || campaign.offer_name || 'Voluum Campaign',
         // Enhanced multi-period ROAS
         roas_1day: roas,
         roas_7day: roas * (0.9 + Math.random() * 0.2),
         roas_14day: roas * (0.85 + Math.random() * 0.3),
         roas_30day: roas * (0.8 + Math.random() * 0.4),
-        status_detailed: cost === 0 ? 'PAUSED' : `ACTIVE_${status}`
+        status_detailed: (visits === 0 && cost === 0) ? 'PAUSED' : `ACTIVE_${status}`,
+        // Store original data for debugging
+        _original: campaign
       };
+
+      console.log(`Processed campaign: ${campaignName} - Visits: ${visits}, Revenue: ${revenue}, Cost: ${cost}`);
+      return processedCampaign;
     });
 
     // Calculate overview statistics
@@ -270,11 +370,13 @@ function processRealCampaignsData(rawData, dateRange) {
       overview: overview,
       lastUpdated: new Date().toISOString(),
       dataSource: 'voluum_api',
-      dateRange: dateRange
+      dateRange: dateRange,
+      apiEndpointUsed: apiEndpoint
     };
 
   } catch (error) {
     console.error('Error processing real campaign data:', error);
+    console.error('Raw data that caused error:', JSON.stringify(rawData, null, 2));
     return generateEnhancedMockData();
   }
 }
@@ -285,7 +387,7 @@ function generateEnhancedMockData() {
   const mockCampaigns = [
     {
       id: 'vol_1',
-      name: 'Finance Leads - Desktop UK',
+      name: 'NewsBreak ROAS - Global - Tariffs V2',
       status: 'UP',
       visits: 2547,
       conversions: 43,
@@ -304,7 +406,7 @@ function generateEnhancedMockData() {
     },
     {
       id: 'vol_2',
-      name: 'Binary Options - Mobile Traffic',
+      name: 'NewsBreak ROAS - Global - SENIORS - MOBILE',
       status: 'DOWN',
       visits: 1892,
       conversions: 21,
@@ -323,7 +425,7 @@ function generateEnhancedMockData() {
     },
     {
       id: 'vol_3',
-      name: 'Crypto Investment - Tablet',
+      name: 'NewsBreak Revenue - Global - Home Insurance',
       status: 'STABLE',
       visits: 3103,
       conversions: 67,
@@ -342,7 +444,7 @@ function generateEnhancedMockData() {
     },
     {
       id: 'vol_4',
-      name: 'Insurance Quotes - All Devices',
+      name: 'Yahoo - CPC - Zapier - United States - Seniors',
       status: 'UP',
       visits: 1756,
       conversions: 38,
@@ -361,7 +463,7 @@ function generateEnhancedMockData() {
     },
     {
       id: 'vol_5',
-      name: 'Diet Supplements - Female 25-45',
+      name: 'Taboola - Global - Money Tricks',
       status: 'DOWN',
       visits: 2534,
       conversions: 12,
@@ -380,7 +482,7 @@ function generateEnhancedMockData() {
     },
     {
       id: 'vol_6',
-      name: 'Paused Test Campaign',
+      name: 'Lander - United States - Dollarperks - Direct',
       status: 'STABLE',
       visits: 0,
       conversions: 0,
@@ -397,10 +499,9 @@ function generateEnhancedMockData() {
       roas_30day: 0,
       status_detailed: 'PAUSED'
     },
-    // Add more diverse campaigns
     {
       id: 'vol_7',
-      name: 'Forex Trading - EU Traffic',
+      name: 'NewsBreak ROAS - Global - 9 Dumb Ways - v2',
       status: 'UP',
       visits: 4231,
       conversions: 89,
@@ -419,7 +520,7 @@ function generateEnhancedMockData() {
     },
     {
       id: 'vol_8',
-      name: 'Dating App - Male 18-35',
+      name: 'NewsBreak ROAS - Global - SENIORS - MOBILE - V3',
       status: 'STABLE',
       visits: 1654,
       conversions: 28,
