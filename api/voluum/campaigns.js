@@ -100,7 +100,7 @@ export default async function handler(req, res) {
     try {
       console.log('📊 Fetching campaign data...');
       
-      const reportUrl = `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign&include=ACTIVE`;
+      const reportUrl = `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign&include=ACTIVE&filters=%5B%7B%22column%22%3A%22campaignStatus%22%2C%22operator%22%3A%22EQUALS%22%2C%22value%22%3A%22ACTIVE%22%7D%5D`;
       console.log('Report URL:', reportUrl);
 
       const reportResponse = await fetch(reportUrl, {
