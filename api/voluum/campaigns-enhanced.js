@@ -32,12 +32,12 @@ export default async function handler(req, res) {
         log(`Environment check - AccessID exists: ${!!accessId}, AccessKey exists: ${!!accessKey}`);
         
         if (!accessId || !accessKey) {
-            log('ERROR: Missing environment variables - using enhanced mock data');
+            log('ERROR: Missing environment variables - returning empty data');
             return res.status(200).json({
                 success: false,
                 error: 'Missing Voluum API credentials',
                 debug_logs: debugLogs,
-                data: getEnhancedMockData(dateRange)
+                data: { campaigns: [], overview: {} } // Empty data instead of mock
             });
         }
 
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
                     status: authResponse.status,
                     response_preview: authError.substring(0, 500)
                 },
-                data: getEnhancedMockData(dateRange)
+                data: { campaigns: [], overview: {} } // Empty data instead of mock
             });
         }
 
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
                 success: false,
                 error: 'No session token received',
                 debug_logs: debugLogs,
-                data: getEnhancedMockData(dateRange)
+                data: { campaigns: [], overview: {} } // Empty data instead of mock
             });
         }
 
@@ -118,7 +118,7 @@ export default async function handler(req, res) {
                 success: false,
                 error: `Current report fetch failed: ${currentResponse.status}`,
                 debug_logs: debugLogs,
-                data: getEnhancedMockData(dateRange)
+                data: { campaigns: [], overview: {} } // Empty data instead of mock
             });
         }
 
@@ -171,7 +171,7 @@ export default async function handler(req, res) {
             success: false,
             error: error.message,
             debug_logs: debugLogs,
-            data: getEnhancedMockData(dateRange)
+            data: { campaigns: [], overview: {} } // Empty data instead of mock
         });
     }
 }
@@ -377,106 +377,6 @@ function calculateQualityScore(campaign) {
     return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function generateEnhancedMockCampaigns(dateRange) {
-    // Generate realistic campaigns based on your actual Voluum data patterns
-    const mockCampaigns = [
-        {
-            id: 'mock_1',
-            name: 'NewsBreak ROAS - SENIORS - MOBILE - Enhanced',
-            trafficSource: 'NewsBreak',
-            visits: dateRange === 'yesterday' ? 3250 : 29768,
-            conversions: dateRange === 'yesterday' ? 45 : 400,
-            revenue: dateRange === 'yesterday' ? 675.32 : 5956.32,
-            cost: dateRange === 'yesterday' ? 587.67 : 5185.67,
-            clicks: dateRange === 'yesterday' ? 4200 : 35000,
-            impressions: dateRange === 'yesterday' ? 25000 : 185000,
-            roas: 1.15,
-            roas_7d: 1.12,
-            roas_14d: 1.18,
-            roas_30d: 1.21,
-            cpa: 12.96,
-            cvr: 1.34,
-            aov: 14.89,
-            profit: dateRange === 'yesterday' ? 87.65 : 770.65,
-            status: 'UP',
-            hasTraffic: true,
-            change24h: 8.5,
-            qualityScore: 87
-        },
-        {
-            id: 'mock_2',
-            name: 'NewsBreak Revenue - Global - Home Insurance',
-            trafficSource: 'NewsBreak',
-            visits: dateRange === 'yesterday' ? 950 : 7192,
-            conversions: dateRange === 'yesterday' ? 72 : 542,
-            revenue: dateRange === 'yesterday' ? 551.84 : 4154.83,
-            cost: dateRange === 'yesterday' ? 566.21 : 4263.21,
-            clicks: dateRange === 'yesterday' ? 1200 : 8500,
-            impressions: dateRange === 'yesterday' ? 8500 : 65000,
-            roas: 0.97,
-            roas_7d: 0.95,
-            roas_14d: 1.02,
-            roas_30d: 1.05,
-            cpa: 7.87,
-            cvr: 7.53,
-            aov: 7.66,
-            profit: dateRange === 'yesterday' ? -14.37 : -108.38,
-            status: 'DOWN',
-            hasTraffic: true,
-            change24h: -3.2,
-            qualityScore: 72
-        },
-        {
-            id: 'mock_3',
-            name: 'Facebook - B1A1 - Medicare Seniors',
-            trafficSource: 'Facebook',
-            visits: dateRange === 'yesterday' ? 1890 : 15632,
-            conversions: dateRange === 'yesterday' ? 108 : 892,
-            revenue: dateRange === 'yesterday' ? 1625.78 : 13456.78,
-            cost: dateRange === 'yesterday' ? 1056.21 : 8734.21,
-            clicks: dateRange === 'yesterday' ? 2100 : 17000,
-            impressions: dateRange === 'yesterday' ? 15000 : 125000,
-            roas: 1.54,
-            roas_7d: 1.48,
-            roas_14d: 1.62,
-            roas_30d: 1.59,
-            cpa: 9.79,
-            cvr: 5.71,
-            aov: 15.08,
-            profit: dateRange === 'yesterday' ? 569.57 : 4722.57,
-            status: 'UP',
-            hasTraffic: true,
-            change24h: 12.3,
-            qualityScore: 91
-        },
-        {
-            id: 'mock_4',
-            name: 'Taboola Native - Insurance Quotes',
-            trafficSource: 'Taboola',
-            visits: dateRange === 'yesterday' ? 2340 : 18750,
-            conversions: dateRange === 'yesterday' ? 28 : 234,
-            revenue: dateRange === 'yesterday' ? 456.72 : 3654.88,
-            cost: dateRange === 'yesterday' ? 487.33 : 3899.44,
-            clicks: dateRange === 'yesterday' ? 2800 : 22000,
-            impressions: dateRange === 'yesterday' ? 18000 : 145000,
-            roas: 0.94,
-            roas_7d: 0.91,
-            roas_14d: 0.96,
-            roas_30d: 0.89,
-            cpa: 17.40,
-            cvr: 1.25,
-            aov: 15.61,
-            profit: dateRange === 'yesterday' ? -30.61 : -244.56,
-            status: 'DOWN',
-            hasTraffic: true,
-            change24h: -5.8,
-            qualityScore: 65
-        }
-    ];
-
-    return mockCampaigns;
-}
-
 function extractTrafficSource(campaignName) {
     const name = (campaignName || '').toLowerCase();
     
@@ -608,28 +508,4 @@ function getPreviousDateRange(range) {
 
 function formatDate(date) {
     return date.toISOString().split('T')[0];
-}
-
-function getEnhancedMockData(dateRange) {
-    const mockCampaigns = generateEnhancedMockCampaigns(dateRange);
-    
-    return {
-        campaigns: mockCampaigns,
-        overview: {
-            liveCampaigns: mockCampaigns.length,
-            activeCampaigns: mockCampaigns.filter(c => c.hasTraffic).length,
-            totalRevenue: mockCampaigns.reduce((sum, c) => sum + c.revenue, 0),
-            totalSpend: mockCampaigns.reduce((sum, c) => sum + c.cost, 0),
-            averageRoas: 1.16,
-            totalConversions: mockCampaigns.reduce((sum, c) => sum + c.conversions, 0),
-            trendingUp: mockCampaigns.filter(c => c.change24h > 0).length,
-            trendingDown: mockCampaigns.filter(c => c.change24h < 0).length
-        },
-        metadata: {
-            totalRows: mockCampaigns.length,
-            dateRange: dateRange,
-            lastUpdated: new Date().toISOString(),
-            enhancedMockData: true
-        }
-    };
 }
