@@ -666,7 +666,7 @@
                 return `
                     <tr class="campaign-row hover:bg-gray-50 transition-colors" onclick="openOffersModal('${campaign.id || campaign.name}')">
                         <td class="px-3 py-3 whitespace-nowrap">
-                            <div class="font-medium text-blue-600 hover:text-blue-800 cursor-pointer text-sm max-w-xs truncate" title="${campaign.name || 'Unnamed Campaign'}">
+                            <div class="font-medium text-blue-600 hover:text-blue-800 cursor-pointer text-sm" title="${campaign.name || 'Unnamed Campaign'}">
                                 ${campaign.name || 'Unnamed Campaign'}
                             </div>
                         </td>
@@ -797,23 +797,45 @@
                 const dateRange = document.getElementById('dateRangeFilter').value;
                 const url = `/api/voluum/offers?campaign_id=${campaign.id}&date_range=${dateRange}`;
                 
+                debugLog(`Fetching offers from: ${url}`);
+                
                 const response = await fetch(url);
                 
                 if (response.ok) {
                     const data = await response.json();
-                    displayOfferData(data.offers || [], campaign);
+                    debugLog(`Offers API response: ${data.success}`);
+                    if (data.success) {
+                        displayOfferData(data.offers || [], campaign);
+                    } else {
+                        displayNoOfferData(campaign, data.error || 'Failed to load offers');
+                    }
                 } else {
-                    // Generate mock offer data based on campaign performance
-                    const mockOffers = generateMockOffers(campaign);
-                    displayOfferData(mockOffers, campaign);
+                    debugLog(`Offers API failed with status: ${response.status}`);
+                    displayNoOfferData(campaign, `API request failed: ${response.status}`);
                 }
                 
             } catch (error) {
                 console.error('Error loading offer data:', error);
-                // Generate mock offer data as fallback
-                const mockOffers = generateMockOffers(campaign);
-                displayOfferData(mockOffers, campaign);
+                debugLog(`Error loading offers: ${error.message}`);
+                displayNoOfferData(campaign, error.message);
             }
+        }
+
+        function displayNoOfferData(campaign, errorMessage) {
+            const modalContent = document.getElementById('offerModalContent');
+            modalContent.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Offer Data Not Available</h3>
+                    <p class="text-gray-600 mb-4">Unable to load offer-level data for this campaign.</p>
+                    <p class="text-sm text-gray-500">${errorMessage}</p>
+                    <div class="mt-6">
+                        <button onclick="closeOfferModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
         function generateMockOffers(campaign) {
