@@ -96,11 +96,21 @@ export default async function handler(req, res) {
         const { fromDate, toDate } = getDateRange(dateRange);
         log(`Date range: ${fromDate} to ${toDate}`);
 
-        // Step 3: Fetch offer-level data for the campaign
-        // Use groupBy=offer and filter by campaignId
+        // Step 3: Fetch offer-level data for multiple periods
+        const { fromDate, toDate } = getDateRange(dateRange);
+        const { fromDate: prev7From, toDate: prev7To } = getDateRange('last_7_days');
+        const { fromDate: prev14From, toDate: prev14To } = getDateRange('last_14_days');
+        const { fromDate: prev30From, toDate: prev30To } = getDateRange('last_30_days');
+        
+        log(`Current period: ${fromDate} to ${toDate}`);
+        log(`7D period: ${prev7From} to ${prev7To}`);
+        log(`14D period: ${prev14From} to ${prev14To}`);
+        log(`30D period: ${prev30From} to ${prev30To}`);
+
+        // Fetch current period offer data
         const offerReportUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=offer&campaignId=${campaignId}&limit=1000&columns=offerId,offerName,offerUrl,visits,clicks,conversions,revenue,cost,impressions`;
         
-        log(`Fetching offers: ${offerReportUrl}`);
+        log(`Fetching current offers: ${offerReportUrl}`);
         
         const offerResponse = await fetch(offerReportUrl, {
             method: 'GET',
@@ -122,10 +132,44 @@ export default async function handler(req, res) {
 
         const offerData = await offerResponse.json();
         log(`Offer data received - Total rows: ${offerData.totalRows || 0}`);
-        log(`Column mappings: ${Object.keys(offerData.columnMappings || {}).join(', ')}`);
 
-        // Step 4: Process offer data
-        const processedOffers = processOfferData(offerData, debugLogs);
+        // Fetch multi-period data for comparison
+        const periods = [
+            { name: '7d', from: prev7From, to: prev7To },
+            { name: '14d', from: prev14From, to: prev14To },
+            { name: '30d', from: prev30From, to: prev30To }
+        ];
+
+        const multiPeriodData = {};
+        
+        for (const period of periods) {
+            try {
+                const periodUrl = `https://api.voluum.com/report?from=${period.from}&to=${period.to}&groupBy=offer&campaignId=${campaignId}&limit=1000&columns=offerId,offerName,visits,clicks,conversions,revenue,cost`;
+                
+                const periodResponse = await fetch(periodUrl, {
+                    method: 'GET',
+                    headers: {
+                        'cwauth-token': sessionToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (periodResponse.ok) {
+                    const periodData = await periodResponse.json();
+                    multiPeriodData[period.name] = periodData.rows || [];
+                    log(`${period.name} data: ${periodData.totalRows || 0} rows`);
+                } else {
+                    log(`${period.name} data fetch failed: ${periodResponse.status}`);
+                    multiPeriodData[period.name] = [];
+                }
+            } catch (error) {
+                log(`Error fetching ${period.name} data: ${error.message}`);
+                multiPeriodData[period.name] = [];
+            }
+        }
+
+        // Step 4: Process offer data with multi-period information
+        const processedOffers = processOfferDataWithPeriods(offerData, multiPeriodData, debugLogs);
         
         log(`Processing complete - ${processedOffers.length} offers processed`);
 
@@ -153,21 +197,35 @@ export default async function handler(req, res) {
     }
 }
 
-function processOfferData(offerData, debugLogs) {
-    debugLogs.push('Processing offer data...');
+function processOfferDataWithPeriods(offerData, multiPeriodData, debugLogs) {
+    debugLogs.push('Processing offer data with multi-period analysis...');
     
     const offers = [];
     const rows = offerData.rows || [];
     
     debugLogs.push(`Processing ${rows.length} offer rows`);
     
-    // Log structure of first row for debugging
-    if (rows[0]) {
-        debugLogs.push(`First row keys: ${Object.keys(rows[0]).slice(0, 10).join(', ')}...`);
-        debugLogs.push(`Sample values: name="${rows[0].offerName}", visits=${rows[0].visits}, revenue=${rows[0].revenue}`);
-    }
+    // Create maps for multi-period data lookup
+    const period7dMap = new Map();
+    const period14dMap = new Map();
+    const period30dMap = new Map();
     
-    // Process each offer row
+    multiPeriodData['7d']?.forEach(row => {
+        const id = row.offerId || row.offerName;
+        if (id) period7dMap.set(id, row);
+    });
+    
+    multiPeriodData['14d']?.forEach(row => {
+        const id = row.offerId || row.offerName;
+        if (id) period14dMap.set(id, row);
+    });
+    
+    multiPeriodData['30d']?.forEach(row => {
+        const id = row.offerId || row.offerName;
+        if (id) period30dMap.set(id, row);
+    });
+    
+    // Process each offer row with multi-period data
     rows.forEach((row, index) => {
         try {
             // Extract data directly from object properties
@@ -175,7 +233,7 @@ function processOfferData(offerData, debugLogs) {
             const offerName = row.offerName || `Offer ${index + 1}`;
             const offerUrl = row.offerUrl || '';
             
-            // Core metrics - directly from object properties
+            // Core metrics - current period
             const visits = parseFloat(row.visits || 0);
             const conversions = parseFloat(row.conversions || 0);
             const revenue = parseFloat(row.revenue || 0);
@@ -183,16 +241,40 @@ function processOfferData(offerData, debugLogs) {
             const clicks = parseFloat(row.clicks || 0);
             const impressions = parseFloat(row.impressions || 0);
             
-            // Calculate derived metrics
+            // Get multi-period data
+            const data7d = period7dMap.get(offerId) || period7dMap.get(offerName) || {};
+            const data14d = period14dMap.get(offerId) || period14dMap.get(offerName) || {};
+            const data30d = period30dMap.get(offerId) || period30dMap.get(offerName) || {};
+            
+            // Calculate current period metrics
             const roas = cost > 0 ? revenue / cost : 0;
             const cpa = conversions > 0 ? cost / conversions : 0;
             const cvr = visits > 0 ? (conversions / visits) * 100 : 0;
-            const payout = conversions > 0 ? revenue / conversions : 0;
+            const epc = visits > 0 ? revenue / visits : 0;
+            
+            // Calculate multi-period metrics
+            const visits7d = parseFloat(data7d.visits || 0);
+            const revenue7d = parseFloat(data7d.revenue || 0);
+            const cost7d = parseFloat(data7d.cost || 0);
+            const roas_7d = cost7d > 0 ? revenue7d / cost7d : 0;
+            const epc_7d = visits7d > 0 ? revenue7d / visits7d : 0;
+            
+            const visits14d = parseFloat(data14d.visits || 0);
+            const revenue14d = parseFloat(data14d.revenue || 0);
+            const cost14d = parseFloat(data14d.cost || 0);
+            const roas_14d = cost14d > 0 ? revenue14d / cost14d : 0;
+            const epc_14d = visits14d > 0 ? revenue14d / visits14d : 0;
+            
+            const visits30d = parseFloat(data30d.visits || 0);
+            const revenue30d = parseFloat(data30d.revenue || 0);
+            const cost30d = parseFloat(data30d.cost || 0);
+            const roas_30d = cost30d > 0 ? revenue30d / cost30d : 0;
+            const epc_30d = visits30d > 0 ? revenue30d / visits30d : 0;
             
             const offer = {
                 id: offerId,
                 name: offerName,
-                offerName: offerName, // Support both field names
+                offerName: offerName,
                 url: offerUrl,
                 visits: visits,
                 conversions: conversions,
@@ -201,16 +283,23 @@ function processOfferData(offerData, debugLogs) {
                 clicks: clicks,
                 impressions: impressions,
                 roas: roas,
+                roas_7d: roas_7d,
+                roas_14d: roas_14d,
+                roas_30d: roas_30d,
                 cpa: cpa,
                 cvr: cvr,
-                payout: payout
+                epc: epc,
+                epc_7d: epc_7d,
+                epc_14d: epc_14d,
+                epc_30d: epc_30d,
+                payout: conversions > 0 ? revenue / conversions : 0
             };
             
             offers.push(offer);
             
             // Log first few offers for debugging
             if (index < 3) {
-                debugLogs.push(`Offer ${index + 1}: "${offer.name}" | Visits: ${offer.visits} | Revenue: $${offer.revenue} | Cost: $${offer.cost} | ROAS: ${offer.roas.toFixed(2)}`);
+                debugLogs.push(`Offer ${index + 1}: "${offer.name}" | Visits: ${offer.visits} | ROAS: ${offer.roas.toFixed(2)} | 7D ROAS: ${offer.roas_7d.toFixed(2)} | EPC: ${offer.epc.toFixed(3)}`);
             }
             
         } catch (error) {
@@ -218,7 +307,7 @@ function processOfferData(offerData, debugLogs) {
         }
     });
     
-    debugLogs.push(`Final processing result: ${offers.length} offers processed`);
+    debugLogs.push(`Final processing result: ${offers.length} offers processed with multi-period data`);
     
     return offers;
 }
