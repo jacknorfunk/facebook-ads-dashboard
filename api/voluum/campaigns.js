@@ -1,63 +1,60 @@
-// api/voluum/campaigns.js - Debug Version
+// api/voluum/campaigns.js - Detailed Debug Version
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        // Debug: Check all environment variables
-        console.log('=== ENVIRONMENT VARIABLES DEBUG ===');
-        console.log('NODE_ENV:', process.env.NODE_ENV);
-        console.log('VERCEL_ENV:', process.env.VERCEL_ENV);
-        
-        // Check if variables exist
+        // Comprehensive environment debug
+        const envDebug = {
+            node_env: process.env.NODE_ENV,
+            vercel_env: process.env.VERCEL_ENV,
+            all_env_keys: Object.keys(process.env).sort(),
+            volume_related_keys: Object.keys(process.env).filter(key => key.includes('VOLUME')),
+            total_env_count: Object.keys(process.env).length
+        };
+
+        // Check credentials
         const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;
         const VOLUME_KEY = process.env.VOLUME_KEY;
         
-        console.log('VOLUME_KEY_ID exists:', !!VOLUME_KEY_ID);
-        console.log('VOLUME_KEY exists:', !!VOLUME_KEY);
-        
-        if (VOLUME_KEY_ID) {
-            console.log('VOLUME_KEY_ID length:', VOLUME_KEY_ID.length);
-            console.log('VOLUME_KEY_ID first 8 chars:', VOLUME_KEY_ID.substring(0, 8));
-        }
-        
-        if (VOLUME_KEY) {
-            console.log('VOLUME_KEY length:', VOLUME_KEY.length);
-            console.log('VOLUME_KEY first 8 chars:', VOLUME_KEY.substring(0, 8));
-        }
-        
-        console.log('=== END DEBUG ===');
+        const credentialDebug = {
+            VOLUME_KEY_ID_exists: !!VOLUME_KEY_ID,
+            VOLUME_KEY_exists: !!VOLUME_KEY,
+            VOLUME_KEY_ID_type: typeof VOLUME_KEY_ID,
+            VOLUME_KEY_type: typeof VOLUME_KEY,
+            VOLUME_KEY_ID_length: VOLUME_KEY_ID ? VOLUME_KEY_ID.length : 0,
+            VOLUME_KEY_length: VOLUME_KEY ? VOLUME_KEY.length : 0,
+            VOLUME_KEY_ID_preview: VOLUME_KEY_ID ? VOLUME_KEY_ID.substring(0, 12) + '...' : 'null',
+            VOLUME_KEY_preview: VOLUME_KEY ? VOLUME_KEY.substring(0, 12) + '...' : 'null'
+        };
 
-        // If no credentials, return detailed error with debug info
+        console.log('=== ENVIRONMENT DEBUG ===');
+        console.log('Environment debug:', envDebug);
+        console.log('Credential debug:', credentialDebug);
+        console.log('========================');
+
+        // If no credentials found, return detailed debug info
         if (!VOLUME_KEY_ID || !VOLUME_KEY) {
-            console.log('Missing credentials, returning mock data...');
-            
             return res.status(200).json({
+                status: 'missing_credentials',
                 debug: {
-                    message: 'Using mock data - credentials missing',
-                    VOLUME_KEY_ID_present: !!VOLUME_KEY_ID,
-                    VOLUME_KEY_present: !!VOLUME_KEY,
-                    VOLUME_KEY_ID_length: VOLUME_KEY_ID ? VOLUME_KEY_ID.length : 0,
-                    VOLUME_KEY_length: VOLUME_KEY ? VOLUME_KEY.length : 0,
-                    all_env_keys: Object.keys(process.env).filter(key => key.includes('VOLUME'))
+                    message: 'Environment variables not found or empty',
+                    environment: envDebug,
+                    credentials: credentialDebug,
+                    suggestion: 'Check Vercel environment variables configuration'
                 },
                 campaigns: getMockCampaignData()
             });
         }
 
-        console.log('Credentials found, attempting Voluum API connection...');
+        // Credentials found - try authentication
+        console.log('Credentials found, attempting authentication...');
         
-        // Step 1: Authenticate with Voluum using Access ID and Access Key
         const authPayload = {
             accessId: VOLUME_KEY_ID.trim(),
             accessKey: VOLUME_KEY.trim()
         };
-        
-        console.log('Auth payload structure:', {
-            accessId: authPayload.accessId.substring(0, 8) + '...',
-            accessKey: authPayload.accessKey.substring(0, 8) + '...'
-        });
 
         const authResponse = await fetch('https://api.voluum.com/auth/access/session', {
             method: 'POST',
@@ -68,44 +65,43 @@ export default async function handler(req, res) {
             body: JSON.stringify(authPayload)
         });
 
-        console.log('Auth response status:', authResponse.status);
-        
         if (!authResponse.ok) {
             const authError = await authResponse.text();
-            console.error('Voluum authentication failed:', authError);
+            console.error('Authentication failed:', authError);
             
-            // Return mock data with auth error details
             return res.status(200).json({
+                status: 'auth_failed',
                 debug: {
-                    message: 'Authentication failed, using mock data',
+                    message: 'Voluum authentication failed',
+                    environment: envDebug,
+                    credentials: credentialDebug,
+                    auth_response_status: authResponse.status,
                     auth_error: authError,
-                    auth_status: authResponse.status,
-                    credentials_used: {
-                        accessId_preview: VOLUME_KEY_ID.substring(0, 8) + '...',
-                        accessKey_preview: VOLUME_KEY.substring(0, 8) + '...',
-                        accessId_length: VOLUME_KEY_ID.length,
-                        accessKey_length: VOLUME_KEY.length
+                    auth_payload_structure: {
+                        accessId_length: authPayload.accessId.length,
+                        accessKey_length: authPayload.accessKey.length,
+                        accessId_format: authPayload.accessId.includes('-') ? 'UUID format' : 'Non-UUID format',
+                        accessKey_format: 'String format'
                     }
                 },
                 campaigns: getMockCampaignData()
             });
         }
 
+        // Authentication successful
         const authData = await authResponse.json();
         const accessToken = authData.token;
-        console.log('Voluum authentication successful, token received');
+        console.log('Authentication successful');
 
-        // Step 2: Get current date range for analysis
+        // Get date range
         const endDate = new Date();
-        const startDate = new Date(endDate.getTime() - (24 * 60 * 60 * 1000)); // Last 24 hours
-
+        const startDate = new Date(endDate.getTime() - (24 * 60 * 60 * 1000));
         const formatDate = (date) => date.toISOString().split('T')[0];
 
-        // Step 3: Fetch current period campaign data
-        console.log('Fetching campaign data...');
+        // Fetch campaign data
         const reportUrl = `https://api.voluum.com/report?from=${formatDate(startDate)}&to=${formatDate(endDate)}&groupBy=campaign&include=ACTIVE`;
         
-        const currentDataResponse = await fetch(reportUrl, {
+        const reportResponse = await fetch(reportUrl, {
             method: 'GET',
             headers: {
                 'cwauth-token': accessToken,
@@ -113,47 +109,48 @@ export default async function handler(req, res) {
             }
         });
 
-        console.log('Report response status:', currentDataResponse.status);
-
-        if (!currentDataResponse.ok) {
-            const currentError = await currentDataResponse.text();
-            console.error('Failed to fetch campaign data:', currentError);
+        if (!reportResponse.ok) {
+            const reportError = await reportResponse.text();
+            console.error('Report API failed:', reportError);
             
-            // Return mock data with API error details
             return res.status(200).json({
+                status: 'report_failed',
                 debug: {
-                    message: 'Report API failed, using mock data',
-                    report_error: currentError,
-                    report_status: currentDataResponse.status,
-                    report_url: reportUrl
+                    message: 'Successfully authenticated but report API failed',
+                    environment: envDebug,
+                    credentials: credentialDebug,
+                    report_url: reportUrl,
+                    report_status: reportResponse.status,
+                    report_error: reportError
                 },
                 campaigns: getMockCampaignData()
             });
         }
 
-        const currentData = await currentDataResponse.json();
-        console.log('Campaign data fetched successfully:', currentData.rows?.length || 0, 'campaigns');
-
-        // Step 4: Process the real data
-        const processedCampaigns = processCampaignData(currentData);
-        console.log('Processed campaigns:', processedCampaigns.length);
+        // Success - process real data
+        const reportData = await reportResponse.json();
+        const processedCampaigns = processCampaignData(reportData);
 
         return res.status(200).json({
+            status: 'success',
             debug: {
-                message: 'Real Voluum data successfully retrieved',
-                campaigns_count: processedCampaigns.length,
+                message: 'Successfully retrieved real Voluum data',
+                environment: envDebug,
+                credentials: credentialDebug,
+                report_url: reportUrl,
+                campaigns_found: processedCampaigns.length,
                 date_range: `${formatDate(startDate)} to ${formatDate(endDate)}`
             },
             campaigns: processedCampaigns
         });
 
     } catch (error) {
-        console.error('Voluum API Error:', error);
+        console.error('Unexpected error:', error);
         
-        // Return mock data with error details
         return res.status(200).json({
+            status: 'error',
             debug: {
-                message: 'Unexpected error, using mock data',
+                message: 'Unexpected error occurred',
                 error: error.message,
                 stack: error.stack
             },
@@ -166,7 +163,7 @@ function getMockCampaignData() {
     return [
         {
             id: 'camp_001',
-            name: 'Weight Loss Supplement - US',
+            name: 'Weight Loss Supplement - US (MOCK DATA)',
             clicks: 1247,
             conversions: 23,
             revenue: 487.50,
@@ -195,7 +192,7 @@ function getMockCampaignData() {
         },
         {
             id: 'camp_002',
-            name: 'Crypto Trading Course - UK',
+            name: 'Crypto Trading Course - UK (MOCK DATA)',
             clicks: 892,
             conversions: 7,
             revenue: 280.00,
@@ -227,7 +224,7 @@ function getMockCampaignData() {
         },
         {
             id: 'camp_003',
-            name: 'Gaming Laptop - DE',
+            name: 'Gaming Laptop - DE (MOCK DATA)',
             clicks: 567,
             conversions: 12,
             revenue: 1200.00,
@@ -253,81 +250,21 @@ function getMockCampaignData() {
             primaryMetric: 'Revenue',
             primaryChange: 45.2,
             flags: [{ type: 'opportunity', message: 'High growth potential' }]
-        },
-        {
-            id: 'camp_004',
-            name: 'Dating App - AU',
-            clicks: 2156,
-            conversions: 18,
-            revenue: 126.00,
-            cost: 167.89,
-            avgPayout: 7.00,
-            impressions: 45600,
-            offerId: 'offer_101',
-            offerName: 'Love Connect',
-            status: 'active',
-            roas: 0.75,
-            ctr: 4.73,
-            cvr: 0.83,
-            cpc: 0.078,
-            epc: 0.058,
-            trend: {
-                revenueChange: -5.2,
-                costChange: 3.1,
-                roasChange: -8.1,
-                conversionChange: -11.1,
-                payoutChange: 0.0
-            },
-            trendStatus: 'STABLE',
-            primaryMetric: 'Performance',
-            primaryChange: -6.65,
-            flags: [{ type: 'warning', message: 'Low ROAS with significant spend' }]
-        },
-        {
-            id: 'camp_005',
-            name: 'Forex Signals - CA',
-            clicks: 1834,
-            conversions: 31,
-            revenue: 620.00,
-            cost: 298.45,
-            avgPayout: 20.00,
-            impressions: 23400,
-            offerId: 'offer_202',
-            offerName: 'Forex Pro Signals',
-            status: 'active',
-            roas: 2.08,
-            ctr: 7.84,
-            cvr: 1.69,
-            cpc: 0.163,
-            epc: 0.338,
-            trend: {
-                revenueChange: -12.3,
-                costChange: -5.7,
-                roasChange: -7.1,
-                conversionChange: -15.2,
-                payoutChange: 0.0
-            },
-            trendStatus: 'DOWN',
-            primaryMetric: 'Conversions',
-            primaryChange: -15.2,
-            flags: [{ type: 'warning', message: 'Declining conversion rate' }]
         }
     ];
 }
 
-function processCampaignData(currentData) {
-    if (!currentData.rows || currentData.rows.length === 0) {
-        console.log('No current campaign data available');
+function processCampaignData(reportData) {
+    if (!reportData.rows || reportData.rows.length === 0) {
+        console.log('No campaign data in report');
         return [];
     }
 
-    return currentData.rows.map(campaign => {
-        // Extract campaign data with fallbacks for different API response formats
+    return reportData.rows.map(campaign => {
         const campaignId = campaign.campaignId || campaign.campaign_id || campaign.id;
         const campaignName = campaign.campaignName || campaign.campaign_name || campaign.name || `Campaign ${campaignId}`;
         
-        // Current period metrics
-        const current = {
+        const processed = {
             id: campaignId,
             name: campaignName,
             clicks: parseInt(campaign.clicks || 0),
@@ -342,33 +279,32 @@ function processCampaignData(currentData) {
         };
 
         // Calculate derived metrics
-        current.roas = current.cost > 0 ? current.revenue / current.cost : 0;
-        current.ctr = current.impressions > 0 ? (current.clicks / current.impressions) * 100 : 0;
-        current.cvr = current.clicks > 0 ? (current.conversions / current.clicks) * 100 : 0;
-        current.cpc = current.clicks > 0 ? current.cost / current.clicks : 0;
-        current.epc = current.clicks > 0 ? current.revenue / current.clicks : 0;
+        processed.roas = processed.cost > 0 ? processed.revenue / processed.cost : 0;
+        processed.ctr = processed.impressions > 0 ? (processed.clicks / processed.impressions) * 100 : 0;
+        processed.cvr = processed.clicks > 0 ? (processed.conversions / processed.clicks) * 100 : 0;
+        processed.cpc = processed.clicks > 0 ? processed.cost / processed.clicks : 0;
+        processed.epc = processed.clicks > 0 ? processed.revenue / processed.clicks : 0;
 
-        // Mock trend data for now (would need previous period comparison)
-        current.trend = {
-            revenueChange: Math.random() * 40 - 20, // -20% to +20%
+        // Add mock trend data (would need historical comparison)
+        processed.trend = {
+            revenueChange: Math.random() * 40 - 20,
             costChange: Math.random() * 30 - 15,
             roasChange: Math.random() * 35 - 17.5,
             conversionChange: Math.random() * 50 - 25,
             payoutChange: Math.random() * 10 - 5
         };
 
-        // Determine trend status
-        const primaryChange = current.trend.revenueChange;
+        const primaryChange = processed.trend.revenueChange;
         if (primaryChange >= 10) {
-            current.trendStatus = 'UP';
+            processed.trendStatus = 'UP';
         } else if (primaryChange <= -10) {
-            current.trendStatus = 'DOWN';
+            processed.trendStatus = 'DOWN';
         } else {
-            current.trendStatus = 'STABLE';
+            processed.trendStatus = 'STABLE';
         }
         
-        current.primaryChange = primaryChange;
+        processed.primaryChange = primaryChange;
 
-        return current;
+        return processed;
     });
 }
