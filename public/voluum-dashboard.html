@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voluum Performance Tracker - Enhanced</title>
+    <title>Voluum Performance Tracker - Fixed</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -48,9 +48,9 @@
                         <select id="dateRangeFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
                             <option value="today">Today</option>
                             <option value="yesterday">Yesterday</option>
-                            <option value="last_7_days" selected>Last 7 Days</option>
+                            <option value="last_7_days">Last 7 Days</option>
                             <option value="last_14_days">Last 14 Days</option>
-                            <option value="last_30_days">Last 30 Days</option>
+                            <option value="last_30_days" selected>Last 30 Days</option>
                         </select>
                     </div>
                     
@@ -58,8 +58,8 @@
                     <div>
                         <label class="block text-white text-sm font-medium mb-2">Status</label>
                         <select id="statusFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
-                            <option value="all">All Campaigns</option>
-                            <option value="active" selected>Active Only</option>
+                            <option value="all" selected>All Campaigns</option>
+                            <option value="active">Active Only</option>
                             <option value="paused">Paused Only</option>
                             <option value="profitable">Profitable (ROAS > 1.0)</option>
                         </select>
@@ -70,6 +70,9 @@
                         <label class="block text-white text-sm font-medium mb-2">Traffic Source</label>
                         <select id="trafficSourceFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
                             <option value="all">All Sources</option>
+                            <option value="admaven">AdMaven</option>
+                            <option value="adskeeper">Adskeeper</option>
+                            <option value="adwora">Adwora</option>
                             <option value="newsbreak">NewsBreak</option>
                             <option value="taboola">Taboola</option>
                             <option value="facebook">Facebook</option>
@@ -260,80 +263,6 @@
         </div>
     </div>
 
-    <!-- Campaign Details Modal -->
-    <div id="campaignModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-6">
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 id="modalCampaignName" class="text-2xl font-bold text-gray-900">Campaign Details</h2>
-                        <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-                    
-                    <!-- ROAS Overview Cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-blue-100 text-sm">7-Day ROAS</p>
-                                    <p id="modal7dRoas" class="text-2xl font-bold">0.00x</p>
-                                </div>
-                                <i class="fas fa-chart-line text-2xl text-blue-200"></i>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-green-100 text-sm">14-Day ROAS</p>
-                                    <p id="modal14dRoas" class="text-2xl font-bold">0.00x</p>
-                                </div>
-                                <i class="fas fa-chart-bar text-2xl text-green-200"></i>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-purple-100 text-sm">30-Day ROAS</p>
-                                    <p id="modal30dRoas" class="text-2xl font-bold">0.00x</p>
-                                </div>
-                                <i class="fas fa-chart-area text-2xl text-purple-200"></i>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Performance Chart Placeholder -->
-                    <div class="bg-gray-50 rounded-lg p-8 mb-8 text-center">
-                        <i class="fas fa-chart-line text-4xl text-gray-400 mb-4"></i>
-                        <p class="text-gray-600 mb-2">Performance Chart</p>
-                        <p class="text-sm text-gray-500">Multi-period ROAS trend visualization coming soon</p>
-                    </div>
-                    
-                    <!-- Detailed Performance Table -->
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Conversions</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ROAS</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trend</th>
-                                </tr>
-                            </thead>
-                            <tbody id="modalPerformanceTable" class="bg-white divide-y divide-gray-200">
-                                <!-- Performance data will be populated here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
         // Global variables
         let allCampaigns = [];
@@ -369,25 +298,7 @@
                 
                 const dateRange = document.getElementById('dateRangeFilter').value;
                 
-                // First test environment variables
-                debugLog('🔧 Testing environment variables...');
-                try {
-                    const envResponse = await fetch('/api/test-env');
-                    if (envResponse.ok) {
-                        const envData = await envResponse.json();
-                        debugLog(`✅ Environment test: ${envData.success ? 'PASSED' : 'FAILED'}`);
-                        if (envData.environment_check) {
-                            debugLog(`🔑 Credentials check: ID=${envData.environment_check.volume_key_id_present}, Key=${envData.environment_check.volume_key_present}`);
-                        }
-                        if (envData.api_test) {
-                            debugLog(`🌐 API test: Status=${envData.api_test.auth_status}, Success=${envData.api_test.auth_success}`);
-                        }
-                    }
-                } catch (envError) {
-                    debugLog(`⚠️ Environment test failed: ${envError.message}`);
-                }
-                
-                // Use the working Voluum API
+                // Use the WORKING API endpoint
                 debugLog('📡 Using working Voluum API...');
                 const apiUrl = `/api/voluum/campaigns-simple?date_range=${dateRange}`;
                 debugLog(`📡 Fetching from: ${apiUrl}`);
@@ -404,7 +315,7 @@
                 
                 // Show debug logs from API
                 if (data.debug_logs && Array.isArray(data.debug_logs)) {
-                    data.debug_logs.forEach(log => debugLog(`🔧 API: ${log}`));
+                    data.debug_logs.slice(-5).forEach(log => debugLog(`🔧 API: ${log.replace(/\[.*?\] /, '')}`));
                 }
                 
                 if (data.success === false) {
@@ -419,8 +330,8 @@
                 } else {
                     debugLog('🎉 Real Voluum data received successfully!');
                     processData(data.data || data);
-                    const campaignCount = data.debug_info?.campaigns_processed || data.data?.campaigns?.length || 'Unknown';
-                    updateConnectionStatus('success', `Connected - ${campaignCount} campaigns loaded`);
+                    const campaignCount = data.raw_data_preview?.total_rows || data.data?.campaigns?.length || 'Unknown';
+                    updateConnectionStatus('success', `Connected - ${campaignCount} campaigns total`);
                 }
                 
             } catch (error) {
@@ -437,56 +348,6 @@
             } finally {
                 hideLoadingState();
             }
-        }
-
-        function getEmergencyMockData() {
-            return {
-                campaigns: [
-                    {
-                        id: 'mock_1',
-                        name: 'Emergency Mock - NewsBreak Campaign',
-                        trafficSource: 'NewsBreak',
-                        visits: 15000,
-                        conversions: 200,
-                        revenue: 3000,
-                        cost: 2500,
-                        roas: 1.2,
-                        cpa: 12.5,
-                        ctr: 1.33,
-                        status: 'UP',
-                        hasTraffic: true,
-                        change24h: 5.5
-                    },
-                    {
-                        id: 'mock_2',
-                        name: 'Emergency Mock - Taboola Campaign',
-                        trafficSource: 'Taboola',
-                        visits: 8000,
-                        conversions: 100,
-                        revenue: 1500,
-                        cost: 1800,
-                        roas: 0.83,
-                        cpa: 18.0,
-                        ctr: 1.25,
-                        status: 'DOWN',
-                        hasTraffic: true,
-                        change24h: -8.2
-                    }
-                ],
-                overview: {
-                    liveCampaigns: 2,
-                    activeCampaigns: 2,
-                    totalRevenue: 4500,
-                    totalSpend: 4300,
-                    averageRoas: 1.01,
-                    totalConversions: 300
-                },
-                metadata: {
-                    totalRows: 2,
-                    dateRange: 'emergency_mock',
-                    lastUpdated: new Date().toISOString()
-                }
-            };
         }
 
         function processData(data) {
@@ -510,7 +371,7 @@
             const sortFilter = document.getElementById('sortFilter').value;
             
             filteredCampaigns = allCampaigns.filter(campaign => {
-                // Status filter (less restrictive)
+                // Status filter
                 if (statusFilter !== 'all') {
                     if (statusFilter === 'active' && !campaign.hasTraffic) return false;
                     if (statusFilter === 'paused' && campaign.hasTraffic) return false;
@@ -653,44 +514,7 @@
             const campaign = allCampaigns.find(c => c.id === campaignId);
             if (!campaign) return;
             
-            // Update modal content
-            document.getElementById('modalCampaignName').textContent = campaign.name || 'Campaign Details';
-            document.getElementById('modal7dRoas').textContent = `${(campaign.performance_7d?.roas || 0).toFixed(2)}x`;
-            document.getElementById('modal14dRoas').textContent = `${(campaign.performance_14d?.roas || 0).toFixed(2)}x`;
-            document.getElementById('modal30dRoas').textContent = `${(campaign.performance_30d?.roas || 0).toFixed(2)}x`;
-            
-            // Update performance table
-            const tableBody = document.getElementById('modalPerformanceTable');
-            tableBody.innerHTML = `
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">7 Days</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${(campaign.performance_7d?.revenue || 0).toFixed(2)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${(campaign.performance_7d?.conversions || 0).toLocaleString()}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${getRoasColor(campaign.performance_7d?.roas)}">${(campaign.performance_7d?.roas || 0).toFixed(2)}x</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600"><i class="fas fa-arrow-up mr-1"></i>5.2%</td>
-                </tr>
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">14 Days</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${(campaign.performance_14d?.revenue || 0).toFixed(2)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${(campaign.performance_14d?.conversions || 0).toLocaleString()}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${getRoasColor(campaign.performance_14d?.roas)}">${(campaign.performance_14d?.roas || 0).toFixed(2)}x</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600"><i class="fas fa-arrow-up mr-1"></i>8.7%</td>
-                </tr>
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">30 Days</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${(campaign.performance_30d?.revenue || 0).toFixed(2)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${(campaign.performance_30d?.conversions || 0).toLocaleString()}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${getRoasColor(campaign.performance_30d?.roas)}">${(campaign.performance_30d?.roas || 0).toFixed(2)}x</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600"><i class="fas fa-arrow-down mr-1"></i>2.1%</td>
-                </tr>
-            `;
-            
-            // Show modal
-            document.getElementById('campaignModal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('campaignModal').classList.add('hidden');
+            alert(`Campaign Details:\n\nName: ${campaign.name}\nTraffic Source: ${campaign.trafficSource}\nStatus: ${campaign.status}\nVisits: ${campaign.visits}\nConversions: ${campaign.conversions}\nRevenue: $${campaign.revenue}\nCost: $${campaign.cost}\nROAS: ${campaign.roas.toFixed(2)}x`);
         }
 
         function calculateOverviewStats(campaigns) {
@@ -727,7 +551,7 @@
                 case 'DOWN': return 'status-down';
                 case 'STABLE': return 'status-stable';
                 case 'PAUSED': return 'status-paused';
-                default: return 'status-stable';
+                default: return 'status-paused';
             }
         }
 
@@ -738,7 +562,7 @@
         }
 
         function resetAllFilters() {
-            document.getElementById('statusFilter').value = 'active';
+            document.getElementById('statusFilter').value = 'all';
             document.getElementById('trafficSourceFilter').value = 'all';
             document.getElementById('spendFilter').value = 'all';
             document.getElementById('performanceFilter').value = 'all';
@@ -798,7 +622,82 @@
             logEntry.innerHTML = `<span class="text-gray-400">[${timestamp}]</span> ${message}`;
             debugInfo.appendChild(logEntry);
             
-            // Keep only last 15 log entries
-            while (debugInfo.children.length > 15) {
+            // Keep only last 10 log entries
+            while (debugInfo.children.length > 10) {
                 debugInfo.removeChild(debugInfo.firstChild);
             }
+            
+            console.log(message);
+        }
+
+        function showLoadingState() {
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.querySelector('.bg-white.rounded-xl.shadow-sm.border.overflow-hidden').classList.add('hidden');
+        }
+
+        function hideLoadingState() {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.querySelector('.bg-white.rounded-xl.shadow-sm.border.overflow-hidden').classList.remove('hidden');
+        }
+
+        function showEmptyState() {
+            document.getElementById('emptyState').classList.remove('hidden');
+            document.getElementById('campaignsTable').innerHTML = '';
+        }
+
+        function hideEmptyState() {
+            document.getElementById('emptyState').classList.add('hidden');
+        }
+
+        function getEmergencyMockData() {
+            return {
+                campaigns: [
+                    {
+                        id: 'mock_1',
+                        name: 'Emergency Mock - NewsBreak Campaign',
+                        trafficSource: 'NewsBreak',
+                        visits: 15000,
+                        conversions: 200,
+                        revenue: 3000,
+                        cost: 2500,
+                        roas: 1.2,
+                        cpa: 12.5,
+                        ctr: 1.33,
+                        status: 'UP',
+                        hasTraffic: true,
+                        change24h: 5.5
+                    },
+                    {
+                        id: 'mock_2',
+                        name: 'Emergency Mock - Taboola Campaign',
+                        trafficSource: 'Taboola',
+                        visits: 8000,
+                        conversions: 100,
+                        revenue: 1500,
+                        cost: 1800,
+                        roas: 0.83,
+                        cpa: 18.0,
+                        ctr: 1.25,
+                        status: 'DOWN',
+                        hasTraffic: true,
+                        change24h: -8.2
+                    }
+                ],
+                overview: {
+                    liveCampaigns: 2,
+                    activeCampaigns: 2,
+                    totalRevenue: 4500,
+                    totalSpend: 4300,
+                    averageRoas: 1.01,
+                    totalConversions: 300
+                },
+                metadata: {
+                    totalRows: 2,
+                    dateRange: 'emergency_mock',
+                    lastUpdated: new Date().toISOString()
+                }
+            };
+        }
+    </script>
+</body>
+</html>
