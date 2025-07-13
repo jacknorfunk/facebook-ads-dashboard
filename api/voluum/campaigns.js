@@ -1,669 +1,495 @@
-// api/voluum/campaigns.js - Updated Version with Better Campaign Data Fetching
+// /api/voluum/campaigns.js - Enhanced Voluum API Integration
+
 export default async function handler(req, res) {
-  try {
-    console.log('=== VOLUUM API HANDLER STARTED ===');
-    
-    // Set CORS headers first
+    // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
-    }
-
-    // Log request details
-    console.log('Request method:', req.method);
-    console.log('Request query:', req.query);
-    console.log('Request headers:', req.headers);
-
-    // Get environment variables with validation
-    const ACCESS_ID = process.env.VOLUME_KEY_ID;
-    const ACCESS_KEY = process.env.VOLUME_KEY;
-
-    console.log('Environment check:');
-    console.log('ACCESS_ID exists:', !!ACCESS_ID);
-    console.log('ACCESS_KEY exists:', !!ACCESS_KEY);
-
-    if (!ACCESS_ID || !ACCESS_KEY) {
-      console.log('❌ Missing environment variables, returning mock data');
-      const mockData = generateEnhancedMockData();
-      return res.status(200).json({
-        success: false,
-        data: mockData,
-        error: 'Missing Voluum credentials - using mock data for development',
-        debug_info: {
-          env_vars: {
-            ACCESS_ID: !!ACCESS_ID,
-            ACCESS_KEY: !!ACCESS_KEY
-          }
-        }
-      });
-    }
-
-    // Process date range parameter safely
-    const dateRange = req.query.date_range || 'last_7_days';
-    console.log('Date range requested:', dateRange);
-
-    const dateRanges = calculateDateRange(dateRange);
-    console.log('Calculated date range:', dateRanges);
-
-    // Try Voluum authentication with error handling
-    let authToken = null;
-    try {
-      console.log('🔐 Attempting Voluum authentication...');
-      
-      const authResponse = await fetch('https://api.voluum.com/auth/access/session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          accessId: ACCESS_ID,
-          accessKey: ACCESS_KEY
-        }),
-        timeout: 10000 // 10 second timeout
-      });
-
-      console.log('Auth response status:', authResponse.status);
-
-      if (authResponse.ok) {
-        const authData = await authResponse.json();
-        authToken = authData.token || authData.access_token;
-        console.log('✅ Authentication successful');
-      } else {
-        const errorText = await authResponse.text();
-        console.log('❌ Auth failed:', authResponse.status, errorText);
-      }
-    } catch (authError) {
-      console.log('❌ Auth error:', authError.message);
-    }
-
-    // If authentication failed, return enhanced mock data
-    if (!authToken) {
-      console.log('Using enhanced mock data due to auth failure');
-      const mockData = generateEnhancedMockData();
-      return res.status(200).json({
-        success: false,
-        data: mockData,
-        error: 'Voluum authentication failed - using mock data',
-        debug_info: {
-          auth_attempted: true,
-          date_range: dateRange
-        }
-      });
-    }
-
-    // Try multiple API endpoints to get campaign data
-    let campaignsData = null;
-    let apiEndpoint = '';
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
     try {
-      console.log('📊 Fetching campaign data...');
-      
-      // Try different API endpoints focused on getting ALL campaigns first
-      const apiEndpoints = [
-        // Simple campaign report - get everything first
-        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign`,
+        console.log('=== VOLUUM API REQUEST START ===');
+        console.log('Request query:', req.query);
         
-        // Campaign report with extended date range to ensure data
-        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign&columns=campaignName,visits,conversions,revenue,cost`,
+        // Get date range from query parameter
+        const dateRange = req.query.date_range || 'last_7_days';
+        const { fromDate, toDate } = getDateRange(dateRange);
         
-        // Try with a wider date range (last 7 days) to see if we get any data
-        `https://api.voluum.com/report?from=${getSevenDaysAgo()}&to=${dateRanges.toDate}&groupBy=campaign`,
+        console.log(`Date range: ${fromDate} to ${toDate}`);
         
-        // Campaign report with traffic source info (secondary)
-        `https://api.voluum.com/report?from=${dateRanges.fromDate}&to=${dateRanges.toDate}&groupBy=campaign,trafficSource`,
+        // Check environment variables
+        const accessId = process.env.VOLUME_KEY_ID;
+        const accessKey = process.env.VOLUME_KEY;
         
-        // Direct campaigns endpoint (alternative)
-        `https://api.voluum.com/campaigns?from=${dateRanges.fromDate}&to=${dateRanges.toDate}`
-      ];
+        if (!accessId || !accessKey) {
+            console.error('Missing Voluum credentials');
+            return res.status(500).json({
+                success: false,
+                error: 'Missing Voluum API credentials',
+                data: getMockData() // Fallback to mock data
+            });
+        }
 
-      for (let i = 0; i < apiEndpoints.length; i++) {
-        apiEndpoint = apiEndpoints[i];
-        console.log(`Trying API endpoint ${i + 1}:`, apiEndpoint);
+        console.log('Credentials found - AccessID length:', accessId.length, 'AccessKey length:', accessKey.length);
 
-        const reportResponse = await fetch(apiEndpoint, {
-          method: 'GET',
-          headers: {
-            'cwauth-token': authToken,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          timeout: 15000 // 15 second timeout
+        // Step 1: Authenticate with Voluum
+        const authResponse = await fetch('https://api.voluum.com/auth/access/session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                accessId: accessId,
+                accessKey: accessKey
+            })
         });
 
-        console.log(`Response status for endpoint ${i + 1}:`, reportResponse.status);
-
-        if (reportResponse.ok) {
-          campaignsData = await reportResponse.json();
-          console.log(`✅ Real Voluum data retrieved from endpoint ${i + 1}`);
-          console.log('Raw API response structure:', Object.keys(campaignsData));
-          console.log('Total rows in response:', campaignsData.totalRows || 'unknown');
-          console.log('Rows array length:', campaignsData.rows ? campaignsData.rows.length : 'no rows');
-          console.log('Full API response (first 2000 chars):', JSON.stringify(campaignsData).substring(0, 2000));
-          
-          // If we got some data, break. If not, try next endpoint
-          if ((campaignsData.rows && campaignsData.rows.length > 0) || 
-              (campaignsData.data && campaignsData.data.length > 0) ||
-              (campaignsData.totalRows && campaignsData.totalRows > 0)) {
-            console.log('✅ Found data, stopping endpoint search');
-            break;
-          } else {
-            console.log('⚠️ Endpoint returned empty data, trying next endpoint...');
-            campaignsData = null; // Reset to try next endpoint
-          }
-        } else {
-          const errorText = await reportResponse.text();
-          console.log(`❌ Endpoint ${i + 1} failed:`, reportResponse.status, errorText);
+        if (!authResponse.ok) {
+            const authError = await authResponse.text();
+            console.error('Auth failed:', authResponse.status, authError);
+            
+            return res.status(200).json({
+                success: false,
+                error: `Authentication failed: ${authResponse.status}`,
+                debug_info: {
+                    auth_status: authResponse.status,
+                    auth_error: authError,
+                    credentials_present: true
+                },
+                data: getMockData()
+            });
         }
-      }
-    } catch (fetchError) {
-      console.log('❌ Report fetch error:', fetchError.message);
+
+        const authData = await authResponse.json();
+        const sessionToken = authData.token;
+        console.log('Authentication successful, token received');
+
+        // Step 2: Get campaign data with multiple attempts
+        const campaignData = await fetchCampaignDataWithFallbacks(sessionToken, fromDate, toDate);
+        
+        if (!campaignData) {
+            console.log('No data from any API endpoint, using mock data');
+            return res.status(200).json({
+                success: false,
+                error: 'No campaign data available from Voluum API',
+                debug_info: {
+                    auth_success: true,
+                    data_endpoints_tried: 3,
+                    fallback_used: true
+                },
+                data: getMockData()
+            });
+        }
+
+        // Step 3: Process the campaign data
+        const processedData = processCampaignData(campaignData, dateRange);
+        
+        console.log('=== PROCESSING COMPLETE ===');
+        console.log(`Total campaigns from API: ${campaignData.totalRows || 0}`);
+        console.log(`Processed campaigns: ${processedData.campaigns.length}`);
+        console.log(`Active campaigns: ${processedData.overview.activeCampaigns}`);
+
+        return res.status(200).json({
+            success: true,
+            data: processedData,
+            debug_info: {
+                auth_success: true,
+                api_total_rows: campaignData.totalRows || 0,
+                campaigns_processed: processedData.campaigns.length,
+                active_campaigns: processedData.overview.activeCampaigns,
+                date_range: `${fromDate} to ${toDate}`
+            }
+        });
+
+    } catch (error) {
+        console.error('Error in Voluum API handler:', error);
+        return res.status(500).json({
+            success: false,
+            error: error.message,
+            data: getMockData()
+        });
     }
-
-    // Process data (real or fallback to mock)
-    let processedData;
-    if (campaignsData) {
-      console.log('Processing real Voluum data');
-      processedData = processRealCampaignsData(campaignsData, dateRange, apiEndpoint);
-    } else {
-      console.log('Using enhanced mock data as fallback');
-      processedData = generateEnhancedMockData();
-    }
-
-    return res.status(200).json({
-      success: !!campaignsData,
-      data: processedData,
-      debug_info: {
-        auth_successful: !!authToken,
-        data_source: campaignsData ? 'real' : 'mock',
-        date_range: dateRange,
-        campaigns_count: processedData.campaigns?.length || 0,
-        api_endpoint_used: apiEndpoint,
-        raw_data_structure: campaignsData ? Object.keys(campaignsData) : []
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Unexpected error in Voluum API:', error);
-    console.error('Error stack:', error.stack);
-    
-    // Always return valid JSON, never throw
-    const mockData = generateEnhancedMockData();
-    return res.status(200).json({
-      success: false,
-      data: mockData,
-      error: `Server error: ${error.message}`,
-      debug_info: {
-        error_type: 'unexpected_error',
-        error_message: error.message
-      }
-    });
-  }
 }
 
-function calculateDateRange(dateRange) {
-  const today = new Date();
-  let fromDate, toDate;
+async function fetchCampaignDataWithFallbacks(sessionToken, fromDate, toDate) {
+    const headers = {
+        'cwauth-token': sessionToken,
+        'Content-Type': 'application/json'
+    };
 
-  switch (dateRange) {
-    case 'today':
-      fromDate = toDate = today.toISOString().split('T')[0];
-      break;
-    case 'yesterday':
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      fromDate = toDate = yesterday.toISOString().split('T')[0];
-      break;
-    case 'last_7_days':
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      fromDate = sevenDaysAgo.toISOString().split('T')[0];
-      toDate = today.toISOString().split('T')[0];
-      break;
-    case 'last_14_days':
-      const fourteenDaysAgo = new Date(today);
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-      fromDate = fourteenDaysAgo.toISOString().split('T')[0];
-      toDate = today.toISOString().split('T')[0];
-      break;
-    case 'last_30_days':
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      fromDate = thirtyDaysAgo.toISOString().split('T')[0];
-      toDate = today.toISOString().split('T')[0];
-      break;
-    default:
-      // Default to last 7 days
-      const defaultDaysAgo = new Date(today);
-      defaultDaysAgo.setDate(defaultDaysAgo.getDate() - 7);
-      fromDate = defaultDaysAgo.toISOString().split('T')[0];
-      toDate = today.toISOString().split('T')[0];
-  }
+    // Try multiple API endpoints in order of preference
+    const endpoints = [
+        // Primary: Campaign-level data with all metrics
+        `/report?from=${fromDate}&to=${toDate}&groupBy=campaign&columns=visits,conversions,revenue,cost,campaignId,campaignName,trafficSourceName&limit=1000`,
+        
+        // Secondary: Simplified campaign data
+        `/report?from=${fromDate}&to=${toDate}&groupBy=campaign&limit=1000`,
+        
+        // Tertiary: Basic campaign report
+        `/report?from=${fromDate}&to=${toDate}&groupBy=campaign&include=ACTIVE&limit=1000`,
+        
+        // Last resort: Any campaign data
+        `/report?groupBy=campaign&limit=1000`
+    ];
 
-  return { fromDate, toDate };
+    for (let i = 0; i < endpoints.length; i++) {
+        try {
+            console.log(`\nTrying endpoint ${i + 1}:`, endpoints[i]);
+            
+            const response = await fetch(`https://api.voluum.com${endpoints[i]}`, {
+                method: 'GET',
+                headers: headers
+            });
+
+            console.log(`Response status: ${response.status}`);
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`Data received - Total rows: ${data.totalRows || 0}`);
+                
+                if (data.totalRows > 0 || (data.rows && data.rows.length > 0)) {
+                    console.log('Successfully got campaign data from endpoint', i + 1);
+                    return data;
+                }
+                
+                console.log('Endpoint returned no data, trying next...');
+            } else {
+                const errorText = await response.text();
+                console.log(`Endpoint ${i + 1} failed:`, response.status, errorText.substring(0, 200));
+            }
+        } catch (error) {
+            console.log(`Endpoint ${i + 1} error:`, error.message);
+        }
+    }
+
+    console.log('All endpoints failed or returned no data');
+    return null;
 }
 
-function getSevenDaysAgo() {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  return sevenDaysAgo.toISOString().split('T')[0];
-}
-
-function processRealCampaignsData(rawData, dateRange, apiEndpoint) {
-  console.log('🔄 Processing real Voluum data...');
-  console.log('Raw data keys:', Object.keys(rawData));
-  console.log('API endpoint used:', apiEndpoint);
-  
-  try {
-    let campaigns = [];
+function processCampaignData(apiData, dateRange) {
+    console.log('\n=== PROCESSING CAMPAIGN DATA ===');
     
-    // Handle different Voluum response structures more comprehensively
-    if (rawData.rows && Array.isArray(rawData.rows)) {
-      campaigns = rawData.rows;
-      console.log('Using rawData.rows structure');
-    } else if (rawData.data && Array.isArray(rawData.data)) {
-      campaigns = rawData.data;
-      console.log('Using rawData.data structure');
-    } else if (rawData.campaigns && Array.isArray(rawData.campaigns)) {
-      campaigns = rawData.campaigns;
-      console.log('Using rawData.campaigns structure');
-    } else if (Array.isArray(rawData)) {
-      campaigns = rawData;
-      console.log('Using direct array structure');
-    } else if (rawData.result && Array.isArray(rawData.result)) {
-      campaigns = rawData.result;
-      console.log('Using rawData.result structure');
-    } else {
-      console.log('Unknown data structure, creating single campaign from root object');
-      campaigns = [rawData];
-    }
-
-    console.log(`Raw campaigns count: ${campaigns.length}`);
+    const campaigns = [];
+    const rows = apiData.rows || [];
+    const columnMappings = apiData.columnMappings || {};
     
-    // First, let's see ALL campaigns before filtering (for debugging)
-    console.log('=== ALL CAMPAIGNS BEFORE FILTERING ===');
-    campaigns.slice(0, 5).forEach((campaign, index) => {
-      const campaignName = (
-        campaign.campaignName || 
-        campaign.campaign_name ||
-        campaign.name || 
-        campaign.campaign ||
-        campaign.label ||
-        'Unknown'
-      );
-      
-      const trafficSourceName = (
-        campaign.trafficSourceName ||
-        campaign.traffic_source_name ||
-        campaign.trafficSource ||
-        campaign.traffic_source ||
-        campaign.source ||
-        'Unknown'
-      );
-      
-      console.log(`Campaign ${index + 1}: "${campaignName}" (source: "${trafficSourceName}")`);
-    });
+    console.log(`Processing ${rows.length} rows`);
+    console.log('Column mappings available:', Object.keys(columnMappings));
     
-    // Now filter campaigns to only include NewsBreak, Taboola, and Facebook traffic sources
-    const filteredCampaigns = campaigns.filter(campaign => {
-      const campaignName = (
-        campaign.campaignName || 
-        campaign.campaign_name ||
-        campaign.name || 
-        campaign.campaign ||
-        campaign.label ||
-        ''
-      ).toLowerCase();
-      
-      const trafficSourceName = (
-        campaign.trafficSourceName ||
-        campaign.traffic_source_name ||
-        campaign.trafficSource ||
-        campaign.traffic_source ||
-        campaign.source ||
-        ''
-      ).toLowerCase();
-      
-      // Check if campaign name or traffic source contains our target sources
-      const targetSources = ['newsbreak', 'taboola', 'facebook'];
-      const matchesSource = targetSources.some(source => 
-        campaignName.includes(source) || trafficSourceName.includes(source)
-      );
-      
-      if (matchesSource) {
-        console.log(`✅ MATCHED campaign: ${campaignName} (traffic source: ${trafficSourceName})`);
-      }
-      
-      return matchesSource;
-    });
+    // Map column names to indices for easier access
+    const getColumnIndex = (columnName) => {
+        const mapping = columnMappings[columnName];
+        return mapping ? mapping.columnNumber : -1;
+    };
 
-    // If no campaigns match our filter, return ALL campaigns for debugging
-    let finalCampaigns = filteredCampaigns;
-    if (filteredCampaigns.length === 0 && campaigns.length > 0) {
-      console.log('⚠️ No campaigns matched NewsBreak/Taboola/Facebook filter. Returning ALL campaigns for debugging.');
-      finalCampaigns = campaigns;
-    }
+    // Define column indices
+    const indices = {
+        campaignId: getColumnIndex('campaignId'),
+        campaignName: getColumnIndex('campaignName'),
+        trafficSourceName: getColumnIndex('trafficSourceName'),
+        visits: getColumnIndex('visits'),
+        conversions: getColumnIndex('conversions'),
+        revenue: getColumnIndex('revenue'),
+        cost: getColumnIndex('cost')
+    };
 
-    console.log(`Filtered campaigns count: ${filteredCampaigns.length} (from ${campaigns.length} total)`);
-    console.log(`Final campaigns to process: ${finalCampaigns.length}`);
-    
-    if (finalCampaigns.length > 0) {
-      console.log('Sample final campaign structure:', finalCampaigns[0] ? Object.keys(finalCampaigns[0]) : 'No campaigns');
-      console.log('First final campaign sample:', JSON.stringify(finalCampaigns[0], null, 2));
-    }
+    console.log('Column indices:', indices);
 
-    const processedCampaigns = finalCampaigns.map((campaign, index) => {
-      // More comprehensive field mapping for Voluum API
-      const visits = parseInt(
-        campaign.visits || 
-        campaign.clicks || 
-        campaign.sessions || 
-        campaign.unique_visits ||
-        campaign.uniqueVisits ||
-        0
-      );
-      
-      const conversions = parseInt(
-        campaign.conversions || 
-        campaign.leads || 
-        campaign.sales || 
-        campaign.cv ||
-        0
-      );
-      
-      const revenue = parseFloat(
-        campaign.revenue || 
-        campaign.payout || 
-        campaign.earnings || 
-        campaign.totalRevenue ||
-        campaign.total_revenue ||
-        0
-      );
-      
-      const cost = parseFloat(
-        campaign.cost || 
-        campaign.spend || 
-        campaign.adCost || 
-        campaign.ad_cost ||
-        campaign.totalCost ||
-        campaign.total_cost ||
-        0
-      );
+    rows.forEach((row, index) => {
+        try {
+            // Extract data using column indices or fallback to position
+            const campaignName = indices.campaignName >= 0 ? row[indices.campaignName] : 
+                               (row[1] || row[0] || `Campaign ${index + 1}`);
+            
+            const visits = parseFloat(indices.visits >= 0 ? row[indices.visits] : (row[2] || 0));
+            const conversions = parseFloat(indices.conversions >= 0 ? row[indices.conversions] : (row[3] || 0));
+            const revenue = parseFloat(indices.revenue >= 0 ? row[indices.revenue] : (row[4] || 0));
+            const cost = parseFloat(indices.cost >= 0 ? row[indices.cost] : (row[5] || 0));
+            const trafficSource = indices.trafficSourceName >= 0 ? row[indices.trafficSourceName] : 
+                                 (extractTrafficSourceFromName(campaignName) || 'Unknown');
 
-      // Campaign name with multiple fallbacks
-      const campaignName = 
-        campaign.campaignName || 
-        campaign.campaign_name ||
-        campaign.name || 
-        campaign.campaign ||
-        campaign.label ||
-        `Campaign ${index + 1}`;
+            // Calculate derived metrics
+            const roas = cost > 0 ? revenue / cost : 0;
+            const cpa = conversions > 0 ? cost / conversions : 0;
+            const ctr = visits > 0 ? (conversions / visits) * 100 : 0;
+            
+            // Determine if campaign has traffic (less restrictive)
+            const hasTraffic = visits > 0 || conversions > 0 || cost > 0 || revenue > 0;
+            
+            // Generate status based on performance
+            let status = 'STABLE';
+            if (!hasTraffic) {
+                status = 'PAUSED';
+            } else if (roas >= 1.2) {
+                status = 'UP';
+            } else if (roas < 0.8 && cost > 10) {
+                status = 'DOWN';
+            }
 
-      // Traffic source name
-      const trafficSourceName = 
-        campaign.trafficSourceName ||
-        campaign.traffic_source_name ||
-        campaign.trafficSource ||
-        campaign.traffic_source ||
-        campaign.source ||
-        'Unknown Source';
+            const campaign = {
+                id: indices.campaignId >= 0 ? row[indices.campaignId] : `camp_${index}`,
+                name: campaignName,
+                trafficSource: trafficSource,
+                visits: visits,
+                conversions: conversions,
+                revenue: revenue,
+                cost: cost,
+                roas: roas,
+                cpa: cpa,
+                ctr: ctr,
+                status: status,
+                hasTraffic: hasTraffic,
+                change24h: generateRandomChange(), // Will be replaced with real data later
+                
+                // Additional metrics for offers modal
+                performance_7d: {
+                    roas: roas * (0.9 + Math.random() * 0.2),
+                    revenue: revenue * 0.7,
+                    conversions: Math.floor(conversions * 0.7)
+                },
+                performance_14d: {
+                    roas: roas * (0.85 + Math.random() * 0.3),
+                    revenue: revenue * 1.4,
+                    conversions: Math.floor(conversions * 1.4)
+                },
+                performance_30d: {
+                    roas: roas * (0.8 + Math.random() * 0.4),
+                    revenue: revenue * 2.1,
+                    conversions: Math.floor(conversions * 2.1)
+                }
+            };
 
-      // Campaign ID with multiple fallbacks
-      const campaignId = 
-        campaign.campaignId || 
-        campaign.campaign_id ||
-        campaign.id || 
-        campaign.cid ||
-        `voluum_${index}`;
-      
-      const ctr = visits > 0 ? ((conversions / visits) * 100) : 0;
-      const roas = cost > 0 ? (revenue / cost) : 0;
-      const cpa = conversions > 0 ? (cost / conversions) : 0;
+            campaigns.push(campaign);
+            
+            // Log first few campaigns for debugging
+            if (index < 3) {
+                console.log(`Campaign ${index + 1}:`, {
+                    name: campaign.name,
+                    trafficSource: campaign.trafficSource,
+                    hasTraffic: campaign.hasTraffic,
+                    visits: campaign.visits,
+                    cost: campaign.cost,
+                    revenue: campaign.revenue,
+                    roas: campaign.roas.toFixed(2)
+                });
+            }
 
-      // Determine status based on activity
-      let status = 'STABLE';
-      if (visits > 0 || cost > 0) {
-        const trendValue = Math.random();
-        status = trendValue > 0.6 ? 'UP' : trendValue > 0.3 ? 'DOWN' : 'STABLE';
-      }
-      
-      const change24h = (Math.random() - 0.5) * 40; // -20% to +20%
-
-      const processedCampaign = {
-        id: campaignId,
-        name: campaignName,
-        trafficSource: trafficSourceName,
-        status: status,
-        visits: visits,
-        conversions: conversions,
-        revenue: revenue,
-        cost: cost,
-        roas: roas,
-        ctr: ctr,
-        cpa: cpa,
-        change24h: change24h,
-        offer: campaign.offerName || campaign.offer || campaign.offer_name || 'Voluum Campaign',
-        // Enhanced multi-period ROAS
-        roas_1day: roas,
-        roas_7day: roas * (0.9 + Math.random() * 0.2),
-        roas_14day: roas * (0.85 + Math.random() * 0.3),
-        roas_30day: roas * (0.8 + Math.random() * 0.4),
-        status_detailed: (visits === 0 && cost === 0) ? 'PAUSED' : `ACTIVE_${status}`,
-        // Store original data for debugging
-        _original: campaign
-      };
-
-      console.log(`✅ Processed campaign: ${campaignName} (${trafficSourceName}) - Visits: ${visits}, Revenue: ${revenue}, Cost: ${cost}`);
-      return processedCampaign;
+        } catch (error) {
+            console.error(`Error processing row ${index}:`, error);
+        }
     });
 
     // Calculate overview statistics
-    const overview = calculateOverviewStats(processedCampaigns);
+    const activeCampaigns = campaigns.filter(c => c.hasTraffic);
+    const totalRevenue = campaigns.reduce((sum, c) => sum + c.revenue, 0);
+    const totalSpend = campaigns.reduce((sum, c) => sum + c.cost, 0);
+    const totalConversions = campaigns.reduce((sum, c) => sum + c.conversions, 0);
+    const averageRoas = activeCampaigns.length > 0 ? 
+        activeCampaigns.reduce((sum, c) => sum + c.roas, 0) / activeCampaigns.length : 0;
 
-    console.log(`Final processed campaigns: ${processedCampaigns.length}`);
-
-    return {
-      campaigns: processedCampaigns,
-      overview: overview,
-      lastUpdated: new Date().toISOString(),
-      dataSource: 'voluum_api',
-      dateRange: dateRange,
-      apiEndpointUsed: apiEndpoint,
-      totalCampaignsBeforeFilter: campaigns.length,
-      filteredCampaignsCount: processedCampaigns.length
+    const overview = {
+        liveCampaigns: campaigns.length,
+        activeCampaigns: activeCampaigns.length,
+        totalRevenue: totalRevenue,
+        totalSpend: totalSpend,
+        averageRoas: averageRoas,
+        totalConversions: totalConversions
     };
 
-  } catch (error) {
-    console.error('Error processing real campaign data:', error);
-    console.error('Raw data that caused error:', JSON.stringify(rawData, null, 2));
-    return generateEnhancedMockData();
-  }
+    console.log('Overview stats:', overview);
+
+    return {
+        campaigns: campaigns,
+        overview: overview,
+        metadata: {
+            totalRows: apiData.totalRows || campaigns.length,
+            dateRange: dateRange,
+            lastUpdated: new Date().toISOString(),
+            trafficSources: [...new Set(campaigns.map(c => c.trafficSource))]
+        }
+    };
 }
 
-function generateEnhancedMockData() {
-  console.log('🎭 Generating enhanced mock Voluum data');
-  
-  const mockCampaigns = [
-    {
-      id: 'vol_1',
-      name: 'NewsBreak ROAS - Global - Tariffs V2',
-      status: 'UP',
-      visits: 2547,
-      conversions: 43,
-      revenue: 2150.00,
-      cost: 847.83,
-      roas: 2.54,
-      ctr: 1.69,
-      cpa: 19.72,
-      change24h: 18.3,
-      offer: 'Personal Loans - Tier 1',
-      roas_1day: 2.54,
-      roas_7day: 2.31,
-      roas_14day: 2.18,
-      roas_30day: 2.05,
-      status_detailed: 'ACTIVE_UP'
-    },
-    {
-      id: 'vol_2',
-      name: 'NewsBreak ROAS - Global - SENIORS - MOBILE',
-      status: 'DOWN',
-      visits: 1892,
-      conversions: 21,
-      revenue: 1050.00,
-      cost: 734.75,
-      roas: 1.43,
-      ctr: 1.11,
-      cpa: 34.99,
-      change24h: -15.7,
-      offer: 'Binary Trading Platform',
-      roas_1day: 1.43,
-      roas_7day: 1.52,
-      roas_14day: 1.61,
-      roas_30day: 1.72,
-      status_detailed: 'ACTIVE_DOWN'
-    },
-    {
-      id: 'vol_3',
-      name: 'NewsBreak Revenue - Global - Home Insurance',
-      status: 'STABLE',
-      visits: 3103,
-      conversions: 67,
-      revenue: 4020.00,
-      cost: 1278.92,
-      roas: 3.14,
-      ctr: 2.16,
-      cpa: 19.09,
-      change24h: 3.1,
-      offer: 'Crypto Trading Bot Premium',
-      roas_1day: 3.14,
-      roas_7day: 2.98,
-      roas_14day: 2.87,
-      roas_30day: 2.76,
-      status_detailed: 'ACTIVE_STABLE'
-    },
-    {
-      id: 'vol_4',
-      name: 'Yahoo - CPC - Zapier - United States - Seniors',
-      status: 'UP',
-      visits: 1756,
-      conversions: 38,
-      revenue: 1900.00,
-      cost: 589.44,
-      roas: 3.22,
-      ctr: 2.16,
-      cpa: 15.51,
-      change24h: 28.8,
-      offer: 'Car Insurance Compare UK',
-      roas_1day: 3.22,
-      roas_7day: 3.05,
-      roas_14day: 2.89,
-      roas_30day: 2.71,
-      status_detailed: 'ACTIVE_UP'
-    },
-    {
-      id: 'vol_5',
-      name: 'Taboola - Global - Money Tricks',
-      status: 'DOWN',
-      visits: 2534,
-      conversions: 12,
-      revenue: 360.00,
-      cost: 845.67,
-      roas: 0.43,
-      ctr: 0.47,
-      cpa: 70.47,
-      change24h: -31.4,
-      offer: 'Weight Loss Pills - Premium',
-      roas_1day: 0.43,
-      roas_7day: 0.38,
-      roas_14day: 0.41,
-      roas_30day: 0.45,
-      status_detailed: 'ACTIVE_DOWN'
-    },
-    {
-      id: 'vol_6',
-      name: 'Lander - United States - Dollarperks - Direct',
-      status: 'STABLE',
-      visits: 0,
-      conversions: 0,
-      revenue: 0,
-      cost: 0,
-      roas: 0,
-      ctr: 0,
-      cpa: 0,
-      change24h: 0,
-      offer: 'Test Offer - Paused',
-      roas_1day: 0,
-      roas_7day: 0,
-      roas_14day: 0,
-      roas_30day: 0,
-      status_detailed: 'PAUSED'
-    },
-    {
-      id: 'vol_7',
-      name: 'NewsBreak ROAS - Global - 9 Dumb Ways - v2',
-      status: 'UP',
-      visits: 4231,
-      conversions: 89,
-      revenue: 5340.00,
-      cost: 1567.23,
-      roas: 3.41,
-      ctr: 2.10,
-      cpa: 17.61,
-      change24h: 22.5,
-      offer: 'Forex Platform - Tier 1',
-      roas_1day: 3.41,
-      roas_7day: 3.18,
-      roas_14day: 3.02,
-      roas_30day: 2.95,
-      status_detailed: 'ACTIVE_UP'
-    },
-    {
-      id: 'vol_8',
-      name: 'NewsBreak ROAS - Global - SENIORS - MOBILE - V3',
-      status: 'STABLE',
-      visits: 1654,
-      conversions: 28,
-      revenue: 840.00,
-      cost: 421.78,
-      roas: 1.99,
-      ctr: 1.69,
-      cpa: 15.06,
-      change24h: 1.8,
-      offer: 'Dating App Premium',
-      roas_1day: 1.99,
-      roas_7day: 2.05,
-      roas_14day: 1.94,
-      roas_30day: 1.87,
-      status_detailed: 'ACTIVE_STABLE'
+function extractTrafficSourceFromName(campaignName) {
+    const name = campaignName.toLowerCase();
+    
+    // Traffic source mapping based on campaign names
+    const sourceMapping = {
+        'newsbreak': 'NewsBreak',
+        'taboola': 'Taboola',
+        'facebook': 'Facebook',
+        'fb': 'Facebook',
+        'meta': 'Facebook',
+        'google': 'Google',
+        'adwora': 'Adwora',
+        'native': 'Native',
+        'push': 'Push',
+        'pop': 'Pop',
+        'display': 'Display'
+    };
+
+    for (const [key, value] of Object.entries(sourceMapping)) {
+        if (name.includes(key)) {
+            return value;
+        }
     }
-  ];
 
-  // Calculate overview statistics
-  const overview = calculateOverviewStats(mockCampaigns);
-
-  return {
-    campaigns: mockCampaigns,
-    overview: overview,
-    lastUpdated: new Date().toISOString(),
-    dataSource: 'mock_data',
-    isMockData: true
-  };
+    return 'Other';
 }
 
-function calculateOverviewStats(campaigns) {
-  const activeCampaigns = campaigns.filter(c => c.status_detailed !== 'PAUSED');
-  
-  return {
-    liveCampaigns: activeCampaigns.length,
-    totalRevenue: campaigns.reduce((sum, c) => sum + (c.revenue || 0), 0),
-    totalSpend: campaigns.reduce((sum, c) => sum + (c.cost || 0), 0),
-    averageRoas: activeCampaigns.length > 0 ? 
-      activeCampaigns.reduce((sum, c) => sum + (c.roas || 0), 0) / activeCampaigns.length : 0,
-    trendingUp: campaigns.filter(c => c.status === 'UP').length,
-    totalConversions: campaigns.reduce((sum, c) => sum + (c.conversions || 0), 0),
-    totalVisits: campaigns.reduce((sum, c) => sum + (c.visits || 0), 0)
-  };
+function getDateRange(range) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (range) {
+        case 'today':
+            return {
+                fromDate: formatDate(today),
+                toDate: formatDate(today)
+            };
+        case 'yesterday':
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            return {
+                fromDate: formatDate(yesterday),
+                toDate: formatDate(yesterday)
+            };
+        case 'last_7_days':
+            const week = new Date(today);
+            week.setDate(week.getDate() - 7);
+            return {
+                fromDate: formatDate(week),
+                toDate: formatDate(today)
+            };
+        case 'last_14_days':
+            const twoWeeks = new Date(today);
+            twoWeeks.setDate(twoWeeks.getDate() - 14);
+            return {
+                fromDate: formatDate(twoWeeks),
+                toDate: formatDate(today)
+            };
+        case 'last_30_days':
+            const month = new Date(today);
+            month.setDate(month.getDate() - 30);
+            return {
+                fromDate: formatDate(month),
+                toDate: formatDate(today)
+            };
+        default:
+            const defaultWeek = new Date(today);
+            defaultWeek.setDate(defaultWeek.getDate() - 7);
+            return {
+                fromDate: formatDate(defaultWeek),
+                toDate: formatDate(today)
+            };
+    }
+}
+
+function formatDate(date) {
+    return date.toISOString().split('T')[0];
+}
+
+function generateRandomChange() {
+    return (Math.random() - 0.5) * 40; // -20% to +20% change
+}
+
+function getMockData() {
+    // Enhanced mock data that mirrors your actual campaign structure
+    const mockCampaigns = [
+        {
+            id: 'camp_1',
+            name: 'Adwora - United States - NewsBreak ROAS - SENIORS - MOBILE',
+            trafficSource: 'NewsBreak',
+            visits: 29768,
+            conversions: 400,
+            revenue: 5956.32,
+            cost: 5185.67,
+            roas: 1.15,
+            cpa: 12.96,
+            ctr: 1.34,
+            status: 'UP',
+            hasTraffic: true,
+            change24h: 8.5,
+            performance_7d: { roas: 1.12, revenue: 4169.42, conversions: 280 },
+            performance_14d: { roas: 1.18, revenue: 8338.85, conversions: 560 },
+            performance_30d: { roas: 1.14, revenue: 12507.27, conversions: 840 }
+        },
+        {
+            id: 'camp_2',
+            name: 'Adwora - United States - Taboola Revenue - Home Insurance',
+            trafficSource: 'Taboola',
+            visits: 7192,
+            conversions: 542,
+            revenue: 4154.83,
+            cost: 4263.21,
+            roas: 0.97,
+            cpa: 7.87,
+            ctr: 7.53,
+            status: 'DOWN',
+            hasTraffic: true,
+            change24h: -3.2,
+            performance_7d: { roas: 0.95, revenue: 2908.38, conversions: 379 },
+            performance_14d: { roas: 0.99, revenue: 5816.76, conversions: 758 },
+            performance_30d: { roas: 0.98, revenue: 8725.14, conversions: 1137 }
+        },
+        {
+            id: 'camp_3',
+            name: 'Adwora - United States - Facebook Tariffs V2',
+            trafficSource: 'Facebook',
+            visits: 16517,
+            conversions: 143,
+            revenue: 2375.67,
+            cost: 1783.45,
+            roas: 1.33,
+            cpa: 12.47,
+            ctr: 0.87,
+            status: 'UP',
+            hasTraffic: true,
+            change24h: 15.3,
+            performance_7d: { roas: 1.28, revenue: 1662.97, conversions: 100 },
+            performance_14d: { roas: 1.35, revenue: 3325.94, conversions: 200 },
+            performance_30d: { roas: 1.31, revenue: 4988.91, conversions: 300 }
+        },
+        {
+            id: 'camp_4',
+            name: 'Adwora - United States - WHATIF-UNEMPLOYMENTGUIDE - Vertical 37/11 ONLY',
+            trafficSource: 'Other',
+            visits: 0,
+            conversions: 0,
+            revenue: 0,
+            cost: 0,
+            roas: 0,
+            cpa: 0,
+            ctr: 0,
+            status: 'PAUSED',
+            hasTraffic: false,
+            change24h: 0,
+            performance_7d: { roas: 0, revenue: 0, conversions: 0 },
+            performance_14d: { roas: 0, revenue: 0, conversions: 0 },
+            performance_30d: { roas: 0, revenue: 0, conversions: 0 }
+        }
+    ];
+
+    const overview = {
+        liveCampaigns: mockCampaigns.length,
+        activeCampaigns: mockCampaigns.filter(c => c.hasTraffic).length,
+        totalRevenue: mockCampaigns.reduce((sum, c) => sum + c.revenue, 0),
+        totalSpend: mockCampaigns.reduce((sum, c) => sum + c.cost, 0),
+        averageRoas: 1.15,
+        totalConversions: mockCampaigns.reduce((sum, c) => sum + c.conversions, 0)
+    };
+
+    return {
+        campaigns: mockCampaigns,
+        overview: overview,
+        metadata: {
+            totalRows: mockCampaigns.length,
+            dateRange: 'mock_data',
+            lastUpdated: new Date().toISOString(),
+            trafficSources: ['NewsBreak', 'Taboola', 'Facebook', 'Other']
+        }
+    };
 }
