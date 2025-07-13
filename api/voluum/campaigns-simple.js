@@ -113,8 +113,8 @@ export default async function handler(req, res) {
         const { fromDate, toDate } = getDateRange(dateRange);
         log(`Date range: ${fromDate} to ${toDate}`);
         
-        // Use the simplest possible report endpoint
-        const reportUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=campaign&limit=100`;
+        // Use the simplest possible report endpoint with higher limit
+        const reportUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=campaign&limit=1000`;
         log(`Report URL: ${reportUrl}`);
         
         const reportResponse = await fetch(reportUrl, {
@@ -199,7 +199,7 @@ function processSimpleData(reportData, debugLogs) {
         debugLogs.push(`Sample values: name="${rows[0].campaignName}", visits=${rows[0].visits}, revenue=${rows[0].revenue}`);
     }
     
-    // Process each row - rows are objects, not arrays!
+    // Process each row - no limit, process all campaigns
     rows.forEach((row, index) => {
         try {
             // Extract data directly from object properties
