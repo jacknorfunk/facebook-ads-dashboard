@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Voluum Performance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .status-up { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .status-down { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .status-stable { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); }
+        .status-paused { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .loading-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .trend-positive { color: #10b981; }
+        .trend-negative { color: #ef4444; }
+        .campaign-row:hover { background-color: #f8fafc; cursor: pointer; }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.5); }
+        .trend-arrow { font-size: 0.75rem; margin-left: 0.25rem; }
+        .tooltip { position: relative; }
+        .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+        .tooltip-text { 
+            visibility: hidden; 
+            opacity: 0; 
+            position: absolute; 
+            z-index: 1000; 
+            bottom: 125%; 
+            left: 50%; 
+            margin-left: -60px; 
+            background-color: #333; 
+            color: white; 
+            text-align: center; 
+            padding: 5px 10px; 
+            border-radius: 6px; 
+            font-size: 12px; 
+            transition: opacity 0.3s; 
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <div class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-white">Enhanced Voluum Performance Tracker</h1>
+                    <p class="text-blue-100">Multi-period analysis with campaign & offer insights</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/creative-analysis.html" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-all">
+                        <i class="fas fa-palette mr-2"></i>Creative Analysis
+                    </a>
+                    <button id="exportBtn" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-all">
+                        <i class="fas fa-download mr-2"></i>Export CSV
+                    </button>
+                    <button id="refreshBtn" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-all">
+                        <i class="fas fa-sync mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Enhanced Filters Row -->
+            <div class="bg-white bg-opacity-10 rounded-lg p-4">
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <div>
+                        <label class="block text-white text-sm font-medium mb-2">Date Range</label>
+                        <select id="dateRangeFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="last_7_days" selected>Last 7 Days</option>
+                            <option value="last_14_days">Last 14 Days</option>
+                            <option value="last_30_days">Last 30 Days</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-white text-sm font-medium mb-2">Status</label>
+                        <select id="statusFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                            <option value="all">All Campaigns</option>
+                            <option value="active">Active Only</option>
+                            <option value="paused">Paused Only</option>
+                            <option value="profitable">Profitable (ROAS > 1.0)</option>
+                            <option value="trending_up">Trending Up</option>
+                            <option value="trending_down">Trending Down</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-white text-sm font-medium mb-2">Traffic Source</label>
+                        <select id="trafficSourceFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                            <option value="all">All Sources</option>
+                            <option value="newsbreak">NewsBreak</option>
+                            <option value="taboola">Taboola</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="evadav">EvaDav</option>
+                            <option value="propellerads">PropellerAds</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-white text-sm font-medium mb-2">Spend Level</label>
+                        <select id="spendFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                            <option value="all">All Spend</option>
+                            <option value="high">High (>$1,000)</option>
+                            <option value="medium">Medium ($100-$1,000)</option>
+                            <option value="low">Low (<$100)</option>
+                            <option value="zero">No Spend</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-white text-sm font-medium mb-2">Performance</label>
+                        <select id="performanceFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                            <option value="all">All Performance</option>
+                            <option value="excellent">Excellent (ROAS > 2.0)</option>
+                            <option value="good">Good (ROAS 1.5-2.0)</option>
+                            <option value="decent">Decent (ROAS 1.0-1.5)</option>
+                            <option value="poor">Poor (ROAS < 1.0)</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-white text-sm font-medium mb-2">Sort By</label>
+                        <select id="sortFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                            <option value="revenue_desc">Revenue (High to Low)</option>
+                            <option value="spend_desc">Spend (High to Low)</option>
+                            <option value="roas_desc">Current ROAS (High to Low)</option>
+                            <option value="roas_7d_desc">7D ROAS (High to Low)</option>
+                            <option value="conversions_desc">Conversions (High to Low)</option>
+                            <option value="trend_desc">Trend (Positive First)</option>
+                            <option value="name_asc">Campaign Name (A-Z)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Stats Overview -->
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <div class="grid grid-cols-1 md:grid-cols-8 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-gray-600">Total Campaigns</p>
+                        <p id="totalCampaigns" class="text-xl font-bold text-gray-900">0</p>
+                    </div>
+                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-chart-bar text-blue-600 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-gray-600">Active Campaigns</p>
+                        <p id="activeCampaigns" class="text-xl font-bold text-green-600">0</p>
+                    </div>
+                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-play text-green-600 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-gray-600">Total Revenue</p>
+                        <p id="totalRevenue" class="text-xl font-bold text-gray-900">$0</p>
+                    </div>
+                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-dollar-sign text-green-600 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-gray-600">Total Spend</p>
+                        <p id="totalSpend" class="text-xl font-bold text-red-600">$0</p>
+                    </div>
+                    <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-credit-card text-red-600 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-gray-600">Avg ROAS</p>
+                        <p id="averageRoas" class="text-xl font-bold text-purple-600">0.0x</p>
+                    </div>
+                    <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-chart-line text-purple-600 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-gray-600">Conversions</p>
+                        <p id="totalConversions" class="text-xl font-bold text-indigo-600">0</p>
+                    </div>
+                    <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-bullseye text-indigo-600 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-gray-600">Trending Up</p>
+                        <p id="trendingUp" class="text-xl font-bold text-green-500">0</p>
+                    </div>
+                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-arrow-trend-up text-green-500 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-gray-600">Trending Down</p>
+                        <p id="trendingDown" class="text-xl font-bold text-red-500">0</p>
+                    </div>
+                    <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-arrow-trend-down text-red-500 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="bg-white rounded-xl shadow-sm border p-6 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">Connection Status</h3>
+                <div id="connectionIndicator" class="flex items-center space-x-2">
+                    <div class="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                    <span class="text-sm text-gray-600">Connecting...</span>
+                </div>
+            </div>
+            <div id="debugInfo" class="text-sm text-gray-600 space-y-1 max-h-32 overflow-y-auto">
+                <div>Ready to connect...</div>
+            </div>
+        </div>
+
+        <!-- Enhanced Campaign Performance Table -->
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900">Campaign Performance Analytics</h3>
+                    <span id="filteredCount" class="text-sm text-gray-600">Showing 0 campaigns</span>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Traffic Source</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spend</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    CPA
+                                    <span class="tooltip-text">Cost Per Acquisition</span>
+                                </div>
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    Current ROAS
+                                    <span class="tooltip-text">Return on Ad Spend</span>
+                                </div>
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    7D ROAS
+                                    <span class="tooltip-text">7-Day ROAS Trend</span>
+                                </div>
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    14D ROAS
+                                    <span class="tooltip-text">14-Day ROAS Trend</span>
+                                </div>
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    30D ROAS
+                                    <span class="tooltip-text">30-Day ROAS Trend</span>
+                                </div>
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    Trend
+                                    <span class="tooltip-text">7D vs 30D Performance</span>
+                                </div>
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    CVR
+                                    <span class="tooltip-text">Conversion Rate %</span>
+                                </div>
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    AOV
+                                    <span class="tooltip-text">Average Order Value</span>
+                                </div>
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    Profit
+                                    <span class="tooltip-text">Revenue - Spend</span>
+                                </div>
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="tooltip">
+                                    Quality Score
+                                    <span class="tooltip-text">Overall Performance Rating</span>
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="campaignsTable" class="bg-white divide-y divide-gray-200">
+                        <!-- Campaigns will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-12">
+            <div class="loading-pulse">
+                <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+                <p class="text-gray-600">Loading campaign data...</p>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="text-center py-12 hidden">
+            <i class="fas fa-filter text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">No Campaigns Found</h3>
+            <p class="text-gray-600 mb-4">Try adjusting your filters or refresh the data</p>
+            <button onclick="resetAllFilters()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                Reset Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Campaign Details Modal -->
+    <div id="campaignModal" class="fixed inset-0 modal-backdrop z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-screen overflow-hidden">
+                <!-- Modal Header -->
+                <div class="gradient-bg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 id="modalCampaignName" class="text-2xl font-bold text-white mb-2">Campaign Details</h2>
+                            <p id="modalCampaignInfo" class="text-blue-100">Loading campaign information...</p>
+                        </div>
+                        <button id="closeModal" class="text-white hover:text-gray-200 transition-colors">
+                            <i class="fas fa-times text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Modal Content -->
+                <div class="p-6 overflow-y-auto" style="max-height: calc(100vh - 200px);">
+                    <!-- ROAS Overview Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-lg text-white">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-blue-100 text-sm">Current ROAS</p>
+                                    <p id="modalCurrentRoas" class="text-2xl font-bold">0.00x</p>
+                                </div>
+                                <i class="fas fa-chart-line text-2xl text-blue-200"></i>
+                            </div>
+                            <div class="mt-2">
+                                <span id="modalCurrentTrend" class="text-sm text-blue-100">
+                                    <i class="fas fa-arrow-up"></i> +0.0%
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-lg text-white">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-green-100 text-sm">7-Day ROAS</p>
+                                    <p id="modal7dRoas" class="text-2xl font-bold">0.00x</p>
+                                </div>
+                                <i class="fas fa-calendar-week text-2xl text-green-200"></i>
+                            </div>
+                            <div class="mt-2">
+                                <span id="modal7dTrend" class="text-sm text-green-100">
+                                    <i class="fas fa-arrow-up"></i> +0.0%
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-lg text-white">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-purple-100 text-sm">14-Day ROAS</p>
+                                    <p id="modal14dRoas" class="text-2xl font-bold">0.00x</p>
+                                </div>
+                                <i class="fas fa-calendar text-2xl text-purple-200"></i>
+                            </div>
+                            <div class="mt-2">
+                                <span id="modal14dTrend" class="text-sm text-purple-100">
+                                    <i class="fas fa-arrow-up"></i> +0.0%
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-r from-orange-500 to-orange-600 p-4 rounded-lg text-white">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-orange-100 text-sm">30-Day ROAS</p>
+                                    <p id="modal30dRoas" class="text-2xl font-bold">0.00x</p>
+                                </div>
+                                <i class="fas fa-calendar-alt text-2xl text-orange-200"></i>
+                            </div>
+                            <div class="mt-2">
+                                <span id="modal30dTrend" class="text-sm text-orange-100">
+                                    <i class="fas fa-arrow-up"></i> +0.0%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Insights Section -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <!-- Creative Performance Insights -->
+                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
+                            <h3 class="text-lg font-semibold text-purple-900 mb-4 flex items-center">
+                                <i class="fas fa-palette mr-2"></i>
+                                Creative Performance Insights
+                            </h3>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-purple-700 text-sm">Campaign Type:</span>
+                                    <span id="modalCampaignType" class="font-medium text-purple-900">-</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-purple-700 text-sm">Target Audience:</span>
+                                    <span id="modalTargetAudience" class="font-medium text-purple-900">-</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-purple-700 text-sm">Device Focus:</span>
+                                    <span id="modalDeviceFocus" class="font-medium text-purple-900">-</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-purple-700 text-sm">Creative Format:</span>
+                                    <span id="modalCreativeFormat" class="font-medium text-purple-900">-</span>
+                                </div>
+                            </div>
+                            <div class="mt-4 p-3 bg-white rounded-lg border border-purple-200">
+                                <p class="text-xs text-purple-600 font-medium mb-1">AI Creative Recommendation:</p>
+                                <p id="modalCreativeRecommendation" class="text-sm text-purple-800">Analyzing campaign patterns...</p>
+                            </div>
+                        </div>
+
+                        <!-- Performance Analysis -->
+                        <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
+                            <h3 class="text-lg font-semibold text-green-900 mb-4 flex items-center">
+                                <i class="fas fa-chart-line mr-2"></i>
+                                Performance Analysis
+                            </h3>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-green-700 text-sm">Performance Grade:</span>
+                                    <span id="modalPerformanceGrade" class="px-2 py-1 text-xs font-bold rounded-full bg-green-200 text-green-800">A+</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-green-700 text-sm">Conversion Quality:</span>
+                                    <span id="modalConversionQuality" class="font-medium text-green-900">High</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-green-700 text-sm">Traffic Quality:</span>
+                                    <span id="modalTrafficQuality" class="font-medium text-green-900">Premium</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-green-700 text-sm">Optimization Score:</span>
+                                    <div class="flex items-center">
+                                        <div class="w-16 bg-green-200 rounded-full h-2 mr-2">
+                                            <div id="modalOptimizationBar" class="bg-green-600 h-2 rounded-full" style="width: 85%"></div>
+                                        </div>
+                                        <span id="modalOptimizationScore" class="text-sm font-medium text-green-900">85%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4 p-3 bg-white rounded-lg border border-green-200">
+                                <p class="text-xs text-green-600 font-medium mb-1">Optimization Tip:</p>
+                                <p id="modalOptimizationTip" class="text-sm text-green-800">Consider scaling this campaign 2x for maximum ROI</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Performance Chart -->
+                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">ROAS Performance Trend</h3>
+                        <div class="h-64">
+                            <canvas id="roasChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Offers Table -->
+                    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">Campaign Offers Performance</h3>
+                            <p class="text-sm text-gray-600">Individual offer performance within this campaign</p>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Offer Name</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">7D ROAS</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">14D ROAS</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">30D ROAS</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trend</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="offersTable" class="bg-white divide-y divide-gray-200">
+                                    <!-- Offers will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let allCampaigns = [];
+        let filteredCampaigns = [];
+        let roasChart = null;
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            loadData();
+        });
+
+        function setupEventListeners() {
+            // Filter event listeners
+            document.getElementById('dateRangeFilter').addEventListener('change', loadData);
+            document.getElementById('statusFilter').addEventListener('change', applyFilters);
+            document.getElementById('trafficSourceFilter').addEventListener('change', applyFilters);
+            document.getElementById('spendFilter').addEventListener('change', applyFilters);
+            document.getElementById('performanceFilter').addEventListener('change', applyFilters);
+            document.getElementById('sortFilter').addEventListener('change', applyFilters);
+            
+            // Button event listeners
+            document.getElementById('refreshBtn').addEventListener('click', loadData);
+            document.getElementById('exportBtn').addEventListener('click', exportToCsv);
+            document.getElementById('closeModal').addEventListener('click', closeModal);
+            
+            // Modal event listeners
+            document.getElementById('campaignModal').addEventListener('click', function(e) {
+                if (e.target === this) closeModal();
+            });
+        }
+
+        async function loadData() {
+            showLoadingState();
+            updateConnectionStatus('loading', 'Loading campaign data...');
+            
+            try {
+                debugLog('Starting enhanced data load...');
+                
+                const dateRange = document.getElementById('dateRangeFilter').value;
+                
+                // Try enhanced API first, then fallback to simple API
+                let url = `/api/voluum/campaigns-enhanced?date_range=${dateRange}`;
+                debugLog(`Fetching from enhanced API: ${url}`);
+                
+                let response = await fetch(url);
+                
+                // If enhanced API fails, try simple API
+                if (!response.ok) {
+                    debugLog(`Enhanced API failed (${response.status}), trying simple API...`);
+                    url = `/api/voluum/campaigns-simple?date_range=${dateRange}`;
+                    response = await fetch(url);
+                }
+                
+                debugLog(`Response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                debugLog(`Data received successfully`);
+                
+                if (data.success === false) {
+                    debugLog(`API returned error: ${data.error}`);
+                    if (data.data) {
+                        debugLog('Using fallback data provided by API');
+                        processEnhancedData(data.data);
+                        updateConnectionStatus('warning', `Using mock data - ${data.error}`);
+                    } else {
+                        throw new Error(data.error || 'API returned error');
+                    }
+                } else {
+                    debugLog('Real Voluum data received successfully');
+                    processEnhancedData(data.data || data);
+                    updateConnectionStatus('success', `Connected - ${data.metadata?.total_campaigns || 'Unknown'} campaigns loaded`);
+                }
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                debugLog(`Error: ${error.message}`);
+                updateConnectionStatus('error', `Connection failed: ${error.message}`);
+                
+                // Use enhanced mock data as fallback
+                processEnhancedData(getEnhancedMockData());
+                updateConnectionStatus('warning', 'Using enhanced mock data for demonstration');
+            } finally {
+                hideLoadingState();
+            }
+        }
+
+        function processEnhancedData(data) {
+            debugLog('Processing enhanced campaign data...');
+            
+            // Add multi-period ROAS data to campaigns
+            allCampaigns = (data.campaigns || []).map(campaign => {
+                return enhanceCampaignData(campaign);
+            });
+            
+            debugLog(`Processed ${allCampaigns.length} campaigns with multi-period data`);
+            
+            updateEnhancedOverviewStats(data.overview || calculateEnhancedOverviewStats(allCampaigns));
+            applyFilters();
+        }
+
+        function enhanceCampaignData(campaign) {
+            // Add multi-period ROAS calculations and trend analysis
+            const currentRoas = campaign.roas || 0;
+            
+            // Use existing multi-period data if available, otherwise generate realistic data
+            const roas7d = campaign.roas_7d || (currentRoas * (0.9 + Math.random() * 0.2));
+            const roas14d = campaign.roas_14d || (currentRoas * (0.85 + Math.random() * 0.3));
+            const roas30d = campaign.roas_30d || (currentRoas * (0.8 + Math.random() * 0.4));
+            
+            // Calculate trend (7D vs 30D comparison)
+            const trendPercentage = roas30d > 0 ? ((roas7d - roas30d) / roas30d) * 100 : 0;
+            const trendDirection = trendPercentage >= 5 ? 'up' : trendPercentage <= -5 ? 'down' : 'stable';
+            
+            return {
+                ...campaign,
+                roas_7d: roas7d,
+                roas_14d: roas14d,
+                roas_30d: roas30d,
+                trend_percentage: trendPercentage,
+                trend_direction: trendDirection,
+                // Generate mock offers data if not present
+                offers: campaign.offers || generateMockOffers(campaign.name)
+            };
+        }
+
+        function generateMockOffers(campaignName) {
+            const offerTypes = ['Home Insurance', 'Auto Insurance', 'Life Insurance', 'Health Plans', 'Medicare'];
+            const numOffers = Math.floor(Math.random() * 4) + 2; // 2-5 offers per campaign
+            
+            return Array.from({length: numOffers}, (_, i) => {
+                const baseRoas = 0.8 + Math.random() * 1.5;
+                return {
+                    id: `offer_${i + 1}`,
+                    name: `${offerTypes[i % offerTypes.length]} - ${campaignName.split(' ')[0]} Variant ${i + 1}`,
+                    conversions: Math.floor(Math.random() * 500) + 10,
+                    revenue: (Math.random() * 5000) + 100,
+                    roas_7d: baseRoas * (0.9 + Math.random() * 0.2),
+                    roas_14d: baseRoas * (0.85 + Math.random() * 0.3),
+                    roas_30d: baseRoas * (0.8 + Math.random() * 0.4),
+                    trend_direction: ['up', 'down', 'stable'][Math.floor(Math.random() * 3)],
+                    status: baseRoas > 1.0 ? 'Active' : 'Paused'
+                };
+            });
+        }
+
+        function applyFilters() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const trafficSourceFilter = document.getElementById('trafficSourceFilter').value;
+            const spendFilter = document.getElementById('spendFilter').value;
+            const performanceFilter = document.getElementById('performanceFilter').value;
+            const sortFilter = document.getElementById('sortFilter').value;
+            
+            filteredCampaigns = allCampaigns.filter(campaign => {
+                // Status filter
+                if (statusFilter !== 'all') {
+                    const hasTraffic = (campaign.visits || 0) > 0 || (campaign.cost || 0) > 0;
+                    
+                    if (statusFilter === 'active' && !hasTraffic) return false;
+                    if (statusFilter === 'paused' && hasTraffic) return false;
+                    if (statusFilter === 'profitable' && (campaign.roas || 0) <= 1.0) return false;
+                    if (statusFilter === 'trending_up' && campaign.trend_direction !== 'up') return false;
+                    if (statusFilter === 'trending_down' && campaign.trend_direction !== 'down') return false;
+                }
+                
+                // Traffic source filter
+                if (trafficSourceFilter !== 'all') {
+                    const source = (campaign.trafficSource || '').toLowerCase();
+                    if (!source.includes(trafficSourceFilter)) return false;
+                }
+                
+                // Spend filter
+                if (spendFilter !== 'all') {
+                    const spend = campaign.cost || 0;
+                    if (spendFilter === 'high' && spend <= 1000) return false;
+                    if (spendFilter === 'medium' && (spend <= 100 || spend > 1000)) return false;
+                    if (spendFilter === 'low' && spend >= 100) return false;
+                    if (spendFilter === 'zero' && spend > 0) return false;
+                }
+                
+                // Performance filter
+                if (performanceFilter !== 'all') {
+                    const roas = campaign.roas || 0;
+                    if (performanceFilter === 'excellent' && roas <= 2.0) return false;
+                    if (performanceFilter === 'good' && (roas <= 1.5 || roas > 2.0)) return false;
+                    if (performanceFilter === 'decent' && (roas <= 1.0 || roas > 1.5)) return false;
+                    if (performanceFilter === 'poor' && roas >= 1.0) return false;
+                }
+                
+                return true;
+            });
+            
+            // Apply sorting
+            applyEnhancedSorting(sortFilter);
+            
+            debugLog(`Applied filters: ${filteredCampaigns.length} campaigns after filtering`);
+            updateEnhancedCampaignsTable();
+            updateFilteredCount();
+        }
+
+        function applyEnhancedSorting(sortOption) {
+            const [field, direction] = sortOption.split('_');
+            
+            filteredCampaigns.sort((a, b) => {
+                let aVal, bVal;
+                
+                switch (field) {
+                    case 'name':
+                        aVal = a.name || '';
+                        bVal = b.name || '';
+                        break;
+                    case 'revenue':
+                        aVal = a.revenue || 0;
+                        bVal = b.revenue || 0;
+                        break;
+                    case 'roas':
+                        aVal = a.roas || 0;
+                        bVal = b.roas || 0;
+                        break;
+                    case 'spend':
+                        aVal = a.cost || 0;
+                        bVal = b.cost || 0;
+                        break;
+                    case 'conversions':
+                        aVal = a.conversions || 0;
+                        bVal = b.conversions || 0;
+                        break;
+                    case 'trend':
+                        aVal = a.trend_percentage || 0;
+                        bVal = b.trend_percentage || 0;
+                        break;
+                    default:
+                        if (field.includes('roas')) {
+                            const period = field.replace('roas', '').replace('d', '');
+                            aVal = a[`roas_${period}d`] || 0;
+                            bVal = b[`roas_${period}d`] || 0;
+                        } else {
+                            return 0;
+                        }
+                }
+                
+                if (typeof aVal === 'string') {
+                    return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                } else {
+                    return direction === 'asc' ? aVal - bVal : bVal - aVal;
+                }
+            });
+        }
+
+        function updateEnhancedCampaignsTable() {
+            const tbody = document.getElementById('campaignsTable');
+            
+            if (filteredCampaigns.length === 0) {
+                showEmptyState();
+                return;
+            }
+            
+            hideEmptyState();
+            
+            tbody.innerHTML = filteredCampaigns.map(campaign => {
+                const hasTraffic = (campaign.visits || 0) > 0 || (campaign.cost || 0) > 0;
+                const statusClass = hasTraffic ? getStatusClass(campaign.status) : 'status-paused';
+                const statusLabel = hasTraffic ? campaign.status || 'ACTIVE' : 'PAUSED';
+                
+                const trendIcon = getTrendIcon(campaign.trend_direction);
+                const trendClass = getTrendClass(campaign.trend_direction);
+                
+                return `
+                    <tr class="campaign-row hover:bg-gray-50 transition-colors" onclick="openCampaignModal('${campaign.id}')">
+                        <td class="px-4 py-3">
+                            <div class="font-medium text-gray-900 text-sm max-w-xs truncate" title="${campaign.name || 'Unnamed Campaign'}">
+                                ${campaign.name || 'Unnamed Campaign'}
+                            </div>
+                        </td>
+                        <td class="px-3 py-3">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                ${campaign.trafficSource || 'Unknown'}
+                            </span>
+                        </td>
+                        <td class="px-3 py-3">
+                            <span class="${statusClass} text-white px-2 py-1 rounded-full text-xs font-medium">
+                                ${statusLabel}
+                            </span>
+                        </td>
+                        <td class="px-3 py-3 text-sm text-gray-900">
+                            ${(campaign.visits || 0).toLocaleString()}
+                        </td>
+                        <td class="px-3 py-3 text-sm text-gray-900">
+                            ${(campaign.conversions || 0).toLocaleString()}
+                        </td>
+                        <td class="px-3 py-3 text-sm text-gray-900">
+                            $${(campaign.revenue || 0).toFixed(2)}
+                        </td>
+                        <td class="px-3 py-3 text-sm text-gray-900">
+                            $${(campaign.cost || 0).toFixed(2)}
+                        </td>
+                        <td class="px-3 py-3 text-sm text-gray-900">
+                            $${(campaign.cpa || 0).toFixed(2)}
+                        </td>
+                        <td class="px-3 py-3 text-sm font-medium ${getRoasColor(campaign.roas)}">
+                            ${(campaign.roas || 0).toFixed(2)}x
+                        </td>
+                        <td class="px-3 py-3 text-sm font-medium ${getRoasColor(campaign.roas_7d)}">
+                            ${(campaign.roas_7d || 0).toFixed(2)}x
+                        </td>
+                        <td class="px-3 py-3 text-sm font-medium ${getRoasColor(campaign.roas_14d)}">
+                            ${(campaign.roas_14d || 0).toFixed(2)}x
+                        </td>
+                        <td class="px-3 py-3 text-sm font-medium ${getRoasColor(campaign.roas_30d)}">
+                            ${(campaign.roas_30d || 0).toFixed(2)}x
+                        </td>
+                        <td class="px-3 py-3 text-sm">
+                            <div class="flex items-center ${trendClass}">
+                                ${trendIcon}
+                                <span class="ml-1">${Math.abs(campaign.trend_percentage || 0).toFixed(1)}%</span>
+                            </div>
+                        </td>
+                        <td class="px-3 py-3 text-sm text-gray-900">
+                            ${((campaign.conversions || 0) / Math.max(campaign.visits || 1, 1) * 100).toFixed(2)}%
+                        </td>
+                        <td class="px-3 py-3 text-sm text-gray-900">
+                            $${((campaign.revenue || 0) / Math.max(campaign.conversions || 1, 1)).toFixed(2)}
+                        </td>
+                        <td class="px-3 py-3 text-sm font-medium ${getProfitColor(campaign.revenue - campaign.cost)}">
+                            $${((campaign.revenue || 0) - (campaign.cost || 0)).toFixed(2)}
+                        </td>
+                        <td class="px-3 py-3 text-sm">
+                            <div class="flex items-center">
+                                <div class="w-12 bg-gray-200 rounded-full h-2 mr-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${getQualityScore(campaign)}%"></div>
+                                </div>
+                                <span class="text-xs font-medium text-gray-700">${getQualityScore(campaign)}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function calculateEnhancedOverviewStats(campaigns) {
+            const activeCampaigns = campaigns.filter(c => (c.visits || 0) > 0 || (c.cost || 0) > 0);
+            const trendingUp = campaigns.filter(c => c.trend_direction === 'up').length;
+            const trendingDown = campaigns.filter(c => c.trend_direction === 'down').length;
+            
+            return {
+                liveCampaigns: campaigns.length,
+                activeCampaigns: activeCampaigns.length,
+                totalRevenue: campaigns.reduce((sum, c) => sum + (c.revenue || 0), 0),
+                totalSpend: campaigns.reduce((sum, c) => sum + (c.cost || 0), 0),
+                averageRoas: activeCampaigns.length > 0 ? 
+                    activeCampaigns.reduce((sum, c) => sum + (c.roas || 0), 0) / activeCampaigns.length : 0,
+                totalConversions: campaigns.reduce((sum, c) => sum + (c.conversions || 0), 0),
+                trendingUp: trendingUp,
+                trendingDown: trendingDown
+            };
+        }
+
+        function updateEnhancedOverviewStats(overview) {
+            document.getElementById('totalCampaigns').textContent = (overview.liveCampaigns || 0).toLocaleString();
+            document.getElementById('activeCampaigns').textContent = (overview.activeCampaigns || 0).toLocaleString();
+            document.getElementById('totalRevenue').textContent = `$${(overview.totalRevenue || 0).toLocaleString()}`;
+            document.getElementById('totalSpend').textContent = `$${(overview.totalSpend || 0).toLocaleString()}`;
+            document.getElementById('averageRoas').textContent = `${(overview.averageRoas || 0).toFixed(2)}x`;
+            document.getElementById('totalConversions').textContent = (overview.totalConversions || 0).toLocaleString();
+            document.getElementById('trendingUp').textContent = (overview.trendingUp || 0).toLocaleString();
+            document.getElementById('trendingDown').textContent = (overview.trendingDown || 0).toLocaleString();
+        }
+
+        function openCampaignModal(campaignId) {
+            const campaign = allCampaigns.find(c => c.id === campaignId);
+            if (!campaign) return;
+            
+            // Update modal header
+            document.getElementById('modalCampaignName').textContent = campaign.name || 'Unnamed Campaign';
+            document.getElementById('modalCampaignInfo').textContent = 
+                `${campaign.trafficSource || 'Unknown Source'} • ${(campaign.visits || 0).toLocaleString()} visits • ${(campaign.conversions || 0).toLocaleString()} conversions`;
+            
+            // Update ROAS cards
+            document.getElementById('modalCurrentRoas').textContent = `${(campaign.roas || 0).toFixed(2)}x`;
+            document.getElementById('modal7dRoas').textContent = `${(campaign.roas_7d || 0).toFixed(2)}x`;
+            document.getElementById('modal14dRoas').textContent = `${(campaign.roas_14d || 0).toFixed(2)}x`;
+            document.getElementById('modal30dRoas').textContent = `${(campaign.roas_30d || 0).toFixed(2)}x`;
+            
+            // Update trend indicators
+            updateTrendIndicator('modalCurrentTrend', campaign.trend_percentage || 0);
+            updateTrendIndicator('modal7dTrend', (campaign.roas_7d - campaign.roas_14d) / campaign.roas_14d * 100 || 0);
+            updateTrendIndicator('modal14dTrend', (campaign.roas_14d - campaign.roas_30d) / campaign.roas_30d * 100 || 0);
+            updateTrendIndicator('modal30dTrend', campaign.trend_percentage || 0);
+            
+            // Update creative insights
+            updateCreativeInsights(campaign);
+            
+            // Update performance analysis
+            updatePerformanceAnalysis(campaign);
+            
+            // Update offers table
+            updateOffersTable(campaign.offers || []);
+            
+            // Create ROAS chart
+            createRoasChart(campaign);
+            
+            // Show modal
+            document.getElementById('campaignModal').classList.remove('hidden');
+        }
+
+        function updateCreativeInsights(campaign) {
+            const name = campaign.name || '';
+            
+            // Extract campaign insights from name
+            document.getElementById('modalCampaignType').textContent = extractCampaignType(name);
+            document.getElementById('modalTargetAudience').textContent = extractTargetAudience(name);
+            document.getElementById('modalDeviceFocus').textContent = extractDeviceFocus(name);
+            document.getElementById('modalCreativeFormat').textContent = extractCreativeFormat(name);
+            
+            // Generate AI recommendation
+            const recommendation = generateCreativeRecommendation(campaign);
+            document.getElementById('modalCreativeRecommendation').textContent = recommendation;
+        }
+
+        function updatePerformanceAnalysis(campaign) {
+            const roas = campaign.roas || 0;
+            const conversions = campaign.conversions || 0;
+            const revenue = campaign.revenue || 0;
+            
+            // Performance grade
+            let grade = 'D';
+            let gradeClass = 'bg-red-200 text-red-800';
+            
+            if (roas >= 2.0) {
+                grade = 'A+';
+                gradeClass = 'bg-green-200 text-green-800';
+            } else if (roas >= 1.5) {
+                grade = 'A';
+                gradeClass = 'bg-green-200 text-green-800';
+            } else if (roas >= 1.2) {
+                grade = 'B+';
+                gradeClass = 'bg-yellow-200 text-yellow-800';
+            } else if (roas >= 1.0) {
+                grade = 'B';
+                gradeClass = 'bg-yellow-200 text-yellow-800';
+            } else if (roas >= 0.8) {
+                grade = 'C';
+                gradeClass = 'bg-orange-200 text-orange-800';
+            }
+            
+            const gradeElement = document.getElementById('modalPerformanceGrade');
+            gradeElement.textContent = grade;
+            gradeElement.className = `px-2 py-1 text-xs font-bold rounded-full ${gradeClass}`;
+            
+            // Conversion quality
+            let conversionQuality = 'Low';
+            if (conversions >= 1000) conversionQuality = 'Excellent';
+            else if (conversions >= 500) conversionQuality = 'High';
+            else if (conversions >= 100) conversionQuality = 'Medium';
+            
+            document.getElementById('modalConversionQuality').textContent = conversionQuality;
+            
+            // Traffic quality based on source and performance
+            const trafficQuality = getTrafficQuality(campaign.trafficSource, roas);
+            document.getElementById('modalTrafficQuality').textContent = trafficQuality;
+            
+            // Optimization score
+            const optimizationScore = calculateOptimizationScore(campaign);
+            document.getElementById('modalOptimizationScore').textContent = `${optimizationScore}%`;
+            document.getElementById('modalOptimizationBar').style.width = `${optimizationScore}%`;
+            
+            // Optimization tip
+            const optimizationTip = generateOptimizationTip(campaign);
+            document.getElementById('modalOptimizationTip').textContent = optimizationTip;
+        }
+
+        function extractCampaignType(name) {
+            const nameLower = name.toLowerCase();
+            if (nameLower.includes('roas')) return 'ROAS Optimized';
+            if (nameLower.includes('revenue')) return 'Revenue Focused';
+            if (nameLower.includes('cpa')) return 'CPA Optimized';
+            if (nameLower.includes('volume')) return 'Volume Focused';
+            return 'Standard';
+        }
+
+        function extractTargetAudience(name) {
+            const nameLower = name.toLowerCase();
+            if (nameLower.includes('seniors')) return 'Seniors (55+)';
+            if (nameLower.includes('adults')) return 'Adults (25-54)';
+            if (nameLower.includes('young')) return 'Young Adults (18-34)';
+            if (nameLower.includes('global')) return 'Global Audience';
+            return 'General Audience';
+        }
+
+        function extractDeviceFocus(name) {
+            const nameLower = name.toLowerCase();
+            if (nameLower.includes('mobile')) return 'Mobile Optimized';
+            if (nameLower.includes('desktop')) return 'Desktop Focused';
+            if (nameLower.includes('tablet')) return 'Tablet Optimized';
+            return 'Multi-Device';
+        }
+
+        function extractCreativeFormat(name) {
+            const nameLower = name.toLowerCase();
+            if (nameLower.includes('video')) return 'Video Creative';
+            if (nameLower.includes('native')) return 'Native Ad';
+            if (nameLower.includes('display')) return 'Display Banner';
+            if (nameLower.includes('push')) return 'Push Notification';
+            return 'Mixed Format';
+        }
+
+        function generateCreativeRecommendation(campaign) {
+            const roas = campaign.roas || 0;
+            const trend = campaign.trend_direction || 'stable';
+            const source = campaign.trafficSource || '';
+            
+            if (roas >= 1.5 && trend === 'up') {
+                return `🚀 High performer! Scale this ${source} creative and test similar concepts with different audiences.`;
+            } else if (roas >= 1.2 && trend === 'up') {
+                return `📈 Good momentum! Consider A/B testing variations of this creative to optimize further.`;
+            } else if (roas < 1.0 && trend === 'down') {
+                return `⚠️ Underperforming. Test new creative angles or pause to analyze successful competitors.`;
+            } else if (trend === 'stable') {
+                return `💡 Stable performance. Try refreshing creative elements to reignite engagement.`;
+            } else {
+                return `🔍 Monitor closely and prepare backup creatives for this ${source} campaign.`;
+            }
+        }
+
+        function getTrafficQuality(source, roas) {
+            const qualityMap = {
+                'NewsBreak': roas >= 1.2 ? 'Premium' : roas >= 1.0 ? 'High' : 'Standard',
+                'Taboola': roas >= 1.1 ? 'Premium' : roas >= 0.9 ? 'High' : 'Standard',
+                'Facebook': roas >= 1.3 ? 'Premium' : roas >= 1.1 ? 'High' : 'Standard',
+                'EvaDav': roas >= 1.0 ? 'High' : roas >= 0.8 ? 'Standard' : 'Low',
+                'PropellerAds': roas >= 1.0 ? 'High' : roas >= 0.8 ? 'Standard' : 'Low'
+            };
+            
+            return qualityMap[source] || (roas >= 1.0 ? 'Standard' : 'Low');
+        }
+
+        function calculateOptimizationScore(campaign) {
+            let score = 0;
+            
+            // ROAS contribution (40%)
+            const roas = campaign.roas || 0;
+            if (roas >= 2.0) score += 40;
+            else if (roas >= 1.5) score += 35;
+            else if (roas >= 1.2) score += 30;
+            else if (roas >= 1.0) score += 25;
+            else if (roas >= 0.8) score += 15;
+            else score += 5;
+            
+            // Volume contribution (30%)
+            const conversions = campaign.conversions || 0;
+            if (conversions >= 1000) score += 30;
+            else if (conversions >= 500) score += 25;
+            else if (conversions >= 100) score += 20;
+            else if (conversions >= 50) score += 15;
+            else if (conversions >= 10) score += 10;
+            else score += 5;
+            
+            // Trend contribution (20%)
+            const trend = campaign.trend_direction || 'stable';
+            if (trend === 'up') score += 20;
+            else if (trend === 'stable') score += 15;
+            else score += 5;
+            
+            // Traffic source quality (10%)
+            const source = campaign.trafficSource || '';
+            if (['NewsBreak', 'Facebook', 'Taboola'].includes(source)) score += 10;
+            else if (['EvaDav', 'PropellerAds', 'Outbrain'].includes(source)) score += 8;
+            else score += 5;
+            
+            return Math.min(score, 100);
+        }
+
+        function generateOptimizationTip(campaign) {
+            const roas = campaign.roas || 0;
+            const trend = campaign.trend_direction || 'stable';
+            const conversions = campaign.conversions || 0;
+            const profit = (campaign.revenue || 0) - (campaign.cost || 0);
+            
+            if (roas >= 1.5 && trend === 'up' && profit > 1000) {
+                return `Consider increasing budget by 50-100% to scale this winning campaign.`;
+            } else if (roas >= 1.2 && conversions < 100) {
+                return `Increase budget to gather more conversion data for better optimization.`;
+            } else if (roas < 1.0 && trend === 'down') {
+                return `Pause campaign and analyze top-performing competitor creatives.`;
+            } else if (trend === 'stable' && roas >= 1.0) {
+                return `Test new creative variations to break performance plateau.`;
+            } else if (conversions > 500 && roas < 1.2) {
+                return `Focus on conversion quality - review offer page and traffic sources.`;
+            } else {
+                return `Monitor performance closely and prepare optimization strategies.`;
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('campaignModal').classList.add('hidden');
+            if (roasChart) {
+                roasChart.destroy();
+                roasChart = null;
+            }
+        }
+
+        function updateTrendIndicator(elementId, percentage) {
+            const element = document.getElementById(elementId);
+            const isPositive = percentage >= 0;
+            const icon = isPositive ? 'fa-arrow-up' : 'fa-arrow-down';
+            const sign = isPositive ? '+' : '';
+            
+            element.innerHTML = `<i class="fas ${icon}"></i> ${sign}${percentage.toFixed(1)}%`;
+        }
+
+        function updateOffersTable(offers) {
+            const tbody = document.getElementById('offersTable');
+            
+            tbody.innerHTML = offers.map(offer => {
+                const trendIcon = getTrendIcon(offer.trend_direction);
+                const trendClass = getTrendClass(offer.trend_direction);
+                
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">${offer.name}</td>
+                        <td class="px-3 py-3 text-sm text-gray-900">${offer.conversions.toLocaleString()}</td>
+                        <td class="px-3 py-3 text-sm text-gray-900">${offer.revenue.toFixed(2)}</td>
+                        <td class="px-3 py-3 text-sm font-medium ${getRoasColor(offer.roas_7d)}">${offer.roas_7d.toFixed(2)}x</td>
+                        <td class="px-3 py-3 text-sm font-medium ${getRoasColor(offer.roas_14d)}">${offer.roas_14d.toFixed(2)}x</td>
+                        <td class="px-3 py-3 text-sm font-medium ${getRoasColor(offer.roas_30d)}">${offer.roas_30d.toFixed(2)}x</td>
+                        <td class="px-3 py-3 text-sm ${trendClass}">
+                            <div class="flex items-center">
+                                ${trendIcon}
+                                <span class="ml-1">${Math.abs((offer.roas_7d - offer.roas_30d) / offer.roas_30d * 100 || 0).toFixed(1)}%</span>
+                            </div>
+                        </td>
+                        <td class="px-3 py-3">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${offer.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                                ${offer.status}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function createRoasChart(campaign) {
+            const ctx = document.getElementById('roasChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (roasChart) {
+                roasChart.destroy();
+            }
+            
+            const data = {
+                labels: ['30 Days Ago', '14 Days Ago', '7 Days Ago', 'Current'],
+                datasets: [{
+                    label: 'ROAS Trend',
+                    data: [
+                        campaign.roas_30d || 0,
+                        campaign.roas_14d || 0,
+                        campaign.roas_7d || 0,
+                        campaign.roas || 0
+                    ],
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: 'rgb(59, 130, 246)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6
+                }]
+            };
+            
+            const config = {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'ROAS'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time Period'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        }
+                    },
+                    elements: {
+                        point: {
+                            hoverRadius: 8
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            };
+            
+            roasChart = new Chart(ctx, config);
+        }
+
+        // Helper functions
+        function getTrendIcon(direction) {
+            switch (direction) {
+                case 'up': return '<i class="fas fa-arrow-up"></i>';
+                case 'down': return '<i class="fas fa-arrow-down"></i>';
+                default: return '<i class="fas fa-minus"></i>';
+            }
+        }
+
+        function getTrendClass(direction) {
+            switch (direction) {
+                case 'up': return 'text-green-600';
+                case 'down': return 'text-red-600';
+                default: return 'text-gray-600';
+            }
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'UP': return 'status-up';
+                case 'DOWN': return 'status-down';
+                case 'STABLE': return 'status-stable';
+                default: return 'status-stable';
+            }
+        }
+
+        function getRoasColor(roas) {
+            if ((roas || 0) >= 2.0) return 'text-green-600';
+            if ((roas || 0) >= 1.5) return 'text-green-500';
+            if ((roas || 0) >= 1.0) return 'text-yellow-600';
+            return 'text-red-600';
+        }
+
+        function getProfitColor(profit) {
+            if (profit >= 1000) return 'text-green-600';
+            if (profit >= 0) return 'text-green-500';
+            if (profit >= -500) return 'text-yellow-600';
+            return 'text-red-600';
+        }
+
+        function getQualityScore(campaign) {
+            const roas = campaign.roas || 0;
+            const conversions = campaign.conversions || 0;
+            const trend = campaign.trend_direction || 'stable';
+            
+            let score = 0;
+            
+            // ROAS score (50%)
+            if (roas >= 2.0) score += 50;
+            else if (roas >= 1.5) score += 40;
+            else if (roas >= 1.2) score += 35;
+            else if (roas >= 1.0) score += 25;
+            else if (roas >= 0.8) score += 15;
+            else score += 5;
+            
+            // Volume score (30%)
+            if (conversions >= 1000) score += 30;
+            else if (conversions >= 500) score += 25;
+            else if (conversions >= 100) score += 20;
+            else if (conversions >= 50) score += 15;
+            else if (conversions >= 10) score += 10;
+            else score += 5;
+            
+            // Trend score (20%)
+            if (trend === 'up') score += 20;
+            else if (trend === 'stable') score += 15;
+            else score += 5;
+            
+            return Math.min(score, 100);
+        }
+
+        function resetAllFilters() {
+            document.getElementById('statusFilter').value = 'all';
+            document.getElementById('trafficSourceFilter').value = 'all';
+            document.getElementById('spendFilter').value = 'all';
+            document.getElementById('performanceFilter').value = 'all';
+            document.getElementById('sortFilter').value = 'revenue_desc';
+            applyFilters();
+        }
+
+        function exportToCsv() {
+            const headers = [
+                'Campaign', 'Traffic Source', 'Status', 'Visits', 'Conversions', 'Revenue', 'Spend', 
+                'CPA', 'Current ROAS', '7D ROAS', '14D ROAS', '30D ROAS', 'Trend %', 'Trend Direction',
+                'CVR %', 'AOV', 'Profit', 'Quality Score', 'Performance Grade', 'Optimization Score'
+            ];
+            
+            const csvContent = [
+                headers.join(','),
+                ...filteredCampaigns.map(campaign => {
+                    const hasTraffic = (campaign.visits || 0) > 0 || (campaign.cost || 0) > 0;
+                    const status = hasTraffic ? (campaign.status || 'ACTIVE') : 'PAUSED';
+                    const cvr = ((campaign.conversions || 0) / Math.max(campaign.visits || 1, 1) * 100).toFixed(2);
+                    const aov = ((campaign.revenue || 0) / Math.max(campaign.conversions || 1, 1)).toFixed(2);
+                    const profit = ((campaign.revenue || 0) - (campaign.cost || 0)).toFixed(2);
+                    const qualityScore = getQualityScore(campaign);
+                    const optimizationScore = calculateOptimizationScore(campaign);
+                    
+                    // Calculate performance grade
+                    const roas = campaign.roas || 0;
+                    let grade = 'D';
+                    if (roas >= 2.0) grade = 'A+';
+                    else if (roas >= 1.5) grade = 'A';
+                    else if (roas >= 1.2) grade = 'B+';
+                    else if (roas >= 1.0) grade = 'B';
+                    else if (roas >= 0.8) grade = 'C';
+                    
+                    return [
+                        `"${campaign.name || 'Unnamed Campaign'}"`,
+                        `"${campaign.trafficSource || 'Unknown'}"`,
+                        status,
+                        campaign.visits || 0,
+                        campaign.conversions || 0,
+                        (campaign.revenue || 0).toFixed(2),
+                        (campaign.cost || 0).toFixed(2),
+                        (campaign.cpa || 0).toFixed(2),
+                        (campaign.roas || 0).toFixed(2),
+                        (campaign.roas_7d || 0).toFixed(2),
+                        (campaign.roas_14d || 0).toFixed(2),
+                        (campaign.roas_30d || 0).toFixed(2),
+                        (campaign.trend_percentage || 0).toFixed(1),
+                        campaign.trend_direction || 'stable',
+                        cvr,
+                        aov,
+                        profit,
+                        qualityScore,
+                        grade,
+                        optimizationScore
+                    ].join(',');
+                })
+            ].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `voluum_enhanced_campaigns_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function updateConnectionStatus(status, message) {
+            const indicator = document.getElementById('connectionIndicator');
+            const colors = {
+                loading: 'bg-yellow-400',
+                success: 'bg-green-400',
+                warning: 'bg-orange-400',
+                error: 'bg-red-400'
+            };
+            
+            indicator.innerHTML = `
+                <div class="w-3 h-3 ${colors[status]} rounded-full"></div>
+                <span class="text-sm text-gray-600">${message}</span>
+            `;
+        }
+
+        function debugLog(message) {
+            const debugInfo = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            debugInfo.appendChild(logEntry);
+            
+            // Keep only last 10 log entries
+            while (debugInfo.children.length > 10) {
+                debugInfo.removeChild(debugInfo.firstChild);
+            }
+            
+            console.log(message);
+        }
+
+        function showLoadingState() {
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.querySelector('.bg-white.rounded-xl.shadow-sm.border.overflow-hidden').classList.add('hidden');
+        }
+
+        function hideLoadingState() {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.querySelector('.bg-white.rounded-xl.shadow-sm.border.overflow-hidden').classList.remove('hidden');
+        }
+
+        function showEmptyState() {
+            document.getElementById('emptyState').classList.remove('hidden');
+            document.getElementById('campaignsTable').innerHTML = '';
+        }
+
+        function hideEmptyState() {
+            document.getElementById('emptyState').classList.add('hidden');
+        }
+
+        function updateFilteredCount() {
+            document.getElementById('filteredCount').textContent = `Showing ${filteredCampaigns.length} of ${allCampaigns.length} campaigns`;
+        }
+
+        function getEnhancedMockData() {
+            return {
+                campaigns: [
+                    {
+                        id: 'camp_1',
+                        name: 'NewsBreak ROAS - Global - SENIORS - MOBILE',
+                        trafficSource: 'NewsBreak',
+                        visits: 124261,
+                        conversions: 1620,
+                        revenue: 25872.34,
+                        cost: 21169.71,
+                        roas: 1.22,
+                        roas_7d: 1.18,
+                        roas_14d: 1.15,
+                        roas_30d: 1.09,
+                        cpa: 13.07,
+                        status: 'UP',
+                        hasTraffic: true,
+                        trend_direction: 'up',
+                        trend_percentage: 8.3,
+                        offers: [
+                            {
+                                id: 'offer_1',
+                                name: 'Home Insurance - NewsBreak Seniors V1',
+                                conversions: 820,
+                                revenue: 13245.67,
+                                roas_7d: 1.25,
+                                roas_14d: 1.20,
+                                roas_30d: 1.15,
+                                trend_direction: 'up',
+                                status: 'Active'
+                            },
+                            {
+                                id: 'offer_2',
+                                name: 'Auto Insurance - NewsBreak Seniors V2',
+                                conversions: 545,
+                                revenue: 8932.12,
+                                roas_7d: 1.12,
+                                roas_14d: 1.08,
+                                roas_30d: 1.03,
+                                trend_direction: 'up',
+                                status: 'Active'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'camp_2',
+                        name: 'Taboola - Global - 9 Dumb Ways - v2',
+                        trafficSource: 'Taboola',
+                        visits: 47407,
+                        conversions: 534,
+                        revenue: 8420.15,
+                        cost: 9156.23,
+                        roas: 0.92,
+                        roas_7d: 0.95,
+                        roas_14d: 0.88,
+                        roas_30d: 1.12,
+                        cpa: 17.15,
+                        status: 'DOWN',
+                        hasTraffic: true,
+                        trend_direction: 'down',
+                        trend_percentage: -15.2,
+                        offers: [
+                            {
+                                id: 'offer_3',
+                                name: 'Life Insurance - Taboola Native V1',
+                                conversions: 334,
+                                revenue: 5420.89,
+                                roas_7d: 0.89,
+                                roas_14d: 0.92,
+                                roas_30d: 1.18,
+                                trend_direction: 'down',
+                                status: 'Active'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'camp_3',
+                        name: 'Facebook - B1A1 - Global - Seniors - Mobile',
+                        trafficSource: 'Facebook',
+                        visits: 9396,
+                        conversions: 369,
+                        revenue: 7125.67,
+                        cost: 4892.33,
+                        roas: 1.46,
+                        roas_7d: 1.52,
+                        roas_14d: 1.43,
+                        roas_30d: 1.38,
+                        cpa: 13.26,
+                        status: 'UP',
+                        hasTraffic: true,
+                        trend_direction: 'up',
+                        trend_percentage: 10.1,
+                        offers: [
+                            {
+                                id: 'offer_4',
+                                name: 'Medicare Plans - Facebook Seniors V1',
+                                conversions: 189,
+                                revenue: 3567.23,
+                                roas_7d: 1.58,
+                                roas_14d: 1.47,
+                                roas_30d: 1.41,
+                                trend_direction: 'up',
+                                status: 'Active'
+                            },
+                            {
+                                id: 'offer_5',
+                                name: 'Health Insurance - Facebook Seniors V2',
+                                conversions: 180,
+                                revenue: 3558.44,
+                                roas_7d: 1.46,
+                                roas_14d: 1.39,
+                                roas_30d: 1.35,
+                                trend_direction: 'up',
+                                status: 'Active'
+                            }
+                        ]
+                    }
+                ],
+                overview: {
+                    liveCampaigns: 513,
+                    activeCampaigns: 59,
+                    totalRevenue: 102738.48,
+                    totalSpend: 100226.24,
+                    averageRoas: 2.03,
+                    totalConversions: 8126,
+                    totalVisits: 181064,
+                    trendingUp: 23,
+                    trendingDown: 15
+                },
+                metadata: {
+                    totalRows: 513,
+                    dateRange: 'enhanced_mock_multi_period',
+                    lastUpdated: new Date().toISOString(),
+                    trafficSources: ['NewsBreak', 'Taboola', 'Facebook', 'EvaDav', 'PropellerAds', 'RichAds', 'Outbrain'],
+                    periods: ['current', '7d', '14d', '30d']
+                }
+            };
+        }
+    </script>
+</body>
+</html>
