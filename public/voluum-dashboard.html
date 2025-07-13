@@ -368,11 +368,31 @@
                 debugLog('🚀 Starting Voluum API connection...');
                 
                 const dateRange = document.getElementById('dateRangeFilter').value;
-                const url = `/api/voluum/campaigns?date_range=${dateRange}`;
                 
-                debugLog(`📡 Fetching from: ${url}`);
+                // First test environment variables
+                debugLog('🔧 Testing environment variables...');
+                try {
+                    const envResponse = await fetch('/api/test-env');
+                    if (envResponse.ok) {
+                        const envData = await envResponse.json();
+                        debugLog(`✅ Environment test: ${envData.success ? 'PASSED' : 'FAILED'}`);
+                        if (envData.environment_check) {
+                            debugLog(`🔑 Credentials check: ID=${envData.environment_check.volume_key_id_present}, Key=${envData.environment_check.volume_key_present}`);
+                        }
+                        if (envData.api_test) {
+                            debugLog(`🌐 API test: Status=${envData.api_test.auth_status}, Success=${envData.api_test.auth_success}`);
+                        }
+                    }
+                } catch (envError) {
+                    debugLog(`⚠️ Environment test failed: ${envError.message}`);
+                }
                 
-                const response = await fetch(url);
+                // Try simplified API first
+                debugLog('📡 Trying simplified Voluum API...');
+                const simpleUrl = `/api/voluum/campaigns-simple?date_range=${dateRange}`;
+                debugLog(`📡 Fetching from: ${simpleUrl}`);
+                
+                const response = await fetch(simpleUrl);
                 debugLog(`📊 Response status: ${response.status}`);
                 
                 if (!response.ok) {
@@ -381,6 +401,11 @@
                 
                 const data = await response.json();
                 debugLog(`✅ Data received - Success: ${data.success}`);
+                
+                // Show debug logs from API
+                if (data.debug_logs && Array.isArray(data.debug_logs)) {
+                    data.debug_logs.forEach(log => debugLog(`🔧 API: ${log}`));
+                }
                 
                 if (data.success === false) {
                     debugLog(`⚠️ API returned error: ${data.error}`);
@@ -402,10 +427,66 @@
                 console.error('❌ Error loading data:', error);
                 debugLog(`❌ Error: ${error.message}`);
                 updateConnectionStatus('error', `Connection failed: ${error.message}`);
-                showEmptyState();
+                
+                // Try to load mock data as absolute fallback
+                debugLog('🔄 Loading emergency mock data...');
+                const mockData = getEmergencyMockData();
+                processData(mockData);
+                updateConnectionStatus('warning', 'Using emergency mock data');
+                
             } finally {
                 hideLoadingState();
             }
+        }
+
+        function getEmergencyMockData() {
+            return {
+                campaigns: [
+                    {
+                        id: 'mock_1',
+                        name: 'Emergency Mock - NewsBreak Campaign',
+                        trafficSource: 'NewsBreak',
+                        visits: 15000,
+                        conversions: 200,
+                        revenue: 3000,
+                        cost: 2500,
+                        roas: 1.2,
+                        cpa: 12.5,
+                        ctr: 1.33,
+                        status: 'UP',
+                        hasTraffic: true,
+                        change24h: 5.5
+                    },
+                    {
+                        id: 'mock_2',
+                        name: 'Emergency Mock - Taboola Campaign',
+                        trafficSource: 'Taboola',
+                        visits: 8000,
+                        conversions: 100,
+                        revenue: 1500,
+                        cost: 1800,
+                        roas: 0.83,
+                        cpa: 18.0,
+                        ctr: 1.25,
+                        status: 'DOWN',
+                        hasTraffic: true,
+                        change24h: -8.2
+                    }
+                ],
+                overview: {
+                    liveCampaigns: 2,
+                    activeCampaigns: 2,
+                    totalRevenue: 4500,
+                    totalSpend: 4300,
+                    averageRoas: 1.01,
+                    totalConversions: 300
+                },
+                metadata: {
+                    totalRows: 2,
+                    dateRange: 'emergency_mock',
+                    lastUpdated: new Date().toISOString()
+                }
+            };
         }
 
         function processData(data) {
