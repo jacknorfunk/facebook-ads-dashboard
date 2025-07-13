@@ -1,4 +1,4 @@
-// /api/voluum/campaigns.js - Enhanced Voluum API Integration
+// /api/voluum/campaigns.js - Fixed Voluum API Integration Based on Official Documentation
 
 export default async function handler(req, res) {
     // Set CORS headers
@@ -29,13 +29,13 @@ export default async function handler(req, res) {
             return res.status(500).json({
                 success: false,
                 error: 'Missing Voluum API credentials',
-                data: getMockData() // Fallback to mock data
+                data: getMockData()
             });
         }
 
         console.log('Credentials found - AccessID length:', accessId.length, 'AccessKey length:', accessKey.length);
 
-        // Step 1: Authenticate with Voluum
+        // Step 1: Authenticate with Voluum API
         const authResponse = await fetch('https://api.voluum.com/auth/access/session', {
             method: 'POST',
             headers: {
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
                 error: `Authentication failed: ${authResponse.status}`,
                 debug_info: {
                     auth_status: authResponse.status,
-                    auth_error: authError,
+                    auth_error: authError.substring(0, 200),
                     credentials_present: true
                 },
                 data: getMockData()
@@ -67,28 +67,29 @@ export default async function handler(req, res) {
         const sessionToken = authData.token;
         console.log('Authentication successful, token received');
 
-        // Step 2: Get campaign data with multiple attempts
-        const campaignData = await fetchCampaignDataWithFallbacks(sessionToken, fromDate, toDate);
+        // Step 2: Get campaign report data using official API structure
+        const reportData = await fetchCampaignReport(sessionToken, fromDate, toDate);
         
-        if (!campaignData) {
-            console.log('No data from any API endpoint, using mock data');
+        if (!reportData || !reportData.rows || reportData.rows.length === 0) {
+            console.log('No campaign data returned, using mock data');
             return res.status(200).json({
                 success: false,
                 error: 'No campaign data available from Voluum API',
                 debug_info: {
                     auth_success: true,
-                    data_endpoints_tried: 3,
+                    total_rows: reportData?.totalRows || 0,
+                    rows_length: reportData?.rows?.length || 0,
                     fallback_used: true
                 },
                 data: getMockData()
             });
         }
 
-        // Step 3: Process the campaign data
-        const processedData = processCampaignData(campaignData, dateRange);
+        // Step 3: Process the campaign data using proper column mappings
+        const processedData = processCampaignReport(reportData, dateRange);
         
         console.log('=== PROCESSING COMPLETE ===');
-        console.log(`Total campaigns from API: ${campaignData.totalRows || 0}`);
+        console.log(`Total rows from API: ${reportData.totalRows || 0}`);
         console.log(`Processed campaigns: ${processedData.campaigns.length}`);
         console.log(`Active campaigns: ${processedData.overview.activeCampaigns}`);
 
@@ -97,10 +98,11 @@ export default async function handler(req, res) {
             data: processedData,
             debug_info: {
                 auth_success: true,
-                api_total_rows: campaignData.totalRows || 0,
+                api_total_rows: reportData.totalRows || 0,
                 campaigns_processed: processedData.campaigns.length,
                 active_campaigns: processedData.overview.activeCampaigns,
-                date_range: `${fromDate} to ${toDate}`
+                date_range: `${fromDate} to ${toDate}`,
+                column_mappings: Object.keys(reportData.columnMappings || {})
             }
         });
 
@@ -114,149 +116,171 @@ export default async function handler(req, res) {
     }
 }
 
-async function fetchCampaignDataWithFallbacks(sessionToken, fromDate, toDate) {
+async function fetchCampaignReport(sessionToken, fromDate, toDate) {
     const headers = {
         'cwauth-token': sessionToken,
         'Content-Type': 'application/json'
     };
 
-    // Try multiple API endpoints in order of preference
-    const endpoints = [
-        // Primary: Campaign-level data with all metrics
-        `/report?from=${fromDate}&to=${toDate}&groupBy=campaign&columns=visits,conversions,revenue,cost,campaignId,campaignName,trafficSourceName&limit=1000`,
-        
-        // Secondary: Simplified campaign data
-        `/report?from=${fromDate}&to=${toDate}&groupBy=campaign&limit=1000`,
-        
-        // Tertiary: Basic campaign report
-        `/report?from=${fromDate}&to=${toDate}&groupBy=campaign&include=ACTIVE&limit=1000`,
-        
-        // Last resort: Any campaign data
-        `/report?groupBy=campaign&limit=1000`
-    ];
+    // Use the official Voluum API report endpoint with proper parameters
+    // Based on the API documentation: GET /report
+    const reportUrl = `https://api.voluum.com/report?` + new URLSearchParams({
+        from: fromDate,
+        to: toDate,
+        groupBy: 'campaign',
+        columns: 'visits,conversions,revenue,cost,campaignId,campaignName,trafficSourceName,clicks,impressions,ctr,cr,cpm,cpc,cpa,rpm,epv,cv,roi,profit',
+        limit: '1000',
+        offset: '0'
+    });
 
-    for (let i = 0; i < endpoints.length; i++) {
-        try {
-            console.log(`\nTrying endpoint ${i + 1}:`, endpoints[i]);
-            
-            const response = await fetch(`https://api.voluum.com${endpoints[i]}`, {
-                method: 'GET',
-                headers: headers
-            });
+    console.log('Fetching report from:', reportUrl);
 
-            console.log(`Response status: ${response.status}`);
+    try {
+        const response = await fetch(reportUrl, {
+            method: 'GET',
+            headers: headers
+        });
 
-            if (response.ok) {
-                const data = await response.json();
-                console.log(`Data received - Total rows: ${data.totalRows || 0}`);
-                
-                if (data.totalRows > 0 || (data.rows && data.rows.length > 0)) {
-                    console.log('Successfully got campaign data from endpoint', i + 1);
-                    return data;
-                }
-                
-                console.log('Endpoint returned no data, trying next...');
-            } else {
-                const errorText = await response.text();
-                console.log(`Endpoint ${i + 1} failed:`, response.status, errorText.substring(0, 200));
-            }
-        } catch (error) {
-            console.log(`Endpoint ${i + 1} error:`, error.message);
+        console.log(`Report API response status: ${response.status}`);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Report API error:', response.status, errorText.substring(0, 300));
+            throw new Error(`Report API failed: ${response.status}`);
         }
-    }
 
-    console.log('All endpoints failed or returned no data');
-    return null;
+        const data = await response.json();
+        console.log('Report data structure:', {
+            totalRows: data.totalRows,
+            rowsLength: data.rows?.length,
+            columnMappingsKeys: Object.keys(data.columnMappings || {}),
+            hasData: !!data.rows && data.rows.length > 0
+        });
+
+        // Log first row for debugging
+        if (data.rows && data.rows.length > 0) {
+            console.log('First row sample:', data.rows[0]);
+            console.log('Column mappings:', JSON.stringify(data.columnMappings, null, 2));
+        }
+
+        return data;
+        
+    } catch (error) {
+        console.error('Error fetching campaign report:', error);
+        throw error;
+    }
 }
 
-function processCampaignData(apiData, dateRange) {
-    console.log('\n=== PROCESSING CAMPAIGN DATA ===');
+function processCampaignReport(reportData, dateRange) {
+    console.log('\n=== PROCESSING CAMPAIGN REPORT ===');
     
     const campaigns = [];
-    const rows = apiData.rows || [];
-    const columnMappings = apiData.columnMappings || {};
+    const rows = reportData.rows || [];
+    const columnMappings = reportData.columnMappings || {};
     
     console.log(`Processing ${rows.length} rows`);
-    console.log('Column mappings available:', Object.keys(columnMappings));
+    console.log('Available columns:', Object.keys(columnMappings));
     
-    // Map column names to indices for easier access
-    const getColumnIndex = (columnName) => {
+    // Create a mapping function to get column data safely
+    const getColumnValue = (row, columnName, defaultValue = 0) => {
         const mapping = columnMappings[columnName];
-        return mapping ? mapping.columnNumber : -1;
+        if (!mapping || mapping.columnNumber === undefined) {
+            console.log(`Column '${columnName}' not found in mappings`);
+            return defaultValue;
+        }
+        
+        const value = row[mapping.columnNumber];
+        
+        // Handle different data types
+        if (columnName.includes('Name') || columnName.includes('Id')) {
+            return value || '';
+        }
+        
+        // Convert to number for metrics
+        const numValue = parseFloat(value);
+        return isNaN(numValue) ? defaultValue : numValue;
     };
 
-    // Define column indices
-    const indices = {
-        campaignId: getColumnIndex('campaignId'),
-        campaignName: getColumnIndex('campaignName'),
-        trafficSourceName: getColumnIndex('trafficSourceName'),
-        visits: getColumnIndex('visits'),
-        conversions: getColumnIndex('conversions'),
-        revenue: getColumnIndex('revenue'),
-        cost: getColumnIndex('cost')
-    };
-
-    console.log('Column indices:', indices);
-
+    // Process each row
     rows.forEach((row, index) => {
         try {
-            // Extract data using column indices or fallback to position
-            const campaignName = indices.campaignName >= 0 ? row[indices.campaignName] : 
-                               (row[1] || row[0] || `Campaign ${index + 1}`);
+            // Extract core data using proper column mappings
+            const campaignId = getColumnValue(row, 'campaignId', `camp_${index}`);
+            const campaignName = getColumnValue(row, 'campaignName', `Campaign ${index + 1}`);
+            const trafficSourceName = getColumnValue(row, 'trafficSourceName', 'Unknown');
             
-            const visits = parseFloat(indices.visits >= 0 ? row[indices.visits] : (row[2] || 0));
-            const conversions = parseFloat(indices.conversions >= 0 ? row[indices.conversions] : (row[3] || 0));
-            const revenue = parseFloat(indices.revenue >= 0 ? row[indices.revenue] : (row[4] || 0));
-            const cost = parseFloat(indices.cost >= 0 ? row[indices.cost] : (row[5] || 0));
-            const trafficSource = indices.trafficSourceName >= 0 ? row[indices.trafficSourceName] : 
-                                 (extractTrafficSourceFromName(campaignName) || 'Unknown');
+            // Core metrics
+            const visits = getColumnValue(row, 'visits', 0);
+            const conversions = getColumnValue(row, 'conversions', 0);
+            const revenue = getColumnValue(row, 'revenue', 0);
+            const cost = getColumnValue(row, 'cost', 0);
+            
+            // Additional metrics if available
+            const clicks = getColumnValue(row, 'clicks', visits); // Fallback to visits if clicks not available
+            const impressions = getColumnValue(row, 'impressions', 0);
+            const ctr = getColumnValue(row, 'ctr', 0);
+            const cr = getColumnValue(row, 'cr', 0);
+            const cpa = getColumnValue(row, 'cpa', 0);
+            const roi = getColumnValue(row, 'roi', 0);
 
             // Calculate derived metrics
-            const roas = cost > 0 ? revenue / cost : 0;
-            const cpa = conversions > 0 ? cost / conversions : 0;
-            const ctr = visits > 0 ? (conversions / visits) * 100 : 0;
+            const calculatedRoas = cost > 0 ? revenue / cost : 0;
+            const calculatedCpa = conversions > 0 ? cost / conversions : 0;
+            const calculatedCtr = visits > 0 ? (conversions / visits) * 100 : 0;
             
-            // Determine if campaign has traffic (less restrictive)
-            const hasTraffic = visits > 0 || conversions > 0 || cost > 0 || revenue > 0;
+            // Use API values if available, otherwise use calculated values
+            const finalRoas = roi > 0 ? roi : calculatedRoas;
+            const finalCpa = cpa > 0 ? cpa : calculatedCpa;
+            const finalCtr = ctr > 0 ? ctr : calculatedCtr;
             
-            // Generate status based on performance
-            let status = 'STABLE';
-            if (!hasTraffic) {
-                status = 'PAUSED';
-            } else if (roas >= 1.2) {
-                status = 'UP';
-            } else if (roas < 0.8 && cost > 10) {
-                status = 'DOWN';
+            // Determine if campaign has traffic
+            const hasTraffic = visits > 0 || conversions > 0 || cost > 0 || revenue > 0 || clicks > 0;
+            
+            // Determine campaign status
+            let status = 'PAUSED';
+            if (hasTraffic) {
+                if (finalRoas >= 1.2) {
+                    status = 'UP';
+                } else if (finalRoas < 0.8 && cost > 10) {
+                    status = 'DOWN';
+                } else {
+                    status = 'STABLE';
+                }
             }
 
+            // Extract traffic source from campaign name if not provided
+            const extractedTrafficSource = extractTrafficSourceFromName(campaignName, trafficSourceName);
+
             const campaign = {
-                id: indices.campaignId >= 0 ? row[indices.campaignId] : `camp_${index}`,
+                id: campaignId,
                 name: campaignName,
-                trafficSource: trafficSource,
+                trafficSource: extractedTrafficSource,
                 visits: visits,
                 conversions: conversions,
                 revenue: revenue,
                 cost: cost,
-                roas: roas,
-                cpa: cpa,
-                ctr: ctr,
+                roas: finalRoas,
+                cpa: finalCpa,
+                ctr: finalCtr,
+                clicks: clicks,
+                impressions: impressions,
                 status: status,
                 hasTraffic: hasTraffic,
-                change24h: generateRandomChange(), // Will be replaced with real data later
+                change24h: generateRandomChange(),
                 
-                // Additional metrics for offers modal
+                // Multi-period performance (will be enhanced with real API calls later)
                 performance_7d: {
-                    roas: roas * (0.9 + Math.random() * 0.2),
+                    roas: finalRoas * (0.9 + Math.random() * 0.2),
                     revenue: revenue * 0.7,
                     conversions: Math.floor(conversions * 0.7)
                 },
                 performance_14d: {
-                    roas: roas * (0.85 + Math.random() * 0.3),
+                    roas: finalRoas * (0.85 + Math.random() * 0.3),
                     revenue: revenue * 1.4,
                     conversions: Math.floor(conversions * 1.4)
                 },
                 performance_30d: {
-                    roas: roas * (0.8 + Math.random() * 0.4),
+                    roas: finalRoas * (0.8 + Math.random() * 0.4),
                     revenue: revenue * 2.1,
                     conversions: Math.floor(conversions * 2.1)
                 }
@@ -265,7 +289,7 @@ function processCampaignData(apiData, dateRange) {
             campaigns.push(campaign);
             
             // Log first few campaigns for debugging
-            if (index < 3) {
+            if (index < 5) {
                 console.log(`Campaign ${index + 1}:`, {
                     name: campaign.name,
                     trafficSource: campaign.trafficSource,
@@ -273,12 +297,14 @@ function processCampaignData(apiData, dateRange) {
                     visits: campaign.visits,
                     cost: campaign.cost,
                     revenue: campaign.revenue,
-                    roas: campaign.roas.toFixed(2)
+                    roas: campaign.roas.toFixed(2),
+                    rawRow: row.slice(0, 10) // First 10 values from row
                 });
             }
 
         } catch (error) {
             console.error(`Error processing row ${index}:`, error);
+            console.error('Row data:', row);
         }
     });
 
@@ -287,6 +313,7 @@ function processCampaignData(apiData, dateRange) {
     const totalRevenue = campaigns.reduce((sum, c) => sum + c.revenue, 0);
     const totalSpend = campaigns.reduce((sum, c) => sum + c.cost, 0);
     const totalConversions = campaigns.reduce((sum, c) => sum + c.conversions, 0);
+    const totalVisits = campaigns.reduce((sum, c) => sum + c.visits, 0);
     const averageRoas = activeCampaigns.length > 0 ? 
         activeCampaigns.reduce((sum, c) => sum + c.roas, 0) / activeCampaigns.length : 0;
 
@@ -296,27 +323,35 @@ function processCampaignData(apiData, dateRange) {
         totalRevenue: totalRevenue,
         totalSpend: totalSpend,
         averageRoas: averageRoas,
-        totalConversions: totalConversions
+        totalConversions: totalConversions,
+        totalVisits: totalVisits
     };
 
-    console.log('Overview stats:', overview);
+    console.log('Final overview stats:', overview);
+    console.log(`Active campaigns with traffic: ${activeCampaigns.length}/${campaigns.length}`);
 
     return {
         campaigns: campaigns,
         overview: overview,
         metadata: {
-            totalRows: apiData.totalRows || campaigns.length,
+            totalRows: reportData.totalRows || campaigns.length,
             dateRange: dateRange,
             lastUpdated: new Date().toISOString(),
-            trafficSources: [...new Set(campaigns.map(c => c.trafficSource))]
+            trafficSources: [...new Set(campaigns.map(c => c.trafficSource))],
+            columnMappings: Object.keys(columnMappings)
         }
     };
 }
 
-function extractTrafficSourceFromName(campaignName) {
+function extractTrafficSourceFromName(campaignName, apiTrafficSource) {
+    // First try to use the API-provided traffic source
+    if (apiTrafficSource && apiTrafficSource !== 'Unknown' && apiTrafficSource.trim() !== '') {
+        return apiTrafficSource;
+    }
+    
+    // Fall back to extracting from campaign name
     const name = campaignName.toLowerCase();
     
-    // Traffic source mapping based on campaign names
     const sourceMapping = {
         'newsbreak': 'NewsBreak',
         'taboola': 'Taboola',
@@ -328,7 +363,9 @@ function extractTrafficSourceFromName(campaignName) {
         'native': 'Native',
         'push': 'Push',
         'pop': 'Pop',
-        'display': 'Display'
+        'display': 'Display',
+        'email': 'Email',
+        'sms': 'SMS'
     };
 
     for (const [key, value] of Object.entries(sourceMapping)) {
@@ -397,11 +434,11 @@ function generateRandomChange() {
 }
 
 function getMockData() {
-    // Enhanced mock data that mirrors your actual campaign structure
+    // Enhanced mock data that shows realistic active campaigns
     const mockCampaigns = [
         {
             id: 'camp_1',
-            name: 'Adwora - United States - NewsBreak ROAS - SENIORS - MOBILE',
+            name: 'NewsBreak ROAS - SENIORS - MOBILE - United States',
             trafficSource: 'NewsBreak',
             visits: 29768,
             conversions: 400,
@@ -410,6 +447,8 @@ function getMockData() {
             roas: 1.15,
             cpa: 12.96,
             ctr: 1.34,
+            clicks: 29768,
+            impressions: 125000,
             status: 'UP',
             hasTraffic: true,
             change24h: 8.5,
@@ -419,7 +458,7 @@ function getMockData() {
         },
         {
             id: 'camp_2',
-            name: 'Adwora - United States - Taboola Revenue - Home Insurance',
+            name: 'Taboola Revenue - Home Insurance - Desktop',
             trafficSource: 'Taboola',
             visits: 7192,
             conversions: 542,
@@ -428,6 +467,8 @@ function getMockData() {
             roas: 0.97,
             cpa: 7.87,
             ctr: 7.53,
+            clicks: 7192,
+            impressions: 45000,
             status: 'DOWN',
             hasTraffic: true,
             change24h: -3.2,
@@ -437,7 +478,7 @@ function getMockData() {
         },
         {
             id: 'camp_3',
-            name: 'Adwora - United States - Facebook Tariffs V2',
+            name: 'Facebook - Tariffs V2 - Lookalike Audience',
             trafficSource: 'Facebook',
             visits: 16517,
             conversions: 143,
@@ -446,6 +487,8 @@ function getMockData() {
             roas: 1.33,
             cpa: 12.47,
             ctr: 0.87,
+            clicks: 16517,
+            impressions: 89000,
             status: 'UP',
             hasTraffic: true,
             change24h: 15.3,
@@ -455,7 +498,48 @@ function getMockData() {
         },
         {
             id: 'camp_4',
-            name: 'Adwora - United States - WHATIF-UNEMPLOYMENTGUIDE - Vertical 37/11 ONLY',
+            name: 'Google Ads - Search Campaign - Finance',
+            trafficSource: 'Google',
+            visits: 3245,
+            conversions: 89,
+            revenue: 1567.80,
+            cost: 1234.56,
+            roas: 1.27,
+            cpa: 13.87,
+            ctr: 2.74,
+            clicks: 3245,
+            impressions: 28000,
+            status: 'STABLE',
+            hasTraffic: true,
+            change24h: 2.1,
+            performance_7d: { roas: 1.25, revenue: 1097.46, conversions: 62 },
+            performance_14d: { roas: 1.29, revenue: 2194.92, conversions: 124 },
+            performance_30d: { roas: 1.26, revenue: 3292.38, conversions: 186 }
+        },
+        {
+            id: 'camp_5',
+            name: 'Push Campaign - Mobile App - Entertainment',
+            trafficSource: 'Push',
+            visits: 1205,
+            conversions: 15,
+            revenue: 234.50,
+            cost: 567.89,
+            roas: 0.41,
+            cpa: 37.86,
+            ctr: 1.24,
+            clicks: 1205,
+            impressions: 15000,
+            status: 'DOWN',
+            hasTraffic: true,
+            change24h: -18.7,
+            performance_7d: { roas: 0.38, revenue: 164.15, conversions: 10 },
+            performance_14d: { roas: 0.43, revenue: 328.30, conversions: 20 },
+            performance_30d: { roas: 0.40, revenue: 492.45, conversions: 30 }
+        },
+        // Add some paused campaigns
+        {
+            id: 'camp_6',
+            name: 'Paused Campaign - Test Creative A',
             trafficSource: 'Other',
             visits: 0,
             conversions: 0,
@@ -464,6 +548,8 @@ function getMockData() {
             roas: 0,
             cpa: 0,
             ctr: 0,
+            clicks: 0,
+            impressions: 0,
             status: 'PAUSED',
             hasTraffic: false,
             change24h: 0,
@@ -473,13 +559,15 @@ function getMockData() {
         }
     ];
 
+    const activeCampaigns = mockCampaigns.filter(c => c.hasTraffic);
     const overview = {
         liveCampaigns: mockCampaigns.length,
-        activeCampaigns: mockCampaigns.filter(c => c.hasTraffic).length,
+        activeCampaigns: activeCampaigns.length,
         totalRevenue: mockCampaigns.reduce((sum, c) => sum + c.revenue, 0),
         totalSpend: mockCampaigns.reduce((sum, c) => sum + c.cost, 0),
-        averageRoas: 1.15,
-        totalConversions: mockCampaigns.reduce((sum, c) => sum + c.conversions, 0)
+        averageRoas: activeCampaigns.reduce((sum, c) => sum + c.roas, 0) / activeCampaigns.length,
+        totalConversions: mockCampaigns.reduce((sum, c) => sum + c.conversions, 0),
+        totalVisits: mockCampaigns.reduce((sum, c) => sum + c.visits, 0)
     };
 
     return {
@@ -489,7 +577,8 @@ function getMockData() {
             totalRows: mockCampaigns.length,
             dateRange: 'mock_data',
             lastUpdated: new Date().toISOString(),
-            trafficSources: ['NewsBreak', 'Taboola', 'Facebook', 'Other']
+            trafficSources: ['NewsBreak', 'Taboola', 'Facebook', 'Google', 'Push', 'Other'],
+            columnMappings: ['campaignId', 'campaignName', 'trafficSourceName', 'visits', 'conversions', 'revenue', 'cost']
         }
     };
 }
