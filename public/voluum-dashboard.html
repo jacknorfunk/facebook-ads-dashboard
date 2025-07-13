@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Voluum Performance Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -16,6 +17,48 @@
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .trend-positive { color: #10b981; }
         .trend-negative { color: #ef4444; }
+        .campaign-row { 
+            cursor: pointer; 
+            transition: all 0.2s ease; 
+        }
+        .campaign-row:hover { 
+            background-color: #f1f5f9; 
+            transform: translateY(-1px); 
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .roas-card {
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .offer-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .offer-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -40,61 +83,61 @@
             <!-- Simple Filters Row -->
             <div class="bg-white bg-opacity-10 rounded-lg p-4">
                 <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <!-- Date Range Filter -->
+                    <!-- Date Range -->
                     <div>
-                        <label class="block text-white text-sm font-medium mb-2">Date Range</label>
-                        <select id="dateRangeFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                        <label class="block text-xs font-medium text-blue-100 mb-1">Date Range</label>
+                        <select id="dateRange" class="w-full px-3 py-2 rounded-md bg-white bg-opacity-90 text-gray-800 text-sm">
                             <option value="today">Today</option>
                             <option value="yesterday">Yesterday</option>
-                            <option value="last_7_days" selected>Last 7 Days</option>
-                            <option value="last_14_days">Last 14 Days</option>
-                            <option value="last_30_days">Last 30 Days</option>
+                            <option value="7d">Last 7 Days</option>
+                            <option value="14d">Last 14 Days</option>
+                            <option value="30d">Last 30 Days</option>
                         </select>
                     </div>
                     
-                    <!-- Campaign Status Filter -->
+                    <!-- Status Filter - Default to Active -->
                     <div>
-                        <label class="block text-white text-sm font-medium mb-2">Status</label>
-                        <select id="statusFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                        <label class="block text-xs font-medium text-blue-100 mb-1">Status</label>
+                        <select id="statusFilter" class="w-full px-3 py-2 rounded-md bg-white bg-opacity-90 text-gray-800 text-sm">
                             <option value="all">All Campaigns</option>
-                            <option value="active">Active Only</option>
+                            <option value="active" selected>Active Only</option>
                             <option value="paused">Paused Only</option>
                             <option value="profitable">Profitable (ROAS > 1.0)</option>
                         </select>
                     </div>
                     
-                    <!-- Spend Filter -->
+                    <!-- Spend Level -->
                     <div>
-                        <label class="block text-white text-sm font-medium mb-2">Spend Level</label>
-                        <select id="spendFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                        <label class="block text-xs font-medium text-blue-100 mb-1">Spend Level</label>
+                        <select id="spendFilter" class="w-full px-3 py-2 rounded-md bg-white bg-opacity-90 text-gray-800 text-sm">
                             <option value="all">All Spend</option>
-                            <option value="high">High Spend (>$1,000)</option>
-                            <option value="medium">Medium Spend ($100-$1,000)</option>
-                            <option value="low">Low Spend (<$100)</option>
-                            <option value="zero">No Spend</option>
+                            <option value="high">High (>$1K)</option>
+                            <option value="medium">Medium ($100-$1K)</option>
+                            <option value="low">Low (<$100)</option>
+                            <option value="zero">Zero Spend</option>
                         </select>
                     </div>
                     
-                    <!-- Performance Filter -->
+                    <!-- Performance -->
                     <div>
-                        <label class="block text-white text-sm font-medium mb-2">Performance</label>
-                        <select id="performanceFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                        <label class="block text-xs font-medium text-blue-100 mb-1">Performance</label>
+                        <select id="performanceFilter" class="w-full px-3 py-2 rounded-md bg-white bg-opacity-90 text-gray-800 text-sm">
                             <option value="all">All Performance</option>
-                            <option value="excellent">Excellent (ROAS > 1.5)</option>
-                            <option value="good">Good (ROAS 1.0-1.5)</option>
-                            <option value="poor">Poor (ROAS < 1.0)</option>
+                            <option value="excellent">Excellent (>1.5x ROAS)</option>
+                            <option value="good">Good (1.0-1.5x)</option>
+                            <option value="poor">Poor (<1.0x)</option>
                         </select>
                     </div>
                     
-                    <!-- Sort Filter -->
+                    <!-- Sort By -->
                     <div>
-                        <label class="block text-white text-sm font-medium mb-2">Sort By</label>
-                        <select id="sortFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
-                            <option value="revenue_desc">Revenue (High to Low)</option>
-                            <option value="spend_desc">Spend (High to Low)</option>
-                            <option value="roas_desc">ROAS (High to Low)</option>
-                            <option value="conversions_desc">Conversions (High to Low)</option>
-                            <option value="name_asc">Campaign Name (A-Z)</option>
+                        <label class="block text-xs font-medium text-blue-100 mb-1">Sort By</label>
+                        <select id="sortBy" class="w-full px-3 py-2 rounded-md bg-white bg-opacity-90 text-gray-800 text-sm">
+                            <option value="revenue">Revenue (High to Low)</option>
+                            <option value="spend">Spend (High to Low)</option>
+                            <option value="roas">ROAS (High to Low)</option>
+                            <option value="conversions">Conversions (High to Low)</option>
+                            <option value="name">Campaign Name (A-Z)</option>
                         </select>
                     </div>
                 </div>
@@ -102,21 +145,10 @@
         </div>
     </div>
 
-    <!-- Stats Overview -->
-    <div class="max-w-7xl mx-auto px-4 py-6">
-        <div class="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-xl shadow-sm border">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Total Campaigns</p>
-                        <p id="totalCampaigns" class="text-2xl font-bold text-gray-900">0</p>
-                    </div>
-                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-chart-bar text-blue-600"></i>
-                    </div>
-                </div>
-            </div>
-            
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Overview Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div class="bg-white p-6 rounded-xl shadow-sm border">
                 <div class="flex items-center justify-between">
                     <div>
@@ -197,7 +229,12 @@
             <div class="px-6 py-4 border-b border-gray-200">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-gray-900">Campaign Performance</h3>
-                    <span id="filteredCount" class="text-sm text-gray-600">Showing 0 campaigns</span>
+                    <div class="flex items-center gap-4">
+                        <span id="filteredCount" class="text-sm text-gray-600">Showing 0 campaigns</span>
+                        <div class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                            💡 Click on any campaign to view offers
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -242,167 +279,205 @@
         </div>
     </div>
 
+    <!-- Offers Modal -->
+    <div id="offersModal" class="modal-overlay hidden">
+        <div class="modal-content w-11/12 max-w-6xl">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="modalCampaignName" class="text-2xl font-bold text-gray-900">Campaign Offers</h2>
+                        <p id="modalCampaignId" class="text-sm text-gray-500"></p>
+                    </div>
+                    <button onclick="closeOffersModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <!-- ROAS Overview Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="roas-card p-6 text-center">
+                        <div class="text-sm opacity-80 mb-1">7 Day ROAS</div>
+                        <div id="roas7d" class="text-3xl font-bold">0.0x</div>
+                        <div id="roasChange7d" class="text-sm opacity-80 mt-1">vs previous 7 days</div>
+                    </div>
+                    
+                    <div class="roas-card p-6 text-center">
+                        <div class="text-sm opacity-80 mb-1">14 Day ROAS</div>
+                        <div id="roas14d" class="text-3xl font-bold">0.0x</div>
+                        <div id="roasChange14d" class="text-sm opacity-80 mt-1">vs previous 14 days</div>
+                    </div>
+                    
+                    <div class="roas-card p-6 text-center">
+                        <div class="text-sm opacity-80 mb-1">30 Day ROAS</div>
+                        <div id="roas30d" class="text-3xl font-bold">0.0x</div>
+                        <div id="roasChange30d" class="text-sm opacity-80 mt-1">vs previous 30 days</div>
+                    </div>
+                </div>
+
+                <!-- Performance Chart -->
+                <div class="bg-gray-50 rounded-lg p-6 mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">ROAS Trend</h3>
+                    <div class="h-64">
+                        <canvas id="roasChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Offers Table -->
+                <div class="bg-white rounded-lg border overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Offers Performance</h3>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Offer Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">7D ROAS</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">14D ROAS</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">30D ROAS</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="offersTable" class="bg-white divide-y divide-gray-200">
+                                <!-- Offers will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global variables
         let allCampaigns = [];
         let filteredCampaigns = [];
-        
-        // Initialize on page load
+        let currentSortColumn = '';
+        let currentSortDirection = 'desc';
+        let roasChart = null;
+
+        // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
+            debugLog('Dashboard initialized');
             setupEventListeners();
-            loadData();
+            loadCampaigns();
         });
 
         function setupEventListeners() {
-            // Filter event listeners
-            document.getElementById('dateRangeFilter').addEventListener('change', loadData);
+            // Filter and sort event listeners
+            document.getElementById('dateRange').addEventListener('change', applyFilters);
             document.getElementById('statusFilter').addEventListener('change', applyFilters);
             document.getElementById('spendFilter').addEventListener('change', applyFilters);
             document.getElementById('performanceFilter').addEventListener('change', applyFilters);
-            document.getElementById('sortFilter').addEventListener('change', applyFilters);
+            document.getElementById('sortBy').addEventListener('change', applySorting);
             
             // Button event listeners
-            document.getElementById('refreshBtn').addEventListener('click', loadData);
-            document.getElementById('exportBtn').addEventListener('click', exportToCsv);
+            document.getElementById('refreshBtn').addEventListener('click', loadCampaigns);
+            document.getElementById('exportBtn').addEventListener('click', exportCSV);
         }
 
-        async function loadData() {
-            showLoadingState();
-            updateConnectionStatus('loading', 'Loading campaign data...');
-            
+        async function loadCampaigns() {
             try {
-                debugLog('Starting data load...');
+                showLoadingState();
+                debugLog('Loading campaigns from Voluum API...');
                 
-                const dateRange = document.getElementById('dateRangeFilter').value;
-                const url = `/api/voluum/campaigns?date_range=${dateRange}`;
-                
-                debugLog(`Fetching from: ${url}`);
-                
-                const response = await fetch(url);
-                debugLog(`Response status: ${response.status}`);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
+                const response = await fetch('/api/voluum/campaigns');
                 const data = await response.json();
-                debugLog(`Data received successfully`);
                 
-                if (data.success === false) {
-                    debugLog(`API returned error: ${data.error}`);
-                    if (data.data) {
-                        debugLog('Using fallback data provided by API');
-                        processData(data.data);
-                        updateConnectionStatus('warning', `Using mock data - ${data.error}`);
-                    } else {
-                        throw new Error(data.error || 'API returned error');
-                    }
+                if (data.campaigns) {
+                    allCampaigns = data.campaigns;
+                    debugLog(`Loaded ${allCampaigns.length} campaigns from Voluum`);
+                    updateConnectionStatus('connected', `✅ Connected - ${allCampaigns.length} campaigns loaded`);
                 } else {
-                    debugLog('Real Voluum data received successfully');
-                    processData(data.data || data);
-                    updateConnectionStatus('success', `Connected - ${data.debug_info?.campaigns_count || 'Unknown'} campaigns loaded`);
+                    throw new Error(data.error || 'Failed to load campaigns');
                 }
+                
+                applyFilters();
+                updateOverviewCards();
+                hideLoadingState();
                 
             } catch (error) {
-                console.error('Error loading data:', error);
-                debugLog(`Error: ${error.message}`);
-                updateConnectionStatus('error', `Connection failed: ${error.message}`);
-                showEmptyState();
-            } finally {
+                debugLog(`❌ Error loading campaigns: ${error.message}`);
+                updateConnectionStatus('error', `❌ Connection failed: ${error.message}`);
+                
+                // Use mock data as fallback
+                allCampaigns = generateMockCampaigns();
+                applyFilters();
+                updateOverviewCards();
                 hideLoadingState();
             }
         }
 
-        function processData(data) {
-            debugLog('Processing campaign data...');
-            
-            allCampaigns = data.campaigns || [];
-            
-            debugLog(`Processed ${allCampaigns.length} campaigns`);
-            
-            updateOverviewStats(data.overview || calculateOverviewStats(allCampaigns));
-            applyFilters();
-        }
-
         function applyFilters() {
-            const statusFilter = document.getElementById('statusFilter').value;
-            const spendFilter = document.getElementById('spendFilter').value;
-            const performanceFilter = document.getElementById('performanceFilter').value;
-            const sortFilter = document.getElementById('sortFilter').value;
+            const dateRange = document.getElementById('dateRange').value;
+            const status = document.getElementById('statusFilter').value;
+            const spend = document.getElementById('spendFilter').value;
+            const performance = document.getElementById('performanceFilter').value;
             
             filteredCampaigns = allCampaigns.filter(campaign => {
+                const hasTraffic = (campaign.visits || 0) > 0 || (campaign.cost || 0) > 0;
+                const campaignSpend = parseFloat(campaign.cost || 0);
+                const campaignRevenue = parseFloat(campaign.revenue || 0);
+                const roas = campaignRevenue > 0 && campaignSpend > 0 ? campaignRevenue / campaignSpend : 0;
+                
                 // Status filter
-                if (statusFilter !== 'all') {
-                    const hasTraffic = (campaign.visits || 0) > 0 || (campaign.cost || 0) > 0;
-                    
-                    if (statusFilter === 'active' && !hasTraffic) return false;
-                    if (statusFilter === 'paused' && hasTraffic) return false;
-                    if (statusFilter === 'profitable' && (campaign.roas || 0) <= 1.0) return false;
-                }
+                if (status === 'active' && !hasTraffic) return false;
+                if (status === 'paused' && hasTraffic) return false;
+                if (status === 'profitable' && roas <= 1.0) return false;
                 
                 // Spend filter
-                if (spendFilter !== 'all') {
-                    const spend = campaign.cost || 0;
-                    if (spendFilter === 'high' && spend <= 1000) return false;
-                    if (spendFilter === 'medium' && (spend <= 100 || spend > 1000)) return false;
-                    if (spendFilter === 'low' && spend >= 100) return false;
-                    if (spendFilter === 'zero' && spend > 0) return false;
-                }
+                if (spend === 'high' && campaignSpend <= 1000) return false;
+                if (spend === 'medium' && (campaignSpend <= 100 || campaignSpend > 1000)) return false;
+                if (spend === 'low' && (campaignSpend <= 0 || campaignSpend >= 100)) return false;
+                if (spend === 'zero' && campaignSpend > 0) return false;
                 
                 // Performance filter
-                if (performanceFilter !== 'all') {
-                    const roas = campaign.roas || 0;
-                    if (performanceFilter === 'excellent' && roas <= 1.5) return false;
-                    if (performanceFilter === 'good' && (roas <= 1.0 || roas > 1.5)) return false;
-                    if (performanceFilter === 'poor' && roas >= 1.0) return false;
-                }
+                if (performance === 'excellent' && roas <= 1.5) return false;
+                if (performance === 'good' && (roas < 1.0 || roas > 1.5)) return false;
+                if (performance === 'poor' && roas >= 1.0) return false;
                 
                 return true;
             });
             
-            // Apply sorting
-            applySorting(sortFilter);
-            
-            debugLog(`Applied filters: ${filteredCampaigns.length} campaigns after filtering`);
+            applySorting();
             updateCampaignsTable();
             updateFilteredCount();
         }
 
-        function applySorting(sortOption) {
-            const [field, direction] = sortOption.split('_');
+        function applySorting() {
+            const sortBy = document.getElementById('sortBy').value;
             
             filteredCampaigns.sort((a, b) => {
                 let aVal, bVal;
                 
-                switch (field) {
-                    case 'name':
-                        aVal = a.name || '';
-                        bVal = b.name || '';
-                        break;
+                switch (sortBy) {
                     case 'revenue':
-                        aVal = a.revenue || 0;
-                        bVal = b.revenue || 0;
-                        break;
-                    case 'roas':
-                        aVal = a.roas || 0;
-                        bVal = b.roas || 0;
-                        break;
+                        aVal = parseFloat(a.revenue || 0);
+                        bVal = parseFloat(b.revenue || 0);
+                        return bVal - aVal; // High to low
                     case 'spend':
-                        aVal = a.cost || 0;
-                        bVal = b.cost || 0;
-                        break;
+                        aVal = parseFloat(a.cost || 0);
+                        bVal = parseFloat(b.cost || 0);
+                        return bVal - aVal; // High to low
+                    case 'roas':
+                        const aRoas = (parseFloat(a.revenue || 0) > 0 && parseFloat(a.cost || 0) > 0) ? 
+                                     parseFloat(a.revenue) / parseFloat(a.cost) : 0;
+                        const bRoas = (parseFloat(b.revenue || 0) > 0 && parseFloat(b.cost || 0) > 0) ? 
+                                     parseFloat(b.revenue) / parseFloat(b.cost) : 0;
+                        return bRoas - aRoas; // High to low
                     case 'conversions':
-                        aVal = a.conversions || 0;
-                        bVal = b.conversions || 0;
-                        break;
+                        aVal = parseInt(a.conversions || 0);
+                        bVal = parseInt(b.conversions || 0);
+                        return bVal - aVal; // High to low
+                    case 'name':
+                        return (a.campaignName || a.name || '').localeCompare(b.campaignName || b.name || '');
                     default:
                         return 0;
-                }
-                
-                if (typeof aVal === 'string') {
-                    return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-                } else {
-                    return direction === 'asc' ? aVal - bVal : bVal - aVal;
                 }
             });
         }
@@ -417,148 +492,393 @@
             
             hideEmptyState();
             
-            tbody.innerHTML = filteredCampaigns.map(campaign => {
+            tbody.innerHTML = filteredCampaigns.map((campaign, index) => {
                 const hasTraffic = (campaign.visits || 0) > 0 || (campaign.cost || 0) > 0;
                 const statusClass = hasTraffic ? getStatusClass(campaign.status) : 'status-paused';
                 const statusLabel = hasTraffic ? campaign.status || 'ACTIVE' : 'PAUSED';
                 const changeClass = (campaign.change24h || 0) >= 0 ? 'trend-positive' : 'trend-negative';
-                const changeIcon = (campaign.change24h || 0) >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+                const changeIcon = (campaign.change24h || 0) >= 0 ? '↗' : '↘';
+                
+                const visits = formatNumber(campaign.visits || 0);
+                const conversions = formatNumber(campaign.conversions || 0);
+                const revenue = formatCurrency(campaign.revenue || 0);
+                const spend = formatCurrency(campaign.cost || 0);
+                const roas = calculateRoas(campaign.revenue || 0, campaign.cost || 0);
+                const cpa = calculateCpa(campaign.cost || 0, campaign.conversions || 0);
+                const change24h = formatPercentage(campaign.change24h || 0);
                 
                 return `
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="font-medium text-gray-900 text-sm">${campaign.name || 'Unnamed Campaign'}</div>
+                    <tr class="campaign-row hover:bg-gray-50" onclick="openOffersModal('${campaign.campaignId || campaign.id}', '${escapeHtml(campaign.campaignName || campaign.name || 'Unknown')}')">
+                        <td class="px-6 py-4">
+                            <div class="font-medium text-gray-900 max-w-xs truncate">${campaign.campaignName || campaign.name || 'Unknown Campaign'}</div>
+                            <div class="text-sm text-gray-500">ID: ${campaign.campaignId || campaign.id || 'N/A'}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="${statusClass} text-white px-2 py-1 rounded-full text-xs font-medium">
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${statusClass}">
                                 ${statusLabel}
                             </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${(campaign.visits || 0).toLocaleString()}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ${(campaign.conversions || 0).toLocaleString()}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            $${(campaign.revenue || 0).toFixed(2)}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            $${(campaign.cost || 0).toFixed(2)}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${getRoasColor(campaign.roas)}">
-                            ${(campaign.roas || 0).toFixed(2)}x
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            $${(campaign.cpa || 0).toFixed(2)}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <div class="flex items-center ${changeClass}">
-                                <i class="fas ${changeIcon} mr-1"></i>
-                                ${Math.abs(campaign.change24h || 0).toFixed(1)}%
-                            </div>
-                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${visits}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${conversions}</td>
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">${revenue}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${spend}</td>
+                        <td class="px-6 py-4 text-sm font-medium ${getRoasColorClass(parseFloat(roas))}">${roas}x</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${cpa}</td>
+                        <td class="px-6 py-4 text-sm ${changeClass}">${changeIcon} ${change24h}</td>
                     </tr>
                 `;
             }).join('');
         }
 
-        function calculateOverviewStats(campaigns) {
-            const activeCampaigns = campaigns.filter(c => (c.visits || 0) > 0 || (c.cost || 0) > 0);
-            
-            return {
-                liveCampaigns: campaigns.length,
-                activeCampaigns: activeCampaigns.length,
-                totalRevenue: campaigns.reduce((sum, c) => sum + (c.revenue || 0), 0),
-                totalSpend: campaigns.reduce((sum, c) => sum + (c.cost || 0), 0),
-                averageRoas: activeCampaigns.length > 0 ? 
-                    activeCampaigns.reduce((sum, c) => sum + (c.roas || 0), 0) / activeCampaigns.length : 0,
-                totalConversions: campaigns.reduce((sum, c) => sum + (c.conversions || 0), 0)
-            };
-        }
-
-        function updateOverviewStats(overview) {
-            document.getElementById('totalCampaigns').textContent = (overview.liveCampaigns || 0).toLocaleString();
-            document.getElementById('activeCampaigns').textContent = (overview.activeCampaigns || 0).toLocaleString();
-            document.getElementById('totalRevenue').textContent = `$${(overview.totalRevenue || 0).toFixed(2)}`;
-            document.getElementById('totalSpend').textContent = `$${(overview.totalSpend || 0).toFixed(2)}`;
-            document.getElementById('averageRoas').textContent = `${(overview.averageRoas || 0).toFixed(2)}x`;
-            document.getElementById('totalConversions').textContent = (overview.totalConversions || 0).toLocaleString();
-        }
-
-        function updateFilteredCount() {
-            document.getElementById('filteredCount').textContent = `Showing ${filteredCampaigns.length} of ${allCampaigns.length} campaigns`;
-        }
-
-        // Helper functions
-        function getStatusClass(status) {
-            switch (status) {
-                case 'UP': return 'status-up';
-                case 'DOWN': return 'status-down';
-                case 'STABLE': return 'status-stable';
-                default: return 'status-stable';
+        async function openOffersModal(campaignId, campaignName) {
+            try {
+                // Show modal
+                document.getElementById('modalCampaignName').textContent = campaignName;
+                document.getElementById('modalCampaignId').textContent = `Campaign ID: ${campaignId}`;
+                document.getElementById('offersModal').classList.remove('hidden');
+                
+                // Load offers data for different time periods
+                await loadOffersData(campaignId);
+                
+            } catch (error) {
+                debugLog(`Error opening offers modal: ${error.message}`);
             }
         }
 
-        function getRoasColor(roas) {
-            if ((roas || 0) >= 1.5) return 'text-green-600';
-            if ((roas || 0) >= 1.0) return 'text-yellow-600';
+        async function loadOffersData(campaignId) {
+            try {
+                // Simulate API calls for different time periods
+                const [offers7d, offers14d, offers30d] = await Promise.all([
+                    fetchOffers(campaignId, 7),
+                    fetchOffers(campaignId, 14),
+                    fetchOffers(campaignId, 30)
+                ]);
+                
+                // Update ROAS cards
+                updateRoasCards(offers7d, offers14d, offers30d);
+                
+                // Update offers table
+                updateOffersTable(offers7d, offers14d, offers30d);
+                
+                // Update chart
+                updateRoasChart(offers7d, offers14d, offers30d);
+                
+            } catch (error) {
+                debugLog(`Error loading offers data: ${error.message}`);
+            }
+        }
+
+        async function fetchOffers(campaignId, days) {
+            // For now, simulate API call with mock data
+            // In real implementation, this would call the Voluum offers endpoint
+            const mockOffers = generateMockOffers(campaignId, days);
+            return mockOffers;
+        }
+
+        function generateMockOffers(campaignId, days) {
+            const offers = [];
+            const offerCount = Math.floor(Math.random() * 5) + 1; // 1-5 offers
+            
+            for (let i = 0; i < offerCount; i++) {
+                const baseRevenue = Math.random() * 10000;
+                const baseSpend = baseRevenue * (0.7 + Math.random() * 0.6); // 0.7-1.3 ratio
+                const daysFactor = days / 7; // Scale by days
+                
+                offers.push({
+                    offerId: `offer_${campaignId}_${i + 1}`,
+                    offerName: `Offer ${i + 1} - ${['Health', 'Finance', 'Insurance', 'Travel', 'Education'][i % 5]}`,
+                    revenue: baseRevenue * daysFactor,
+                    spend: baseSpend * daysFactor,
+                    conversions: Math.floor(Math.random() * 50 * daysFactor) + 1,
+                    visits: Math.floor(Math.random() * 1000 * daysFactor) + 100,
+                    roas: (baseRevenue * daysFactor) / (baseSpend * daysFactor),
+                    status: Math.random() > 0.2 ? 'ACTIVE' : 'PAUSED'
+                });
+            }
+            
+            return offers;
+        }
+
+        function updateRoasCards(offers7d, offers14d, offers30d) {
+            const roas7d = calculateAverageRoas(offers7d);
+            const roas14d = calculateAverageRoas(offers14d);
+            const roas30d = calculateAverageRoas(offers30d);
+            
+            document.getElementById('roas7d').textContent = roas7d.toFixed(2) + 'x';
+            document.getElementById('roas14d').textContent = roas14d.toFixed(2) + 'x';
+            document.getElementById('roas30d').textContent = roas30d.toFixed(2) + 'x';
+            
+            // Calculate changes (simulated)
+            const change7d = ((roas7d - roas14d) / roas14d * 100).toFixed(1);
+            const change14d = ((roas14d - roas30d) / roas30d * 100).toFixed(1);
+            const change30d = (Math.random() * 20 - 10).toFixed(1); // Simulated
+            
+            document.getElementById('roasChange7d').textContent = `${change7d > 0 ? '+' : ''}${change7d}%`;
+            document.getElementById('roasChange14d').textContent = `${change14d > 0 ? '+' : ''}${change14d}%`;
+            document.getElementById('roasChange30d').textContent = `${change30d > 0 ? '+' : ''}${change30d}%`;
+        }
+
+        function updateOffersTable(offers7d, offers14d, offers30d) {
+            const tbody = document.getElementById('offersTable');
+            
+            // Combine offers data
+            const combinedOffers = offers7d.map((offer7d, index) => ({
+                ...offer7d,
+                roas14d: offers14d[index]?.roas || 0,
+                roas30d: offers30d[index]?.roas || 0
+            }));
+            
+            tbody.innerHTML = combinedOffers.map(offer => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-gray-900">${offer.offerName}</div>
+                        <div class="text-sm text-gray-500">ID: ${offer.offerId}</div>
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium ${getRoasColorClass(offer.roas)}">${offer.roas.toFixed(2)}x</td>
+                    <td class="px-6 py-4 text-sm font-medium ${getRoasColorClass(offer.roas14d)}">${offer.roas14d.toFixed(2)}x</td>
+                    <td class="px-6 py-4 text-sm font-medium ${getRoasColorClass(offer.roas30d)}">${offer.roas30d.toFixed(2)}x</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${formatNumber(offer.conversions)}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${formatCurrency(offer.revenue)}</td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${offer.status === 'ACTIVE' ? 'status-up' : 'status-paused'}">
+                            ${offer.status}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateRoasChart(offers7d, offers14d, offers30d) {
+            const ctx = document.getElementById('roasChart').getContext('2d');
+            
+            if (roasChart) {
+                roasChart.destroy();
+            }
+            
+            const data = {
+                labels: ['7 Days', '14 Days', '30 Days'],
+                datasets: [{
+                    label: 'ROAS Trend',
+                    data: [
+                        calculateAverageRoas(offers7d),
+                        calculateAverageRoas(offers14d),
+                        calculateAverageRoas(offers30d)
+                    ],
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            };
+            
+            roasChart = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'ROAS'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function closeOffersModal() {
+            document.getElementById('offersModal').classList.add('hidden');
+            if (roasChart) {
+                roasChart.destroy();
+                roasChart = null;
+            }
+        }
+
+        // Utility Functions
+        function calculateAverageRoas(offers) {
+            if (!offers || offers.length === 0) return 0;
+            const totalRoas = offers.reduce((sum, offer) => sum + (offer.roas || 0), 0);
+            return totalRoas / offers.length;
+        }
+
+        function calculateRoas(revenue, cost) {
+            const rev = parseFloat(revenue) || 0;
+            const spend = parseFloat(cost) || 0;
+            return spend > 0 ? (rev / spend).toFixed(2) : '0.00';
+        }
+
+        function calculateCpa(cost, conversions) {
+            const spend = parseFloat(cost) || 0;
+            const conv = parseInt(conversions) || 0;
+            return conv > 0 ? formatCurrency(spend / conv) : formatCurrency(0);
+        }
+
+        function getStatusClass(status) {
+            const statusUpper = (status || '').toUpperCase();
+            if (statusUpper.includes('UP') || statusUpper === 'ACTIVE') return 'status-up';
+            if (statusUpper.includes('DOWN')) return 'status-down';
+            if (statusUpper.includes('STABLE')) return 'status-stable';
+            return 'status-paused';
+        }
+
+        function getRoasColorClass(roas) {
+            const roasValue = parseFloat(roas) || 0;
+            if (roasValue >= 1.5) return 'text-green-600';
+            if (roasValue >= 1.0) return 'text-yellow-600';
             return 'text-red-600';
         }
 
-        function resetAllFilters() {
-            document.getElementById('statusFilter').value = 'all';
-            document.getElementById('spendFilter').value = 'all';
-            document.getElementById('performanceFilter').value = 'all';
-            document.getElementById('sortFilter').value = 'revenue_desc';
-            applyFilters();
+        function formatNumber(num) {
+            return new Intl.NumberFormat().format(parseInt(num) || 0);
         }
 
-        function exportToCsv() {
-            const headers = ['Campaign', 'Status', 'Visits', 'Conversions', 'Revenue', 'Spend', 'ROAS', 'CPA', '24h Change'];
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(parseFloat(amount) || 0);
+        }
+
+        function formatPercentage(value) {
+            const num = parseFloat(value) || 0;
+            return (num >= 0 ? '+' : '') + num.toFixed(1) + '%';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function updateOverviewCards() {
+            const activeCampaigns = filteredCampaigns.filter(c => 
+                (c.visits || 0) > 0 || (c.cost || 0) > 0
+            ).length;
             
-            const csvContent = [
-                headers.join(','),
-                ...filteredCampaigns.map(campaign => {
-                    const hasTraffic = (campaign.visits || 0) > 0 || (campaign.cost || 0) > 0;
-                    const status = hasTraffic ? (campaign.status || 'ACTIVE') : 'PAUSED';
-                    
-                    return [
-                        `"${campaign.name || 'Unnamed Campaign'}"`,
-                        status,
-                        campaign.visits || 0,
-                        campaign.conversions || 0,
-                        (campaign.revenue || 0).toFixed(2),
-                        (campaign.cost || 0).toFixed(2),
-                        (campaign.roas || 0).toFixed(2),
-                        (campaign.cpa || 0).toFixed(2),
-                        (campaign.change24h || 0).toFixed(1)
-                    ].join(',');
-                })
-            ].join('\n');
+            const totalRevenue = allCampaigns.reduce((sum, c) => sum + (parseFloat(c.revenue) || 0), 0);
+            const totalSpend = allCampaigns.reduce((sum, c) => sum + (parseFloat(c.cost) || 0), 0);
+            const totalConversions = allCampaigns.reduce((sum, c) => sum + (parseInt(c.conversions) || 0), 0);
+            const averageRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
             
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `voluum_campaigns_${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-            window.URL.revokeObjectURL(url);
+            document.getElementById('activeCampaigns').textContent = formatNumber(activeCampaigns);
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('totalSpend').textContent = formatCurrency(totalSpend);
+            document.getElementById('totalConversions').textContent = formatNumber(totalConversions);
+            document.getElementById('averageRoas').textContent = averageRoas.toFixed(2) + 'x';
+        }
+
+        function updateFilteredCount() {
+            document.getElementById('filteredCount').textContent = 
+                `Showing ${filteredCampaigns.length} of ${allCampaigns.length} campaigns`;
         }
 
         function updateConnectionStatus(status, message) {
             const indicator = document.getElementById('connectionIndicator');
-            const colors = {
-                loading: 'bg-yellow-400',
-                success: 'bg-green-400',
-                warning: 'bg-orange-400',
-                error: 'bg-red-400'
-            };
+            const text = indicator.querySelector('span');
+            const dot = indicator.querySelector('div');
             
-            indicator.innerHTML = `
-                <div class="w-3 h-3 ${colors[status]} rounded-full"></div>
-                <span class="text-sm text-gray-600">${message}</span>
-            `;
+            text.textContent = message;
+            
+            if (status === 'connected') {
+                dot.className = 'w-3 h-3 bg-green-400 rounded-full';
+            } else if (status === 'error') {
+                dot.className = 'w-3 h-3 bg-red-400 rounded-full';
+            } else {
+                dot.className = 'w-3 h-3 bg-yellow-400 rounded-full';
+            }
+        }
+
+        function exportCSV() {
+            const csvContent = generateCSVContent(filteredCampaigns);
+            downloadCSV(csvContent, 'voluum_campaigns_export.csv');
+        }
+
+        function generateCSVContent(campaigns) {
+            const headers = ['Campaign Name', 'Campaign ID', 'Status', 'Visits', 'Conversions', 'Revenue', 'Spend', 'ROAS', 'CPA', '24h Change'];
+            
+            const rows = campaigns.map(campaign => [
+                campaign.campaignName || campaign.name || '',
+                campaign.campaignId || campaign.id || '',
+                (campaign.visits || 0) > 0 || (campaign.cost || 0) > 0 ? 'ACTIVE' : 'PAUSED',
+                campaign.visits || 0,
+                campaign.conversions || 0,
+                campaign.revenue || 0,
+                campaign.cost || 0,
+                calculateRoas(campaign.revenue || 0, campaign.cost || 0),
+                calculateCpa(campaign.cost || 0, campaign.conversions || 0).replace('$', ''),
+                (campaign.change24h || 0) + '%'
+            ]);
+            
+            return [headers, ...rows].map(row => 
+                row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')
+            ).join('\n');
+        }
+
+        function downloadCSV(content, filename) {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function resetAllFilters() {
+            document.getElementById('dateRange').value = 'today';
+            document.getElementById('statusFilter').value = 'active'; // Keep default to active
+            document.getElementById('spendFilter').value = 'all';
+            document.getElementById('performanceFilter').value = 'all';
+            document.getElementById('sortBy').value = 'revenue';
+            applyFilters();
+        }
+
+        function generateMockCampaigns() {
+            // Mock data for fallback
+            const campaigns = [];
+            const campaignNames = [
+                'NewsBreak ROAS - SENIORS - MOBILE',
+                'NewsBreak ROAS - Tariffs V2',
+                'NewsBreak Revenue - Home Insurance',
+                'Facebook - B1A1 - Global - test',
+                'Lander - Global - 836-PERFORM-DISCOVER',
+                'Outbrain - Health & Wellness',
+                'Taboola - Finance Offers - Desktop',
+                'Native - Insurance Leads - Mobile'
+            ];
+
+            for (let i = 0; i < 20; i++) {
+                const hasTraffic = Math.random() > 0.3; // 70% chance of traffic
+                const baseRevenue = hasTraffic ? Math.random() * 8000 + 1000 : 0;
+                const baseSpend = hasTraffic ? baseRevenue * (0.8 + Math.random() * 0.4) : 0; // 0.8-1.2 ratio
+                
+                campaigns.push({
+                    campaignId: `camp_${1000 + i}`,
+                    campaignName: campaignNames[i % campaignNames.length] + ` ${i + 1}`,
+                    visits: hasTraffic ? Math.floor(Math.random() * 30000) + 1000 : 0,
+                    conversions: hasTraffic ? Math.floor(Math.random() * 500) + 10 : 0,
+                    revenue: baseRevenue,
+                    cost: baseSpend,
+                    status: hasTraffic ? (Math.random() > 0.5 ? 'UP' : 'STABLE') : 'PAUSED',
+                    change24h: (Math.random() * 40 - 20) // -20% to +20%
+                });
+            }
+
+            return campaigns;
         }
 
         function debugLog(message) {
@@ -568,7 +888,7 @@
             logEntry.textContent = `[${timestamp}] ${message}`;
             debugInfo.appendChild(logEntry);
             
-            // Keep only last 10 log entries
+            // Keep only last 10 messages
             while (debugInfo.children.length > 10) {
                 debugInfo.removeChild(debugInfo.firstChild);
             }
@@ -594,6 +914,13 @@
         function hideEmptyState() {
             document.getElementById('emptyState').classList.add('hidden');
         }
+
+        // Close modal when clicking outside
+        document.getElementById('offersModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeOffersModal();
+            }
+        });
     </script>
 </body>
 </html>
