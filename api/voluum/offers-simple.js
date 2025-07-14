@@ -1,4 +1,4 @@
-// /api/voluum/offers-simple.js - Fixed Campaign Filtering
+// /api/voluum/offers-simple.js - Debug & Campaign Filtering Fixed
 
 export default async function handler(req, res) {
     // Set CORS headers
@@ -19,13 +19,17 @@ export default async function handler(req, res) {
     }
 
     try {
-        log('=== VOLUUM OFFERS API WITH CAMPAIGN FILTERING ===');
+        log('=== VOLUUM OFFERS API - ENHANCED DEBUGGING ===');
         
-        // Get parameters
+        // Get parameters with extensive logging
         const campaignId = req.query.campaign_id;
         const dateRange = req.query.date_range || 'last_7_days';
         
-        log(`Campaign ID: ${campaignId}, Date range: ${dateRange}`);
+        log(`Raw campaign_id parameter: "${campaignId}"`);
+        log(`Campaign ID type: ${typeof campaignId}`);
+        log(`Campaign ID length: ${campaignId ? campaignId.length : 'null'}`);
+        log(`Date range: ${dateRange}`);
+        log(`All query parameters: ${JSON.stringify(req.query)}`);
         
         if (!campaignId) {
             log('ERROR: Missing campaign_id parameter');
@@ -33,7 +37,8 @@ export default async function handler(req, res) {
                 success: false,
                 error: 'campaign_id parameter is required',
                 debug_logs: debugLogs,
-                offers: []
+                offers: [],
+                received_params: req.query
             });
         }
         
@@ -42,16 +47,17 @@ export default async function handler(req, res) {
         const accessKey = process.env.VOLUME_KEY;
         
         if (!accessId || !accessKey) {
-            log('ERROR: Missing environment variables - returning mock data');
+            log('ERROR: Missing environment variables - returning targeted mock data');
             return res.status(200).json({
                 success: true,
-                offers: generateMockOffers(campaignId),
+                offers: generateCampaignSpecificMockOffers(campaignId),
                 debug_logs: debugLogs,
                 mock_data: true,
                 debug_info: {
                     campaign_id: campaignId,
                     date_range: dateRange,
-                    reason: 'Missing Voluum API credentials'
+                    reason: 'Missing Voluum API credentials',
+                    note: 'Generated campaign-specific mock data'
                 }
             });
         }
@@ -79,7 +85,7 @@ export default async function handler(req, res) {
             log(`FETCH ERROR during auth: ${fetchError.message}`);
             return res.status(200).json({
                 success: true,
-                offers: generateMockOffers(campaignId),
+                offers: generateCampaignSpecificMockOffers(campaignId),
                 debug_logs: debugLogs,
                 mock_data: true,
                 debug_info: {
@@ -97,7 +103,7 @@ export default async function handler(req, res) {
             log(`AUTH FAILED - Status: ${authResponse.status}, Error: ${authError.substring(0, 200)}`);
             return res.status(200).json({
                 success: true,
-                offers: generateMockOffers(campaignId),
+                offers: generateCampaignSpecificMockOffers(campaignId),
                 debug_logs: debugLogs,
                 mock_data: true,
                 debug_info: {
@@ -115,7 +121,7 @@ export default async function handler(req, res) {
             log(`ERROR parsing auth response: ${parseError.message}`);
             return res.status(200).json({
                 success: true,
-                offers: generateMockOffers(campaignId),
+                offers: generateCampaignSpecificMockOffers(campaignId),
                 debug_logs: debugLogs,
                 mock_data: true,
                 debug_info: {
@@ -132,7 +138,7 @@ export default async function handler(req, res) {
             log('ERROR: No token in auth response');
             return res.status(200).json({
                 success: true,
-                offers: generateMockOffers(campaignId),
+                offers: generateCampaignSpecificMockOffers(campaignId),
                 debug_logs: debugLogs,
                 mock_data: true,
                 debug_info: {
@@ -143,115 +149,190 @@ export default async function handler(req, res) {
             });
         }
 
-        log('Authentication successful - fetching campaign-specific offer data...');
+        log('Authentication successful - attempting campaign-specific data fetch...');
 
         // Step 2: Get date range
         const { fromDate, toDate } = getDateRange(dateRange);
         log(`Date range: ${fromDate} to ${toDate}`);
 
-        // Step 3: CRITICAL FIX - Use specific campaign filtering with multiple approaches
-        log(`Filtering offers specifically for campaign ID: ${campaignId}`);
+        // Step 3: CRITICAL - Try to get ONLY data for this specific campaign
+        log(`ATTEMPTING TO FILTER FOR CAMPAIGN: "${campaignId}"`);
         
-        const attempts = [
-            {
-                name: 'landers_by_specific_campaign',
-                url: `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=lander&campaignId=${encodeURIComponent(campaignId)}&limit=100&columns=landerId,landerName,landerUrl,visits,conversions,revenue,cost,clicks`
-            },
-            {
-                name: 'offers_by_specific_campaign', 
-                url: `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=offer&campaignId=${encodeURIComponent(campaignId)}&limit=100&columns=offerId,offerName,offerUrl,visits,conversions,revenue,cost,clicks`
-            },
-            {
-                name: 'flows_by_specific_campaign',
-                url: `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=flow&campaignId=${encodeURIComponent(campaignId)}&limit=100&columns=flowId,flowName,visits,conversions,revenue,cost,clicks`
-            },
-            {
-                name: 'campaign_specific_breakdown',
-                url: `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=campaign&campaignId=${encodeURIComponent(campaignId)}&include=ACTIVE&columns=campaignId,campaignName,visits,conversions,revenue,cost,clicks`
-            }
-        ];
-
-        let successfulData = null;
-        let successfulAttempt = null;
-
-        for (const attempt of attempts) {
-            try {
-                log(`Trying ${attempt.name}: ${attempt.url}`);
-                
-                const reportResponse = await fetch(attempt.url, {
-                    method: 'GET',
-                    headers: {
-                        'cwauth-token': sessionToken,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                log(`${attempt.name} response status: ${reportResponse.status}`);
-
-                if (reportResponse.ok) {
-                    const reportData = await reportResponse.json();
-                    log(`${attempt.name} data received - Total rows: ${reportData.totalRows || 0}`);
-                    
-                    // Log the raw response structure for debugging
-                    if (reportData.rows && reportData.rows.length > 0) {
-                        log(`${attempt.name} sample row keys: ${Object.keys(reportData.rows[0]).join(', ')}`);
-                        log(`${attempt.name} sample row data: ${JSON.stringify(reportData.rows[0]).substring(0, 200)}...`);
-                        
-                        // Check if any rows have actual data (not all zeros)
-                        const rowsWithData = reportData.rows.filter(row => 
-                            (row.visits > 0) || (row.conversions > 0) || (row.revenue > 0) || (row.cost > 0)
-                        );
-                        
-                        log(`${attempt.name} rows with actual data: ${rowsWithData.length} out of ${reportData.rows.length}`);
-                        
-                        if (rowsWithData.length > 0 || reportData.rows.length > 0) {
-                            successfulData = reportData;
-                            successfulAttempt = attempt.name;
-                            log(`SUCCESS with ${attempt.name} - Found ${reportData.rows.length} total rows, ${rowsWithData.length} with data`);
-                            break;
-                        }
-                    } else {
-                        log(`${attempt.name} returned no data rows`);
-                    }
-                } else {
-                    const errorText = await reportResponse.text();
-                    log(`${attempt.name} failed: ${reportResponse.status} - ${errorText.substring(0, 100)}`);
-                }
-            } catch (attemptError) {
-                log(`${attempt.name} error: ${attemptError.message}`);
-            }
-        }
-
-        // Step 4: Process the data or return campaign-specific mock data
-        if (successfulData && successfulData.rows && successfulData.rows.length > 0) {
-            log(`Processing real campaign-specific data from ${successfulAttempt}`);
-            const processedOffers = processRealOfferData(successfulData, debugLogs, successfulAttempt, campaignId);
-            
-            return res.status(200).json({
-                success: true,
-                offers: processedOffers,
-                debug_logs: debugLogs,
-                mock_data: false,
-                debug_info: {
-                    campaign_id: campaignId,
-                    date_range: dateRange,
-                    data_source: successfulAttempt,
-                    total_offers: processedOffers.length,
-                    raw_rows: successfulData.totalRows || 0,
-                    filtering_applied: 'Campaign-specific filtering successful'
+        // First, let's verify this campaign exists and get its basic info
+        const campaignVerifyUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=campaign&campaignId=${encodeURIComponent(campaignId)}&limit=1`;
+        log(`Verifying campaign exists: ${campaignVerifyUrl}`);
+        
+        let campaignExists = false;
+        let campaignInfo = null;
+        
+        try {
+            const verifyResponse = await fetch(campaignVerifyUrl, {
+                method: 'GET',
+                headers: {
+                    'cwauth-token': sessionToken,
+                    'Content-Type': 'application/json'
                 }
             });
+            
+            if (verifyResponse.ok) {
+                const verifyData = await verifyResponse.json();
+                log(`Campaign verification response: ${JSON.stringify(verifyData).substring(0, 500)}`);
+                
+                if (verifyData.rows && verifyData.rows.length > 0) {
+                    campaignExists = true;
+                    campaignInfo = verifyData.rows[0];
+                    log(`✅ Campaign verified: ${campaignInfo.campaignName || 'Unknown Name'}`);
+                } else {
+                    log(`❌ Campaign not found or no data in date range`);
+                }
+            } else {
+                log(`Campaign verification failed: ${verifyResponse.status}`);
+            }
+        } catch (verifyError) {
+            log(`Campaign verification error: ${verifyError.message}`);
+        }
+
+        // Step 4: If campaign exists, try to get its landers/offers
+        if (campaignExists && campaignInfo) {
+            log(`Attempting to get landers/offers for verified campaign...`);
+            
+            const offerAttempts = [
+                {
+                    name: 'landers_for_campaign',
+                    url: `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=lander&campaignId=${encodeURIComponent(campaignId)}&limit=50`,
+                    description: 'Getting landers for this specific campaign'
+                },
+                {
+                    name: 'offers_for_campaign',
+                    url: `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=offer&campaignId=${encodeURIComponent(campaignId)}&limit=50`,
+                    description: 'Getting offers for this specific campaign'
+                }
+            ];
+
+            let offerData = null;
+            let successfulMethod = null;
+
+            for (const attempt of offerAttempts) {
+                try {
+                    log(`Trying ${attempt.name}: ${attempt.description}`);
+                    log(`URL: ${attempt.url}`);
+                    
+                    const response = await fetch(attempt.url, {
+                        method: 'GET',
+                        headers: {
+                            'cwauth-token': sessionToken,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    log(`${attempt.name} response status: ${response.status}`);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        log(`${attempt.name} data received - Total rows: ${data.totalRows || 0}`);
+                        
+                        if (data.rows && data.rows.length > 0) {
+                            log(`${attempt.name} sample row: ${JSON.stringify(data.rows[0]).substring(0, 300)}`);
+                            
+                            // Check if we got actual offer/lander data (not campaign data)
+                            const hasOfferFields = data.rows[0].hasOwnProperty('landerId') || 
+                                                 data.rows[0].hasOwnProperty('offerId') ||
+                                                 data.rows[0].hasOwnProperty('landerName') ||
+                                                 data.rows[0].hasOwnProperty('offerName');
+                            
+                            log(`${attempt.name} has offer/lander fields: ${hasOfferFields}`);
+                            
+                            if (hasOfferFields) {
+                                offerData = data;
+                                successfulMethod = attempt.name;
+                                log(`✅ SUCCESS with ${attempt.name} - Found real offer/lander data`);
+                                break;
+                            } else {
+                                log(`${attempt.name} returned campaign-level data, not offer/lander data`);
+                            }
+                        } else {
+                            log(`${attempt.name} returned no data rows`);
+                        }
+                    } else {
+                        const errorText = await response.text();
+                        log(`${attempt.name} failed: ${response.status} - ${errorText.substring(0, 100)}`);
+                    }
+                } catch (attemptError) {
+                    log(`${attempt.name} error: ${attemptError.message}`);
+                }
+            }
+
+            // Step 5: Process the results
+            if (offerData && offerData.rows && offerData.rows.length > 0) {
+                log(`Processing real offer/lander data from ${successfulMethod}`);
+                const processedOffers = processRealOfferData(offerData, debugLogs, successfulMethod, campaignId);
+                
+                return res.status(200).json({
+                    success: true,
+                    offers: processedOffers,
+                    debug_logs: debugLogs,
+                    mock_data: false,
+                    debug_info: {
+                        campaign_id: campaignId,
+                        campaign_name: campaignInfo.campaignName || 'Unknown',
+                        date_range: dateRange,
+                        data_source: successfulMethod,
+                        total_offers: processedOffers.length,
+                        raw_rows: offerData.totalRows || 0,
+                        campaign_verified: true
+                    }
+                });
+            } else {
+                log(`No offer/lander data found - this campaign likely uses direct linking`);
+                
+                // Create a single "direct linking" offer based on campaign data
+                const directOffer = {
+                    id: `direct_${campaignId}`,
+                    name: 'Direct Linking (No Landers)',
+                    offerName: 'Direct Linking (No Landers)',
+                    url: '',
+                    visits: campaignInfo.visits || 0,
+                    conversions: campaignInfo.conversions || 0,
+                    revenue: campaignInfo.revenue || 0,
+                    cost: campaignInfo.cost || 0,
+                    clicks: campaignInfo.clicks || 0,
+                    roas: (campaignInfo.cost && campaignInfo.cost > 0) ? (campaignInfo.revenue || 0) / campaignInfo.cost : 0,
+                    cpa: (campaignInfo.conversions && campaignInfo.conversions > 0) ? (campaignInfo.cost || 0) / campaignInfo.conversions : 0,
+                    cvr: (campaignInfo.visits && campaignInfo.visits > 0) ? ((campaignInfo.conversions || 0) / campaignInfo.visits) * 100 : 0,
+                    epc: (campaignInfo.visits && campaignInfo.visits > 0) ? (campaignInfo.revenue || 0) / campaignInfo.visits : 0,
+                    payout: (campaignInfo.conversions && campaignInfo.conversions > 0) ? (campaignInfo.revenue || 0) / campaignInfo.conversions : 0,
+                    campaignId: campaignId,
+                    note: 'This campaign uses direct linking - visitors go straight to the final offer without intermediate landing pages'
+                };
+                
+                return res.status(200).json({
+                    success: true,
+                    offers: [directOffer],
+                    debug_logs: debugLogs,
+                    mock_data: false,
+                    debug_info: {
+                        campaign_id: campaignId,
+                        campaign_name: campaignInfo.campaignName || 'Unknown',
+                        date_range: dateRange,
+                        data_source: 'campaign_direct_data',
+                        total_offers: 1,
+                        campaign_verified: true,
+                        explanation: 'No landers/offers found - campaign uses direct linking'
+                    }
+                });
+            }
         } else {
-            log(`No campaign-specific data found - returning campaign-specific mock data for ${campaignId}`);
+            log(`Campaign verification failed - generating campaign-specific mock data`);
             return res.status(200).json({
                 success: true,
-                offers: generateMockOffers(campaignId),
+                offers: generateCampaignSpecificMockOffers(campaignId),
                 debug_logs: debugLogs,
                 mock_data: true,
                 debug_info: {
                     campaign_id: campaignId,
                     date_range: dateRange,
-                    reason: `No offer/lander data found in Voluum for campaign ${campaignId}. This could mean: 1) Campaign uses direct linking (no landers/offers), 2) Campaign ID format issue, 3) No data in selected date range.`
+                    reason: 'Campaign not found or no data in selected date range',
+                    campaign_verified: false
                 }
             });
         }
@@ -262,7 +343,7 @@ export default async function handler(req, res) {
         
         return res.status(200).json({
             success: true,
-            offers: generateMockOffers(req.query.campaign_id || 'error_campaign'),
+            offers: generateCampaignSpecificMockOffers(req.query.campaign_id || 'error_campaign'),
             debug_logs: debugLogs,
             mock_data: true,
             debug_info: {
@@ -275,49 +356,34 @@ export default async function handler(req, res) {
 }
 
 function processRealOfferData(data, debugLogs, dataSource, campaignId) {
-    debugLogs.push(`Processing real campaign-specific offer data from ${dataSource} for campaign ${campaignId}...`);
+    debugLogs.push(`Processing REAL offer/lander data from ${dataSource} for campaign ${campaignId}...`);
     
     const offers = [];
     const rows = data.rows || [];
     
-    debugLogs.push(`Processing ${rows.length} rows from ${dataSource}`);
-    
-    // Log structure of first row for debugging
-    if (rows[0]) {
-        debugLogs.push(`First row keys: ${Object.keys(rows[0]).slice(0, 15).join(', ')}...`);
-        debugLogs.push(`First row sample: ${JSON.stringify(rows[0]).substring(0, 300)}...`);
-    }
+    debugLogs.push(`Processing ${rows.length} rows of real offer/lander data`);
     
     rows.forEach((row, index) => {
         try {
-            // Extract offer/lander information based on data source
+            // Extract offer/lander information
             let offerId, offerName, offerUrl;
             
             if (dataSource.includes('landers')) {
                 offerId = row.landerId || row.id || `lander_${index}`;
                 offerName = row.landerName || row.name || `Lander ${index + 1}`;
                 offerUrl = row.landerUrl || row.url || '';
-            } else if (dataSource.includes('offers')) {
+            } else {
                 offerId = row.offerId || row.id || `offer_${index}`;
                 offerName = row.offerName || row.name || `Offer ${index + 1}`;
                 offerUrl = row.offerUrl || row.url || '';
-            } else if (dataSource.includes('flows')) {
-                offerId = row.flowId || row.id || `flow_${index}`;
-                offerName = row.flowName || row.name || `Flow ${index + 1}`;
-                offerUrl = '';
-            } else {
-                // Campaign breakdown - treat as single offer
-                offerId = row.campaignId || `campaign_offer_${index}`;
-                offerName = `${row.campaignName || 'Campaign'} - Direct Traffic`;
-                offerUrl = '';
             }
             
-            // Core metrics with multiple possible field names
-            const visits = parseFloat(row.visits || row.landingPageViews || row.unique_visits || 0);
-            const conversions = parseFloat(row.conversions || row.cv || row.actions || 0);
-            const revenue = parseFloat(row.revenue || row.rev || row.payout || 0);
-            const cost = parseFloat(row.cost || row.spend || 0);
-            const clicks = parseFloat(row.clicks || row.totalClicks || 0);
+            // Core metrics
+            const visits = parseFloat(row.visits || 0);
+            const conversions = parseFloat(row.conversions || 0);
+            const revenue = parseFloat(row.revenue || 0);
+            const cost = parseFloat(row.cost || 0);
+            const clicks = parseFloat(row.clicks || 0);
             
             // Calculate derived metrics
             const roas = cost > 0 ? revenue / cost : 0;
@@ -341,192 +407,77 @@ function processRealOfferData(data, debugLogs, dataSource, campaignId) {
                 cvr: cvr,
                 epc: epc,
                 payout: avgPayout,
-                
-                // Multi-period data (simulated for now)
-                roas_7d: roas * (0.95 + Math.random() * 0.1),
-                roas_14d: roas * (0.90 + Math.random() * 0.2),
-                roas_30d: roas * (0.85 + Math.random() * 0.3),
-                epc_7d: epc * (0.95 + Math.random() * 0.1),
-                epc_14d: epc * (0.90 + Math.random() * 0.2),
-                epc_30d: epc * (0.85 + Math.random() * 0.3),
-                
-                // Campaign association
                 campaignId: campaignId
             };
             
             offers.push(offer);
             
-            // Log first few offers for debugging
-            if (index < 5) {
-                debugLogs.push(`Offer ${index + 1}: "${offer.name}" | Visits: ${offer.visits} | Conversions: ${offer.conversions} | Revenue: ${offer.revenue} | ROAS: ${offer.roas.toFixed(2)}`);
+            if (index < 3) {
+                debugLogs.push(`Real Offer ${index + 1}: "${offer.name}" | Visits: ${offer.visits} | Revenue: $${offer.revenue} | ROAS: ${offer.roas.toFixed(2)}`);
             }
             
         } catch (error) {
-            debugLogs.push(`Error processing row ${index}: ${error.message}`);
+            debugLogs.push(`Error processing offer row ${index}: ${error.message}`);
         }
     });
     
-    debugLogs.push(`Final processing result: ${offers.length} offers processed from real data for campaign ${campaignId}`);
-    
-    // If we got data but all offers are empty (direct linking campaign), create a single direct offer
-    if (offers.length === 0 || offers.every(offer => offer.visits === 0 && offer.conversions === 0 && offer.revenue === 0)) {
-        debugLogs.push(`No offer-level data found - likely a direct linking campaign. Creating direct traffic offer.`);
-        offers.push({
-            id: `direct_${campaignId}`,
-            name: 'Direct Traffic (No Landers)',
-            offerName: 'Direct Traffic (No Landers)',
-            url: '',
-            visits: 0,
-            conversions: 0,
-            revenue: 0,
-            cost: 0,
-            clicks: 0,
-            roas: 0,
-            cpa: 0,
-            cvr: 0,
-            epc: 0,
-            payout: 0,
-            roas_7d: 0,
-            roas_14d: 0,
-            roas_30d: 0,
-            epc_7d: 0,
-            epc_14d: 0,
-            epc_30d: 0,
-            campaignId: campaignId,
-            note: 'This campaign appears to use direct linking without intermediate landers or offers'
-        });
-    }
-    
+    debugLogs.push(`Final result: ${offers.length} real offers processed for campaign ${campaignId}`);
     return offers;
 }
 
-function generateMockOffers(campaignId) {
-    // Generate realistic mock offers based on campaign ID and name
+function generateCampaignSpecificMockOffers(campaignId) {
+    // Generate 2-4 realistic offers specifically for this campaign
     const campaignName = campaignId || 'Unknown Campaign';
-    debugLogs.push(`Generating mock offers for campaign: ${campaignName}`);
-    
-    // Determine if this looks like a direct linking campaign
-    const isDirectLinking = campaignName.toLowerCase().includes('direct') || 
-                           campaignName.toLowerCase().includes('newsbreak roas') ||
-                           Math.random() > 0.7; // Some campaigns are direct linking
-    
-    if (isDirectLinking) {
-        // Return single direct traffic offer
-        return [{
-            id: `direct_${campaignId}`,
-            name: 'Direct Traffic (No Landers)',
-            offerName: 'Direct Traffic (No Landers)',
-            url: '',
-            visits: Math.floor(Math.random() * 5000) + 1000,
-            conversions: Math.floor(Math.random() * 100) + 10,
-            revenue: (Math.random() * 2000) + 500,
-            cost: (Math.random() * 1800) + 400,
-            clicks: Math.floor(Math.random() * 6000) + 1200,
-            roas: 0.9 + Math.random() * 0.8, // 0.9 - 1.7x ROAS
-            cpa: 10 + Math.random() * 20,
-            cvr: 1 + Math.random() * 3,
-            epc: 0.2 + Math.random() * 0.8,
-            payout: 15 + Math.random() * 10,
-            roas_7d: 0.85 + Math.random() * 0.9,
-            roas_14d: 0.8 + Math.random() * 1.0,
-            roas_30d: 0.75 + Math.random() * 1.1,
-            epc_7d: 0.18 + Math.random() * 0.9,
-            epc_14d: 0.16 + Math.random() * 1.0,
-            epc_30d: 0.14 + Math.random() * 1.1,
-            campaignId: campaignId,
-            note: 'This campaign uses direct linking - traffic goes straight to the offer without intermediate landers'
-        }];
-    }
-    
-    // Generate multiple offers for campaigns that use landers
-    const numOffers = Math.floor(Math.random() * 4) + 2; // 2-5 offers
+    const numOffers = Math.floor(Math.random() * 3) + 2; // 2-4 offers
     const offers = [];
     
-    // Determine traffic source from campaign name/ID
+    // Determine traffic source and vertical from campaign name
     let trafficSource = 'Generic';
-    if (campaignName.toLowerCase().includes('newsbreak')) trafficSource = 'NewsBreak';
-    else if (campaignName.toLowerCase().includes('taboola')) trafficSource = 'Taboola';
-    else if (campaignName.toLowerCase().includes('facebook')) trafficSource = 'Facebook';
-    else if (campaignName.toLowerCase().includes('evadav')) trafficSource = 'EvaDav';
+    let vertical = 'Insurance';
+    
+    if (campaignName.toLowerCase().includes('newsbreak')) {
+        trafficSource = 'NewsBreak';
+        if (campaignName.toLowerCase().includes('medicare')) vertical = 'Medicare';
+        else if (campaignName.toLowerCase().includes('auto')) vertical = 'Auto Insurance';
+        else if (campaignName.toLowerCase().includes('home')) vertical = 'Home Insurance';
+    } else if (campaignName.toLowerCase().includes('facebook')) {
+        trafficSource = 'Facebook';
+    } else if (campaignName.toLowerCase().includes('taboola')) {
+        trafficSource = 'Taboola';
+    }
     
     for (let i = 0; i < numOffers; i++) {
-        // Generate realistic metrics based on traffic source
-        let baseVisits, baseConversions, baseRevenue, baseCost;
-        
-        if (trafficSource === 'NewsBreak') {
-            baseVisits = Math.floor(Math.random() * 8000) + 2000;
-            baseConversions = Math.floor(baseVisits * (0.015 + Math.random() * 0.025)); // 1.5-4% CVR
-            baseRevenue = baseConversions * (12 + Math.random() * 8); // $12-20 payout
-            baseCost = baseRevenue * (0.7 + Math.random() * 0.4); // 0.7-1.1x ROAS
-        } else if (trafficSource === 'Facebook') {
-            baseVisits = Math.floor(Math.random() * 4000) + 1000;
-            baseConversions = Math.floor(baseVisits * (0.02 + Math.random() * 0.05)); // 2-7% CVR
-            baseRevenue = baseConversions * (15 + Math.random() * 10); // $15-25 payout
-            baseCost = baseRevenue * (0.6 + Math.random() * 0.5); // 0.6-1.1x ROAS
-        } else {
-            baseVisits = Math.floor(Math.random() * 5000) + 500;
-            baseConversions = Math.floor(baseVisits * (0.005 + Math.random() * 0.02)); // 0.5-2.5% CVR
-            baseRevenue = baseConversions * (8 + Math.random() * 12); // $8-20 payout
-            baseCost = baseRevenue * (0.8 + Math.random() * 0.4); // 0.8-1.2x ROAS
-        }
-        
-        // Distribute traffic across offers (first offer gets more)
-        const share = i === 0 ? 0.4 + Math.random() * 0.3 : (Math.random() * 0.4) / (numOffers - 1);
-        
-        const visits = Math.floor(baseVisits * share);
-        const conversions = Math.floor(baseConversions * share);
-        const revenue = baseRevenue * share;
-        const cost = baseCost * share;
+        const visits = Math.floor(Math.random() * 3000) + 500;
+        const conversions = Math.floor(visits * (0.01 + Math.random() * 0.04)); // 1-5% CVR
+        const revenue = conversions * (10 + Math.random() * 15); // $10-25 payout
+        const cost = revenue * (0.7 + Math.random() * 0.4); // 0.7-1.1x ROAS
         
         const roas = cost > 0 ? revenue / cost : 0;
         const cpa = conversions > 0 ? cost / conversions : 0;
         const cvr = visits > 0 ? (conversions / visits) * 100 : 0;
         const epc = visits > 0 ? revenue / visits : 0;
-        const avgPayout = conversions > 0 ? revenue / conversions : 0;
         
         offers.push({
-            id: `mock_offer_${campaignId}_${i + 1}`,
-            name: `${trafficSource} Lander ${i + 1} - ${getOfferTheme(i)}`,
-            offerName: `${trafficSource} Lander ${i + 1} - ${getOfferTheme(i)}`,
-            url: `https://example.com/${trafficSource.toLowerCase()}-lander-${i + 1}`,
+            id: `mock_${campaignId}_lander_${i + 1}`,
+            name: `${trafficSource} ${vertical} Lander ${i + 1}`,
+            offerName: `${trafficSource} ${vertical} Lander ${i + 1}`,
+            url: `https://example.com/${trafficSource.toLowerCase()}-${vertical.toLowerCase().replace(' ', '-')}-lander-${i + 1}`,
             visits: visits,
             conversions: conversions,
             revenue: revenue,
             cost: cost,
-            clicks: Math.floor(visits * (1.1 + Math.random() * 0.3)), // Clicks > visits
+            clicks: Math.floor(visits * 1.2),
             roas: roas,
             cpa: cpa,
             cvr: cvr,
             epc: epc,
-            payout: avgPayout,
-            
-            // Multi-period variations
-            roas_7d: roas * (0.95 + Math.random() * 0.1),
-            roas_14d: roas * (0.90 + Math.random() * 0.2),
-            roas_30d: roas * (0.85 + Math.random() * 0.3),
-            epc_7d: epc * (0.95 + Math.random() * 0.1),
-            epc_14d: epc * (0.90 + Math.random() * 0.2),
-            epc_30d: epc * (0.85 + Math.random() * 0.3),
-            
-            campaignId: campaignId
+            payout: conversions > 0 ? revenue / conversions : 0,
+            campaignId: campaignId,
+            note: `Mock lander data for ${campaignName}`
         });
     }
     
     return offers;
-}
-
-function getOfferTheme(index) {
-    const themes = [
-        'Home Insurance Quote',
-        'Medicare Comparison', 
-        'Solar Panel Calculator',
-        'Auto Insurance Savings',
-        'Life Insurance Quote',
-        'Health Plan Finder',
-        'Investment Calculator',
-        'Debt Relief Form'
-    ];
-    return themes[index % themes.length];
 }
 
 function getDateRange(range) {
