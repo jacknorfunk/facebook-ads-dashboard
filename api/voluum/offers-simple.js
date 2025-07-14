@@ -40,17 +40,11 @@ export default async function handler(req, res) {
         const accessKey = process.env.VOLUME_KEY;
         
         if (!accessId || !accessKey) {
-            log('ERROR: Missing environment variables - returning realistic mock data');
-            return res.status(200).json({
-                success: true,
-                offers: generateRealisticMockOffers(campaignId),
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: 'Missing API credentials',
-                    campaign_id: campaignId,
-                    offers_count: 'mock_generated'
-                }
+            log('ERROR: Missing environment variables');
+            return res.status(400).json({
+                success: false,
+                error: 'Missing Voluum API credentials',
+                debug_logs: debugLogs
             });
         }
 
@@ -77,16 +71,10 @@ export default async function handler(req, res) {
         if (!authResponse.ok) {
             const authError = await authResponse.text();
             log(`AUTH FAILED - Status: ${authResponse.status}, Error: ${authError.substring(0, 200)}`);
-            return res.status(200).json({
-                success: true,
-                offers: generateRealisticMockOffers(campaignId),
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: `Authentication failed: ${authResponse.status}`,
-                    campaign_id: campaignId,
-                    error_preview: authError.substring(0, 100)
-                }
+            return res.status(400).json({
+                success: false,
+                error: `Authentication failed: ${authResponse.status}`,
+                debug_logs: debugLogs
             });
         }
 
@@ -95,15 +83,10 @@ export default async function handler(req, res) {
         
         if (!sessionToken) {
             log('ERROR: No token in auth response');
-            return res.status(200).json({
-                success: true,
-                offers: generateRealisticMockOffers(campaignId),
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: 'No session token received',
-                    campaign_id: campaignId
-                }
+            return res.status(400).json({
+                success: false,
+                error: 'No session token received',
+                debug_logs: debugLogs
             });
         }
 
@@ -128,15 +111,10 @@ export default async function handler(req, res) {
 
         if (!campaignVerifyResponse.ok) {
             log(`Campaign verification failed: ${campaignVerifyResponse.status}`);
-            return res.status(200).json({
-                success: true,
-                offers: generateRealisticMockOffers(campaignId),
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: `Campaign verification failed: ${campaignVerifyResponse.status}`,
-                    campaign_id: campaignId
-                }
+            return res.status(400).json({
+                success: false,
+                error: `Campaign verification failed: ${campaignVerifyResponse.status}`,
+                debug_logs: debugLogs
             });
         }
 
@@ -200,38 +178,44 @@ export default async function handler(req, res) {
         // Step 4: Process campaign-specific offer data with multi-period trends
         const processedOffers = processOfferDataWithTrends(multiPeriodOfferData, debugLogs, campaignId);
         
-        log(`Processing complete - ${processedOffers.length} offers processed for campaign ${campaignId}`);
+        // Step 5: Filter to ONLY include offers with traffic (visits > 0 OR conversions > 0)
+        const offersWithTraffic = processedOffers.filter(offer => {
+            const hasTraffic = (offer.visits > 0) || (offer.conversions > 0) || (offer.clicks > 0) || (offer.revenue > 0);
+            return hasTraffic;
+        });
+        
+        log(`Processing complete - ${processedOffers.length} total offers, ${offersWithTraffic.length} with traffic for campaign ${campaignId}`);
 
-        // If no real offers found, generate realistic mock data
-        if (processedOffers.length === 0) {
-            log(`No real offers found for campaign ${campaignId}, generating realistic mock data`);
+        // If no offers with traffic found, return empty array
+        if (offersWithTraffic.length === 0) {
+            log(`No offers with traffic found for campaign ${campaignId}`);
             return res.status(200).json({
                 success: true,
-                offers: generateRealisticMockOffers(campaignId),
-                mock_data: true,
+                offers: [],
                 debug_logs: debugLogs,
                 debug_info: {
-                    reason: 'No real offers found for this campaign',
+                    reason: 'No offers with traffic found for this campaign',
                     campaign_id: campaignId,
+                    total_offers_found: processedOffers.length,
+                    offers_with_traffic: offersWithTraffic.length,
                     periods_checked: Object.keys(multiPeriodOfferData),
-                    rows_per_period: Object.fromEntries(
-                        Object.entries(multiPeriodOfferData).map(([k, v]) => [k, v.length])
-                    )
+                    traffic_filter_applied: true
                 }
             });
         }
 
         return res.status(200).json({
             success: true,
-            offers: processedOffers,
-            mock_data: false,
+            offers: offersWithTraffic,
             debug_logs: debugLogs,
             debug_info: {
                 campaign_id: campaignId,
                 date_range: dateRange,
-                total_offers: processedOffers.length,
+                total_offers_found: processedOffers.length,
+                offers_with_traffic: offersWithTraffic.length,
+                offers_filtered_out: processedOffers.length - offersWithTraffic.length,
                 periods_analyzed: Object.keys(multiPeriodOfferData),
-                real_data: true
+                traffic_filter_applied: true
             }
         });
 
@@ -239,16 +223,10 @@ export default async function handler(req, res) {
         log(`CRITICAL ERROR: ${error.message}`);
         log(`Error stack: ${error.stack}`);
         
-        return res.status(200).json({
-            success: true,
-            offers: generateRealisticMockOffers(req.query.campaign_id || 'unknown'),
-            mock_data: true,
+        return res.status(500).json({
+            success: false,
             error: error.message,
-            debug_logs: debugLogs,
-            debug_info: {
-                reason: `Critical error: ${error.message}`,
-                campaign_id: req.query.campaign_id
-            }
+            debug_logs: debugLogs
         });
     }
 }
@@ -408,14 +386,19 @@ function processOfferDataWithTrends(multiPeriodData, debugLogs, campaignId) {
                 is_trending_up: epc_trend_7d > 10,
                 is_trending_down: epc_trend_7d < -10,
                 is_profitable: roas > 1.0,
-                has_traffic: visits > 0 || clicks > 0
+                has_traffic: visits > 0 || clicks > 0 || conversions > 0 || revenue > 0
             };
             
-            offers.push(offer);
-            
-            // Log first few offers for debugging
-            if (index < 3) {
-                debugLogs.push(`Offer ${index + 1}: "${offer.name}" | EPC: $${offer.epc.toFixed(3)} | EPC 7D: $${offer.epc_7d.toFixed(3)} | Trend: ${offer.epc_trend_7d.toFixed(1)}% | ROAS: ${offer.roas.toFixed(2)}`);
+            // Only add offers that have some form of traffic/activity
+            if (offer.has_traffic) {
+                offers.push(offer);
+                
+                // Log first few offers for debugging
+                if (offers.length <= 3) {
+                    debugLogs.push(`Offer ${offers.length}: "${offer.name}" | EPC: ${offer.epc.toFixed(3)} | EPC 7D: ${offer.epc_7d.toFixed(3)} | Trend: ${offer.epc_trend_7d.toFixed(1)}% | ROAS: ${offer.roas.toFixed(2)} | Traffic: ${offer.has_traffic}`);
+                }
+            } else {
+                debugLogs.push(`Filtered out offer "${offerName}" - no traffic (visits: ${visits}, clicks: ${clicks}, conversions: ${conversions}, revenue: ${revenue})`);
             }
             
         } catch (error) {
@@ -423,163 +406,12 @@ function processOfferDataWithTrends(multiPeriodData, debugLogs, campaignId) {
         }
     });
     
-    debugLogs.push(`Final processing result: ${offers.length} offers processed with multi-period trends`);
+    debugLogs.push(`Final processing result: ${offers.length} offers with traffic processed (filtered from ${currentOffers.length} total offers)`);
     
     return offers;
 }
 
-function generateRealisticMockOffers(campaignId) {
-    // Generate realistic mock offers based on campaign name/type
-    const campaignName = (campaignId || '').toLowerCase();
-    
-    // Determine offer types based on campaign
-    let offerTypes = [];
-    if (campaignName.includes('newsbreak')) {
-        offerTypes = [
-            'Auto - Home Insurance NewsBreak',
-            'Seniors - Medicare NewsBreak', 
-            'Native - Insurance NewsBreak',
-            'NewsBreak - 9 Dumbest Things Smart People Waste Money On',
-            'SENIORS - NATIVE - MOBILE - NEWSBREAK'
-        ];
-    } else if (campaignName.includes('taboola')) {
-        offerTypes = [
-            'Taboola - 9 Dumb Ways v2',
-            'Taboola Native - Home Insurance',
-            'Taboola - Seniors Pics',
-            'Taboola - Medicare Guide'
-        ];
-    } else if (campaignName.includes('facebook')) {
-        offerTypes = [
-            'Facebook - Seniors - Mobile - B1A1',
-            'Facebook - Dumbest Things New',
-            'Facebook - Auto Insurance'
-        ];
-    } else {
-        offerTypes = [
-            'Generic Insurance Offer',
-            'Medicare Lead Gen',
-            'Auto Insurance Quote',
-            'Home Insurance Lead'
-        ];
-    }
-    
-    const numOffers = Math.min(offerTypes.length, Math.floor(Math.random() * 4) + 3); // 3-6 offers
-    const offers = [];
-    
-    for (let i = 0; i < numOffers; i++) {
-        const offerName = offerTypes[i] || `Offer ${i + 1}`;
-        
-        // Generate realistic base metrics
-        const baseClicks = Math.floor(Math.random() * 5000) + 100;
-        const baseVisits = Math.floor(baseClicks * (0.8 + Math.random() * 0.4)); // 80-120% of clicks
-        const baseConversions = Math.floor(baseVisits * (0.01 + Math.random() * 0.08)); // 1-9% CVR
-        const basePayout = 8 + Math.random() * 15; // $8-23 payout
-        const baseRevenue = baseConversions * basePayout;
-        const baseCost = baseRevenue * (0.7 + Math.random() * 0.6); // Variable ROAS 0.7-1.3
-        
-        // Calculate current metrics
-        const currentEpc = baseClicks > 0 ? baseRevenue / baseClicks : 0;
-        const currentRoas = baseCost > 0 ? baseRevenue / baseCost : 0;
-        const currentCvr = baseVisits > 0 ? (baseConversions / baseVisits) * 100 : 0;
-        
-        // Generate 7-day historical data (slightly different)
-        const variance7d = 0.85 + Math.random() * 0.3; // ±15% variance
-        const clicks7d = Math.floor(baseClicks * variance7d);
-        const visits7d = Math.floor(baseVisits * variance7d);
-        const conversions7d = Math.floor(baseConversions * variance7d);
-        const revenue7d = conversions7d * basePayout * (0.95 + Math.random() * 0.1);
-        const cost7d = revenue7d * (0.7 + Math.random() * 0.6);
-        const epc7d = clicks7d > 0 ? revenue7d / clicks7d : 0;
-        
-        // Generate 14-day historical data
-        const variance14d = 0.8 + Math.random() * 0.4; // ±20% variance
-        const clicks14d = Math.floor(baseClicks * variance14d);
-        const visits14d = Math.floor(baseVisits * variance14d);
-        const conversions14d = Math.floor(baseConversions * variance14d);
-        const revenue14d = conversions14d * basePayout * (0.9 + Math.random() * 0.2);
-        const cost14d = revenue14d * (0.7 + Math.random() * 0.6);
-        const epc14d = clicks14d > 0 ? revenue14d / clicks14d : 0;
-        
-        // Generate 30-day historical data
-        const variance30d = 0.75 + Math.random() * 0.5; // ±25% variance
-        const clicks30d = Math.floor(baseClicks * variance30d);
-        const visits30d = Math.floor(baseVisits * variance30d);
-        const conversions30d = Math.floor(baseConversions * variance30d);
-        const revenue30d = conversions30d * basePayout * (0.85 + Math.random() * 0.3);
-        const cost30d = revenue30d * (0.7 + Math.random() * 0.6);
-        const epc30d = clicks30d > 0 ? revenue30d / clicks30d : 0;
-        
-        // Calculate trends
-        const epcTrend7d = epc7d > 0 ? ((currentEpc - epc7d) / epc7d) * 100 : 0;
-        const epcTrend14d = epc14d > 0 ? ((currentEpc - epc14d) / epc14d) * 100 : 0;
-        const epcTrend30d = epc30d > 0 ? ((currentEpc - epc30d) / epc30d) * 100 : 0;
-        
-        offers.push({
-            id: `mock_offer_${i + 1}`,
-            name: offerName,
-            offerName: offerName,
-            url: `https://findbestusa.com/lp/${offerName.toLowerCase().replace(/[^a-z0-9]/g, '-')}/index.html`,
-            
-            // Current metrics
-            visits: baseVisits,
-            conversions: baseConversions,
-            revenue: baseRevenue,
-            cost: baseCost,
-            clicks: baseClicks,
-            impressions: Math.floor(baseClicks * (1.1 + Math.random() * 0.3)),
-            roas: currentRoas,
-            cpa: baseConversions > 0 ? baseCost / baseConversions : 0,
-            cvr: currentCvr,
-            epc: currentEpc,
-            epc_visits: baseVisits > 0 ? baseRevenue / baseVisits : 0,
-            payout: basePayout,
-            
-            // 7-day metrics
-            visits_7d: visits7d,
-            conversions_7d: conversions7d,
-            revenue_7d: revenue7d,
-            cost_7d: cost7d,
-            clicks_7d: clicks7d,
-            roas_7d: cost7d > 0 ? revenue7d / cost7d : 0,
-            epc_7d: epc7d,
-            cvr_7d: visits7d > 0 ? (conversions7d / visits7d) * 100 : 0,
-            
-            // 14-day metrics
-            visits_14d: visits14d,
-            conversions_14d: conversions14d,
-            revenue_14d: revenue14d,
-            cost_14d: cost14d,
-            clicks_14d: clicks14d,
-            roas_14d: cost14d > 0 ? revenue14d / cost14d : 0,
-            epc_14d: epc14d,
-            cvr_14d: visits14d > 0 ? (conversions14d / visits14d) * 100 : 0,
-            
-            // 30-day metrics
-            visits_30d: visits30d,
-            conversions_30d: conversions30d,
-            revenue_30d: revenue30d,
-            cost_30d: cost30d,
-            clicks_30d: clicks30d,
-            roas_30d: cost30d > 0 ? revenue30d / cost30d : 0,
-            epc_30d: epc30d,
-            cvr_30d: visits30d > 0 ? (conversions30d / visits30d) * 100 : 0,
-            
-            // Trends
-            epc_trend_7d: epcTrend7d,
-            epc_trend_14d: epcTrend14d,
-            epc_trend_30d: epcTrend30d,
-            
-            // Flags
-            is_trending_up: epcTrend7d > 10,
-            is_trending_down: epcTrend7d < -10,
-            is_profitable: currentRoas > 1.0,
-            has_traffic: baseVisits > 0
-        });
-    }
-    
-    return offers;
-}
+// Remove the entire generateRealisticMockOffers function - we don't want any mock data
 
 function getDateRange(range) {
     const now = new Date();
