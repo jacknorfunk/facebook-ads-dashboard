@@ -817,19 +817,45 @@
             }
         }
 
-        function displayOfferData(offers, campaign, isMockData = false, debugInfo = null) {
-            const modalContent = document.getElementById('offerModalContent');
-            
-            if (!offers || offers.length === 0) {
-                modalContent.innerHTML = `
-                    <div class="text-center py-8">
-                        <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
-                        <h3 class="text-lg font-semibold text-gray-700 mb-2">No Offers Found</h3>
-                        <p class="text-gray-600">This campaign doesn't have any offer data available.</p>
-                    </div>
-                `;
-                return;
-            }
+function calculatePeriodTotals(offers, period) {
+    const suffix = period === 'current' ? '' : `_${period}`;
+    
+    const totalRevenue = offers.reduce((sum, offer) => sum + (offer[`revenue${suffix}`] || 0), 0);
+    const totalCost = offers.reduce((sum, offer) => sum + (offer[`cost${suffix}`] || 0), 0);
+    const totalConversions = offers.reduce((sum, offer) => sum + (offer[`conversions${suffix}`] || 0), 0);
+    const totalClicks = offers.reduce((sum, offer) => sum + (offer[`clicks${suffix}`] || 0), 0);
+    
+    return {
+        revenue: totalRevenue,
+        cost: totalCost,
+        conversions: totalConversions,
+        clicks: totalClicks,
+        roas: totalCost > 0 ? totalRevenue / totalCost : 0,
+        epc: totalClicks > 0 ? totalRevenue / totalClicks : 0
+    };
+}
+
+function getTrendColor(current, previous) {
+    if (!previous || previous === 0) return 'text-gray-500';
+    const change = ((current - previous) / previous) * 100;
+    if (change > 5) return 'text-green-600';
+    if (change < -5) return 'text-red-600';
+    return 'text-gray-600';
+}
+
+function getTrendArrow(current, previous) {
+    if (!previous || previous === 0) return '•';
+    const change = ((current - previous) / previous) * 100;
+    if (change > 5) return '↗';
+    if (change < -5) return '↘';
+    return '→';
+}
+
+function getTrendPercentage(current, previous) {
+    if (!previous || previous === 0) return '0.0';
+    const change = ((current - previous) / previous) * 100;
+    return Math.abs(change).toFixed(1);
+}
             
             // Calculate totals
             const totalRevenue = offers.reduce((sum, offer) => sum + (offer.revenue || 0), 0);
