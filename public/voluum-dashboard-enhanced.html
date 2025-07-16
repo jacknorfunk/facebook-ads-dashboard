@@ -25,13 +25,6 @@
         .table-container { max-height: 600px; overflow-y: auto; }
         .sortable { cursor: pointer; user-select: none; }
         .sortable:hover { background-color: #f1f5f9; }
-        .connection-status { padding: 8px 12px; border-radius: 6px; font-size: 14px; font-weight: 500; }
-        .connection-success { background: #d1fae5; color: #065f46; }
-        .connection-error { background: #fee2e2; color: #991b1b; }
-        .connection-warning { background: #fef3c7; color: #92400e; }
-        .connection-loading { background: #e0e7ff; color: #3730a3; }
-        .api-status-panel { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
-        .debug-panel { background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -41,7 +34,7 @@
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h1 class="text-3xl font-bold text-white">Enhanced Voluum Performance Tracker</h1>
-                    <p class="text-blue-100">Multi-source traffic analysis • Voluum + Facebook + Taboola + Other Sources</p>
+                    <p class="text-blue-100">Multi-period analysis with campaign & offer insights</p>
                 </div>
                 <div class="flex items-center space-x-4">
                     <button id="exportBtn" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-all">
@@ -52,55 +45,23 @@
                     </button>
                 </div>
             </div>
-            
-            <!-- API Connection Status Panel -->
-            <div class="api-status-panel">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-gray-700 font-semibold">Data Source Status</h3>
-                    <button id="toggleDebugBtn" class="text-sm px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">
-                        <i class="fas fa-code mr-1"></i>Debug
-                    </button>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                    <div class="flex items-center">
-                        <i class="fas fa-circle mr-2 text-gray-400" id="volumeStatus"></i>
-                        <span>Voluum API</span>
-                    </div>
-                    <div class="flex items-center">
-                        <i class="fas fa-circle mr-2 text-gray-400" id="facebookStatus"></i>
-                        <span>Facebook API</span>
-                    </div>
-                    <div class="flex items-center">
-                        <i class="fas fa-circle mr-2 text-gray-400" id="taboolaStatus"></i>
-                        <span>Taboola API</span>
-                    </div>
-                    <div class="flex items-center">
-                        <i class="fas fa-circle mr-2 text-gray-400" id="overallStatus"></i>
-                        <span>Overall Status</span>
-                    </div>
-                </div>
-                <div id="connectionMessage" class="mt-2 text-sm text-gray-600"></div>
-            </div>
-            
-            <!-- Debug Panel -->
-            <div id="debugPanel" class="debug-panel hidden">
-                <div class="flex items-center justify-between mb-2">
-                    <h4 class="text-lg font-semibold">Debug Information</h4>
-                    <button id="clearDebugBtn" class="text-xs px-2 py-1 bg-gray-600 rounded hover:bg-gray-500">Clear</button>
-                </div>
-                <div id="debugLog"></div>
-            </div>
 
             <!-- Filters -->
-            <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+                <div>
+                    <label class="block text-white text-sm font-medium mb-2">Search Campaign</label>
+                    <input type="text" id="campaignSearchFilter" placeholder="Search campaigns..." 
+                           class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
+                </div>
+                
                 <div>
                     <label class="block text-white text-sm font-medium mb-2">Date Range</label>
                     <select id="dateRangeFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
                         <option value="today">Today</option>
                         <option value="yesterday">Yesterday</option>
-                        <option value="last_7_days">Last 7 Days</option>
+                        <option value="last_7_days" selected>Last 7 Days</option>
                         <option value="last_14_days">Last 14 Days</option>
-                        <option value="last_30_days" selected>Last 30 Days</option>
+                        <option value="last_30_days">Last 30 Days</option>
                     </select>
                 </div>
                 
@@ -118,10 +79,9 @@
                     <label class="block text-white text-sm font-medium mb-2">Traffic Source</label>
                     <select id="trafficSourceFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
                         <option value="all">All Sources</option>
-                        <option value="voluum">Voluum</option>
-                        <option value="facebook">Facebook</option>
-                        <option value="taboola">Taboola</option>
                         <option value="newsbreak">NewsBreak</option>
+                        <option value="taboola">Taboola</option>
+                        <option value="facebook">Facebook</option>
                         <option value="other">Other</option>
                     </select>
                 </div>
@@ -145,66 +105,80 @@
                         <option value="losing">Losing</option>
                     </select>
                 </div>
-                
-                <div>
-                    <label class="block text-white text-sm font-medium mb-2">Sort By</label>
-                    <select id="sortFilter" class="w-full bg-white bg-opacity-90 border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
-                        <option value="revenue">Revenue (High to Low)</option>
-                        <option value="spend">Spend (High to Low)</option>
-                        <option value="roas">ROAS (High to Low)</option>
-                        <option value="conversions">Conversions (High to Low)</option>
-                        <option value="profit">Profit (High to Low)</option>
-                    </select>
-                </div>
             </div>
         </div>
     </div>
 
-    <!-- Overview Stats -->
+    <!-- Main Content -->
     <div class="max-w-full mx-auto px-4 py-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div class="flex items-center justify-between">
+        <!-- Overview Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-line text-blue-600 text-2xl mr-3"></i>
                     <div>
-                        <p class="text-3xl font-bold text-blue-600" id="totalCampaigns">0</p>
+                        <p class="text-2xl font-bold text-blue-600" id="totalCampaigns">0</p>
                         <p class="text-sm text-gray-600">Total Campaigns</p>
-                        <p class="text-xs text-gray-500">Active: <span id="activeCampaigns">0</span></p>
                     </div>
-                    <i class="fas fa-chart-line text-blue-600 text-2xl"></i>
                 </div>
             </div>
             
-            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div class="flex items-center justify-between">
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <div class="flex items-center">
+                    <i class="fas fa-play text-green-600 text-2xl mr-3"></i>
                     <div>
-                        <p class="text-3xl font-bold text-green-600">$<span id="totalRevenue">0</span></p>
+                        <p class="text-2xl font-bold text-green-600" id="activeCampaigns">0</p>
+                        <p class="text-sm text-gray-600">Active Campaigns</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <div class="flex items-center">
+                    <i class="fas fa-dollar-sign text-green-600 text-2xl mr-3"></i>
+                    <div>
+                        <p class="text-2xl font-bold text-green-600">$<span id="totalRevenue">0</span></p>
                         <p class="text-sm text-gray-600">Total Revenue</p>
-                        <p class="text-xs text-gray-500">Multi-source</p>
                     </div>
-                    <i class="fas fa-dollar-sign text-green-600 text-2xl"></i>
                 </div>
             </div>
             
-            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div class="flex items-center justify-between">
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <div class="flex items-center">
+                    <i class="fas fa-credit-card text-red-600 text-2xl mr-3"></i>
                     <div>
-                        <p class="text-3xl font-bold text-red-600">$<span id="totalSpend">0</span></p>
+                        <p class="text-2xl font-bold text-red-600">$<span id="totalSpend">0</span></p>
                         <p class="text-sm text-gray-600">Total Spend</p>
-                        <p class="text-xs text-gray-500">Multi-source</p>
                     </div>
-                    <i class="fas fa-credit-card text-red-600 text-2xl"></i>
                 </div>
             </div>
             
-            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div class="flex items-center justify-between">
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-pie text-purple-600 text-2xl mr-3"></i>
                     <div>
-                        <p class="text-3xl font-bold text-purple-600"><span id="averageRoas">0</span>x</p>
-                        <p class="text-sm text-gray-600">Average ROAS</p>
-                        <p class="text-xs text-gray-500">Conversions: <span id="totalConversions">0</span></p>
+                        <p class="text-2xl font-bold text-purple-600"><span id="averageRoas">0</span>x</p>
+                        <p class="text-sm text-gray-600">Avg ROAS</p>
                     </div>
-                    <i class="fas fa-chart-pie text-purple-600 text-2xl"></i>
                 </div>
+            </div>
+            
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <div class="flex items-center">
+                    <i class="fas fa-exchange-alt text-indigo-600 text-2xl mr-3"></i>
+                    <div>
+                        <p class="text-2xl font-bold text-indigo-600" id="totalConversions">0</p>
+                        <p class="text-sm text-gray-600">Conversions</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Connection Status</h3>
+            <div id="connectionStatus" class="text-sm text-gray-600">
+                Ready to connect...
             </div>
         </div>
 
@@ -213,11 +187,7 @@
             <div class="p-6 border-b border-gray-200">
                 <div class="flex items-center justify-between">
                     <h2 class="text-xl font-semibold text-gray-900">Campaign Performance Analytics</h2>
-                    <div class="flex items-center space-x-4">
-                        <input type="text" id="campaignSearchFilter" placeholder="Search campaigns..." 
-                               class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <span id="filteredCount" class="text-sm text-gray-600">Loading...</span>
-                    </div>
+                    <span id="filteredCount" class="text-sm text-gray-600">Loading...</span>
                 </div>
             </div>
             
@@ -225,16 +195,23 @@
                 <table class="w-full">
                     <thead class="bg-gray-50 sticky top-0 z-10">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="visits">Visits</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="conversions">Conversions</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="revenue">Revenue</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="spend">Spend</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="roas">ROAS</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 200px;">Campaign</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 120px;">Traffic Source</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">Status</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="visits">Visits</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="conversions">Conversions</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="revenue">Revenue</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="spend">Spend</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">CPA</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 100px;">Current ROAS</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">7D ROAS</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">14D ROAS</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">30D ROAS</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">Trend</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">CVR</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">AOV</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">Profit</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 100px;">Quality Score</th>
                         </tr>
                     </thead>
                     <tbody id="campaignTableBody" class="bg-white divide-y divide-gray-200">
@@ -248,7 +225,7 @@
         <div id="loadingState" class="hidden text-center py-12">
             <div class="loading-pulse">
                 <i class="fas fa-spinner fa-spin text-4xl text-blue-500 mb-4"></i>
-                <p class="text-gray-600">Loading campaign data from multiple sources...</p>
+                <p class="text-gray-600">Loading campaign data...</p>
             </div>
         </div>
 
@@ -256,10 +233,29 @@
         <div id="emptyState" class="hidden text-center py-12">
             <i class="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
             <h3 class="text-lg font-semibold text-gray-700 mb-2">No Campaign Data Available</h3>
-            <p class="text-gray-600 mb-4">Unable to load campaign data from any connected sources.</p>
-            <button onclick="loadAllData()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            <p class="text-gray-600 mb-4">Unable to load campaign data. Please check your API connections.</p>
+            <button onclick="loadData()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                 <i class="fas fa-sync mr-2"></i>Try Again
             </button>
+        </div>
+    </div>
+
+    <!-- Offer Modal -->
+    <div id="offerModal" class="modal">
+        <div class="modal-content bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-semibold text-gray-900">
+                        Offer Performance: <span id="modalOfferCampaignName"></span>
+                    </h3>
+                    <button id="closeOfferModal" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="offerModalContent" class="p-6">
+                <!-- Offer content will be inserted here -->
+            </div>
         </div>
     </div>
 
@@ -268,34 +264,26 @@
         let allCampaigns = [];
         let filteredCampaigns = [];
         let currentSort = { field: 'revenue', direction: 'desc' };
-        let debugLogs = [];
-        let dataSourceStatus = {
-            voluum: 'disconnected',
-            facebook: 'disconnected',
-            taboola: 'disconnected'
-        };
-
+        
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
-            loadAllData();
+            loadData();
         });
 
         function setupEventListeners() {
             // Filter event listeners
-            document.getElementById('dateRangeFilter').addEventListener('change', loadAllData);
+            document.getElementById('dateRangeFilter').addEventListener('change', loadData);
             document.getElementById('statusFilter').addEventListener('change', applyFilters);
             document.getElementById('trafficSourceFilter').addEventListener('change', applyFilters);
             document.getElementById('spendFilter').addEventListener('change', applyFilters);
             document.getElementById('performanceFilter').addEventListener('change', applyFilters);
-            document.getElementById('sortFilter').addEventListener('change', applySortFromFilter);
             document.getElementById('campaignSearchFilter').addEventListener('input', applyFilters);
             
             // Button event listeners
-            document.getElementById('refreshBtn').addEventListener('click', loadAllData);
+            document.getElementById('refreshBtn').addEventListener('click', loadData);
             document.getElementById('exportBtn').addEventListener('click', exportToCsv);
-            document.getElementById('toggleDebugBtn').addEventListener('click', toggleDebugPanel);
-            document.getElementById('clearDebugBtn').addEventListener('click', clearDebugLog);
+            document.getElementById('closeOfferModal').addEventListener('click', closeOfferModal);
             
             // Sortable headers
             document.querySelectorAll('.sortable').forEach(header => {
@@ -304,155 +292,29 @@
                     sortCampaigns(field);
                 });
             });
+            
+            // Modal close on background click
+            document.getElementById('offerModal').addEventListener('click', (e) => {
+                if (e.target.id === 'offerModal') closeOfferModal();
+            });
         }
 
         function debugLog(message) {
             const timestamp = new Date().toLocaleTimeString();
-            const logEntry = `[${timestamp}] ${message}`;
-            debugLogs.push(logEntry);
-            
-            // Keep only last 100 log entries
-            if (debugLogs.length > 100) {
-                debugLogs.shift();
-            }
-            
-            // Update debug panel if visible
-            const debugPanel = document.getElementById('debugLog');
-            if (debugPanel && !document.getElementById('debugPanel').classList.contains('hidden')) {
-                debugPanel.innerHTML = debugLogs.join('\n');
-                debugPanel.scrollTop = debugPanel.scrollHeight;
-            }
-            
-            console.log(logEntry);
+            console.log(`[${timestamp}] ${message}`);
         }
 
-        function toggleDebugPanel() {
-            const debugPanel = document.getElementById('debugPanel');
-            const debugLog = document.getElementById('debugLog');
-            
-            debugPanel.classList.toggle('hidden');
-            
-            if (!debugPanel.classList.contains('hidden')) {
-                debugLog.innerHTML = debugLogs.join('\n');
-                debugLog.scrollTop = debugLog.scrollHeight;
-            }
+        function updateConnectionStatus(message) {
+            document.getElementById('connectionStatus').textContent = message;
         }
 
-        function clearDebugLog() {
-            debugLogs = [];
-            document.getElementById('debugLog').innerHTML = '';
-        }
-
-        function updateConnectionStatus(source, status, message = '') {
-            dataSourceStatus[source] = status;
-            const statusElement = document.getElementById(source + 'Status');
-            
-            if (statusElement) {
-                statusElement.className = 'fas fa-circle mr-2 ' + getStatusColor(status);
-            }
-            
-            // Update overall status
-            const overallStatus = calculateOverallStatus();
-            const overallElement = document.getElementById('overallStatus');
-            if (overallElement) {
-                overallElement.className = 'fas fa-circle mr-2 ' + getStatusColor(overallStatus);
-            }
-            
-            // Update connection message
-            const messageElement = document.getElementById('connectionMessage');
-            if (messageElement && message) {
-                messageElement.textContent = message;
-                messageElement.className = 'mt-2 text-sm connection-' + status;
-            }
-        }
-
-        function getStatusColor(status) {
-            switch (status) {
-                case 'connected': return 'text-green-500';
-                case 'warning': return 'text-yellow-500';
-                case 'error': return 'text-red-500';
-                case 'loading': return 'text-blue-500';
-                default: return 'text-gray-400';
-            }
-        }
-
-        function calculateOverallStatus() {
-            const statuses = Object.values(dataSourceStatus);
-            if (statuses.includes('connected')) return 'connected';
-            if (statuses.includes('warning')) return 'warning';
-            if (statuses.includes('error')) return 'error';
-            if (statuses.includes('loading')) return 'loading';
-            return 'disconnected';
-        }
-
-        async function loadAllData() {
+        async function loadData() {
             showLoadingState();
-            debugLog('🚀 Starting comprehensive data load from all sources...');
-            
-            const combinedData = {
-                campaigns: [],
-                overview: {
-                    totalCampaigns: 0,
-                    activeCampaigns: 0,
-                    totalRevenue: 0,
-                    totalSpend: 0,
-                    averageRoas: 0,
-                    totalConversions: 0
-                }
-            };
-
-            // Load data from all sources in parallel
-            const promises = [
-                loadVoluumData(),
-                loadFacebookData(),
-                loadTaboolaData()
-            ];
-
-            try {
-                const results = await Promise.allSettled(promises);
-                
-                results.forEach((result, index) => {
-                    const source = ['voluum', 'facebook', 'taboola'][index];
-                    
-                    if (result.status === 'fulfilled' && result.value) {
-                        combinedData.campaigns.push(...result.value.campaigns);
-                        debugLog(`✅ ${source} data loaded: ${result.value.campaigns.length} campaigns`);
-                    } else {
-                        debugLog(`❌ ${source} data failed: ${result.reason?.message || 'Unknown error'}`);
-                    }
-                });
-
-                // Process combined data
-                processAllData(combinedData);
-                
-                const totalCampaigns = combinedData.campaigns.length;
-                const connectedSources = Object.values(dataSourceStatus).filter(s => s === 'connected').length;
-                
-                debugLog(`📊 Final result: ${totalCampaigns} campaigns from ${connectedSources} connected sources`);
-                
-                if (totalCampaigns === 0) {
-                    showEmptyState();
-                    updateConnectionStatus('voluum', 'error', 'No data available from any source');
-                    updateConnectionStatus('facebook', 'error', 'No data available from any source');
-                    updateConnectionStatus('taboola', 'error', 'No data available from any source');
-                }
-                
-            } catch (error) {
-                debugLog(`❌ Critical error during data loading: ${error.message}`);
-                updateConnectionStatus('voluum', 'error', `Critical error: ${error.message}`);
-                updateConnectionStatus('facebook', 'error', `Critical error: ${error.message}`);
-                updateConnectionStatus('taboola', 'error', `Critical error: ${error.message}`);
-                showEmptyState();
-            } finally {
-                hideLoadingState();
-            }
-        }
-
-        async function loadVoluumData() {
-            debugLog('📊 Loading Voluum data...');
-            updateConnectionStatus('voluum', 'loading', 'Connecting to Voluum API...');
+            updateConnectionStatus('Loading campaign data...');
             
             try {
+                debugLog('Starting data load...');
+                
                 const dateRange = document.getElementById('dateRangeFilter').value;
                 const url = `/api/voluum/campaigns-simple?date_range=${dateRange}`;
                 
@@ -495,133 +357,47 @@
                 
                 if (data.success === false) {
                     debugLog(`API returned error: ${data.error}`);
-                    updateConnectionStatus('voluum', 'error', `API Error: ${data.error}`);
-                    throw new Error(data.error || 'Voluum API error');
+                    updateConnectionStatus(`API Error: ${data.error}`);
+                    showEmptyState();
+                    return;
                 }
                 
-                // Process Voluum data using the actual API structure
-                const processedData = {
-                    campaigns: (data.data?.campaigns || []).map(campaign => ({
-                        ...campaign,
-                        source: campaign.trafficSource || 'Voluum',
-                        dataSource: 'voluum'
-                    }))
-                };
-                
-                updateConnectionStatus('voluum', 'connected', `Voluum: ${processedData.campaigns.length} campaigns loaded`);
-                debugLog(`✅ Voluum data processed: ${processedData.campaigns.length} campaigns`);
-                
-                return processedData;
+                debugLog('Real Voluum data received successfully');
+                processData(data.data || data);
+                updateConnectionStatus(`Connected - ${data.debug_info?.campaigns_count || allCampaigns.length} campaigns loaded`);
                 
             } catch (error) {
-                debugLog(`❌ Voluum error: ${error.message}`);
-                updateConnectionStatus('voluum', 'error', `Voluum Error: ${error.message}`);
-                throw error; // Re-throw to prevent mock data fallback
+                console.error('Error loading data:', error);
+                debugLog(`Error: ${error.message}`);
+                
+                if (error.name === 'AbortError') {
+                    debugLog('Request timed out after 30 seconds');
+                    updateConnectionStatus('Request timed out - API may be down');
+                } else if (error.message.includes('404')) {
+                    debugLog('API endpoint not found');
+                    updateConnectionStatus('API endpoint not found - check deployment');
+                } else if (error.message.includes('Failed to fetch')) {
+                    debugLog('Network error or CORS issue');
+                    updateConnectionStatus('Network error - check API deployment');
+                } else {
+                    updateConnectionStatus(`Connection failed: ${error.message}`);
+                }
+                
+                showEmptyState();
+            } finally {
+                hideLoadingState();
             }
         }
 
-        async function loadFacebookData() {
-            debugLog('📘 Loading Facebook data...');
-            updateConnectionStatus('facebook', 'loading', 'Connecting to Facebook API...');
-            
-            try {
-                const response = await fetch('/api/campaigns');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                
-                if (!Array.isArray(data)) {
-                    throw new Error('Facebook API returned invalid data format');
-                }
-                
-                // Process Facebook data using the actual API structure
-                const processedData = {
-                    campaigns: data.map(campaign => ({
-                        id: campaign.id,
-                        name: campaign.name,
-                        visits: campaign.clicks || 0,
-                        conversions: campaign.conversions || 0,
-                        revenue: campaign.revenue || 0,
-                        cost: campaign.spend || 0,
-                        roas: campaign.roas || (campaign.spend > 0 ? (campaign.revenue || 0) / campaign.spend : 0),
-                        status: campaign.status || 'Active',
-                        hasTraffic: true,
-                        source: 'Facebook',
-                        dataSource: 'facebook'
-                    }))
-                };
-                
-                updateConnectionStatus('facebook', 'connected', `Facebook: ${processedData.campaigns.length} campaigns loaded`);
-                debugLog(`✅ Facebook data processed: ${processedData.campaigns.length} campaigns`);
-                
-                return processedData;
-                
-            } catch (error) {
-                debugLog(`❌ Facebook error: ${error.message}`);
-                updateConnectionStatus('facebook', 'error', `Facebook Error: ${error.message}`);
-                throw error; // Re-throw to prevent mock data fallback
-            }
-        }
-
-        async function loadTaboolaData() {
-            debugLog('📄 Loading Taboola data...');
-            updateConnectionStatus('taboola', 'loading', 'Connecting to Taboola API...');
-            
-            try {
-                const response = await fetch('/api/taboola-campaigns');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                
-                if (!Array.isArray(data)) {
-                    throw new Error('Taboola API returned invalid data format');
-                }
-                
-                // Process Taboola data using the actual API structure
-                const processedData = {
-                    campaigns: data.map(campaign => ({
-                        id: campaign.id,
-                        name: campaign.name,
-                        visits: campaign.clicks || 0,
-                        conversions: campaign.conversions || 0,
-                        revenue: campaign.revenue || 0,
-                        cost: campaign.spend || 0,
-                        roas: campaign.roas || (campaign.spend > 0 ? (campaign.revenue || 0) / campaign.spend : 0),
-                        status: campaign.campaignStatus || 'Active',
-                        hasTraffic: true,
-                        source: 'Taboola',
-                        dataSource: 'taboola'
-                    }))
-                };
-                
-                updateConnectionStatus('taboola', 'connected', `Taboola: ${processedData.campaigns.length} campaigns loaded`);
-                debugLog(`✅ Taboola data processed: ${processedData.campaigns.length} campaigns`);
-                
-                return processedData;
-                
-            } catch (error) {
-                debugLog(`❌ Taboola error: ${error.message}`);
-                updateConnectionStatus('taboola', 'error', `Taboola Error: ${error.message}`);
-                throw error; // Re-throw to prevent mock data fallback
-            }
-        }
-
-        // Remove all mock data generation functions - using real data only
-        function processAllData(combinedData) {
-            debugLog('🔄 Processing combined data from all sources...');
+        function processData(data) {
+            debugLog('Processing campaign data...');
             
             // Handle case where data might be null or undefined
-            if (!combinedData || !combinedData.campaigns || combinedData.campaigns.length === 0) {
+            if (!data || !data.campaigns) {
                 debugLog('No campaign data to process');
                 allCampaigns = [];
                 updateOverviewStats({ 
-                    totalCampaigns: 0, 
+                    liveCampaigns: 0, 
                     activeCampaigns: 0, 
                     totalRevenue: 0, 
                     totalSpend: 0, 
@@ -632,36 +408,53 @@
                 return;
             }
             
-            // Ensure all campaigns have required fields
-            allCampaigns = combinedData.campaigns.map(campaign => ({
-                id: campaign.id || campaign.name,
-                name: campaign.name || 'Unknown Campaign',
-                source: campaign.source || 'Unknown',
-                dataSource: campaign.dataSource || 'unknown',
-                visits: campaign.visits || 0,
-                conversions: campaign.conversions || 0,
-                revenue: campaign.revenue || 0,
-                cost: campaign.cost || campaign.spend || 0,
-                roas: campaign.roas || (campaign.cost > 0 ? campaign.revenue / campaign.cost : 0),
-                cpa: campaign.cpa || (campaign.conversions > 0 ? campaign.cost / campaign.conversions : 0),
-                cvr: campaign.cvr || (campaign.visits > 0 ? (campaign.conversions / campaign.visits) * 100 : 0),
-                profit: campaign.profit || (campaign.revenue - campaign.cost),
-                status: campaign.status || 'Active',
-                hasTraffic: campaign.hasTraffic !== false
-            }));
+            allCampaigns = data.campaigns || [];
             
-            // Calculate overview stats
-            const overview = calculateOverviewStats(allCampaigns);
-            updateOverviewStats(overview);
+            // If no campaigns, show empty state
+            if (allCampaigns.length === 0) {
+                debugLog('No campaigns in data');
+                updateOverviewStats({ 
+                    liveCampaigns: 0, 
+                    activeCampaigns: 0, 
+                    totalRevenue: 0, 
+                    totalSpend: 0, 
+                    averageRoas: 0, 
+                    totalConversions: 0 
+                });
+                applyFilters();
+                return;
+            }
             
-            // Apply filters and render
+            // Ensure all required fields exist
+            allCampaigns.forEach(campaign => {
+                campaign.visits = campaign.visits || 0;
+                campaign.conversions = campaign.conversions || 0;
+                campaign.revenue = campaign.revenue || 0;
+                campaign.cost = campaign.cost || 0;
+                campaign.clicks = campaign.clicks || 0;
+                
+                // Calculate derived metrics
+                campaign.roas = campaign.cost > 0 ? campaign.revenue / campaign.cost : 0;
+                campaign.roas_7d = campaign.roas_7d || campaign.roas;
+                campaign.roas_14d = campaign.roas_14d || campaign.roas;
+                campaign.roas_30d = campaign.roas_30d || campaign.roas;
+                campaign.cpa = campaign.conversions > 0 ? campaign.cost / campaign.conversions : 0;
+                campaign.cvr = campaign.visits > 0 ? (campaign.conversions / campaign.visits) * 100 : 0;
+                campaign.aov = campaign.conversions > 0 ? campaign.revenue / campaign.conversions : 0;
+                campaign.profit = campaign.revenue - campaign.cost;
+                campaign.change24h = campaign.change24h || 0;
+                campaign.qualityScore = campaign.qualityScore || 0;
+            });
+            
+            debugLog(`Processed ${allCampaigns.length} campaigns`);
+            debugLog(`Traffic sources found: ${data.metadata?.trafficSources?.join(', ') || 'Unknown'}`);
+            
+            updateOverviewStats(data.overview || calculateOverviewStats(allCampaigns));
             applyFilters();
-            
-            debugLog(`✅ Data processing complete: ${allCampaigns.length} total campaigns`);
         }
 
         function calculateOverviewStats(campaigns) {
-            const activeCampaigns = campaigns.filter(c => c.hasTraffic && c.status === 'Active');
+            const activeCampaigns = campaigns.filter(c => c.hasTraffic && c.status !== 'PAUSED');
             const totalRevenue = campaigns.reduce((sum, c) => sum + (c.revenue || 0), 0);
             const totalSpend = campaigns.reduce((sum, c) => sum + (c.cost || 0), 0);
             const totalConversions = campaigns.reduce((sum, c) => sum + (c.conversions || 0), 0);
@@ -669,7 +462,7 @@
                 activeCampaigns.reduce((sum, c) => sum + (c.roas || 0), 0) / activeCampaigns.length : 0;
             
             return {
-                totalCampaigns: campaigns.length,
+                liveCampaigns: campaigns.length,
                 activeCampaigns: activeCampaigns.length,
                 totalRevenue: totalRevenue,
                 totalSpend: totalSpend,
@@ -679,17 +472,17 @@
         }
 
         function updateOverviewStats(overview) {
-            document.getElementById('totalCampaigns').textContent = overview.totalCampaigns.toLocaleString();
-            document.getElementById('activeCampaigns').textContent = overview.activeCampaigns.toLocaleString();
-            document.getElementById('totalRevenue').textContent = overview.totalRevenue.toLocaleString();
-            document.getElementById('totalSpend').textContent = overview.totalSpend.toLocaleString();
-            document.getElementById('averageRoas').textContent = overview.averageRoas.toFixed(2);
-            document.getElementById('totalConversions').textContent = overview.totalConversions.toLocaleString();
+            document.getElementById('totalCampaigns').textContent = overview.liveCampaigns?.toLocaleString() || '0';
+            document.getElementById('activeCampaigns').textContent = overview.activeCampaigns?.toLocaleString() || '0';
+            document.getElementById('totalRevenue').textContent = overview.totalRevenue?.toLocaleString() || '0';
+            document.getElementById('totalSpend').textContent = overview.totalSpend?.toLocaleString() || '0';
+            document.getElementById('averageRoas').textContent = overview.averageRoas?.toFixed(2) || '0.00';
+            document.getElementById('totalConversions').textContent = overview.totalConversions?.toLocaleString() || '0';
         }
 
         function applyFilters() {
             const statusFilter = document.getElementById('statusFilter').value;
-            const sourceFilter = document.getElementById('trafficSourceFilter').value;
+            const trafficSourceFilter = document.getElementById('trafficSourceFilter').value;
             const spendFilter = document.getElementById('spendFilter').value;
             const performanceFilter = document.getElementById('performanceFilter').value;
             const searchFilter = document.getElementById('campaignSearchFilter').value.toLowerCase();
@@ -697,18 +490,18 @@
             filteredCampaigns = allCampaigns.filter(campaign => {
                 // Status filter
                 if (statusFilter !== 'all') {
-                    if (statusFilter === 'active' && campaign.status !== 'Active') return false;
-                    if (statusFilter === 'paused' && campaign.status !== 'Paused') return false;
+                    if (statusFilter === 'active' && campaign.status === 'PAUSED') return false;
+                    if (statusFilter === 'paused' && campaign.status !== 'PAUSED') return false;
                     if (statusFilter === 'profitable' && campaign.roas <= 1.0) return false;
                 }
                 
-                // Source filter
-                if (sourceFilter !== 'all') {
-                    if (sourceFilter === 'voluum' && campaign.dataSource !== 'voluum') return false;
-                    if (sourceFilter === 'facebook' && campaign.dataSource !== 'facebook') return false;
-                    if (sourceFilter === 'taboola' && campaign.dataSource !== 'taboola') return false;
-                    if (sourceFilter === 'newsbreak' && !campaign.name.toLowerCase().includes('newsbreak')) return false;
-                    if (sourceFilter === 'other' && ['voluum', 'facebook', 'taboola'].includes(campaign.dataSource)) return false;
+                // Traffic source filter
+                if (trafficSourceFilter !== 'all') {
+                    const campaignSource = (campaign.trafficSource || '').toLowerCase();
+                    if (trafficSourceFilter === 'newsbreak' && !campaignSource.includes('newsbreak')) return false;
+                    if (trafficSourceFilter === 'taboola' && !campaignSource.includes('taboola')) return false;
+                    if (trafficSourceFilter === 'facebook' && !campaignSource.includes('facebook')) return false;
+                    if (trafficSourceFilter === 'other' && (campaignSource.includes('newsbreak') || campaignSource.includes('taboola') || campaignSource.includes('facebook'))) return false;
                 }
                 
                 // Spend filter
@@ -767,28 +560,13 @@
             renderCampaignTable();
         }
 
-        function applySortFromFilter() {
-            const sortValue = document.getElementById('sortFilter').value;
-            let field = 'revenue';
-            
-            switch (sortValue) {
-                case 'spend': field = 'cost'; break;
-                case 'roas': field = 'roas'; break;
-                case 'conversions': field = 'conversions'; break;
-                case 'profit': field = 'profit'; break;
-                default: field = 'revenue';
-            }
-            
-            sortCampaigns(field, 'desc');
-        }
-
         function renderCampaignTable() {
             const tbody = document.getElementById('campaignTableBody');
             
             if (filteredCampaigns.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="10" class="px-6 py-12 text-center text-gray-500">
+                        <td colspan="17" class="px-6 py-12 text-center text-gray-500">
                             <i class="fas fa-search text-2xl mb-2"></i>
                             <p>No campaigns match your current filters</p>
                         </td>
@@ -798,62 +576,114 @@
             }
             
             tbody.innerHTML = filteredCampaigns.map(campaign => `
-                <tr class="campaign-row hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">${campaign.name}</div>
-                        <div class="text-sm text-gray-500">ID: ${campaign.id}</div>
+                <tr class="campaign-row hover:bg-gray-50" onclick="openOffersModal('${campaign.id || campaign.name}')">
+                    <td class="px-3 py-2 text-sm">
+                        <div class="font-medium text-gray-900">${campaign.name}</div>
+                        <div class="text-xs text-gray-500">${campaign.id || 'No ID'}</div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            ${campaign.source}
+                    <td class="px-3 py-2 text-sm">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            ${campaign.trafficSource || 'Unknown'}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusStyle(campaign.status)}">
-                            ${campaign.status}
+                    <td class="px-3 py-2 text-sm">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(campaign.status)}">
+                            ${campaign.status || 'Unknown'}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${campaign.visits.toLocaleString()}
+                    <td class="px-3 py-2 text-sm text-gray-900">${campaign.visits.toLocaleString()}</td>
+                    <td class="px-3 py-2 text-sm text-gray-900">${campaign.conversions.toLocaleString()}</td>
+                    <td class="px-3 py-2 text-sm text-gray-900">$${campaign.revenue.toLocaleString()}</td>
+                    <td class="px-3 py-2 text-sm text-gray-900">$${campaign.cost.toLocaleString()}</td>
+                    <td class="px-3 py-2 text-sm text-gray-900">$${campaign.cpa.toFixed(2)}</td>
+                    <td class="px-3 py-2 text-sm ${campaign.roas > 1 ? 'text-green-600' : 'text-red-600'}">${campaign.roas.toFixed(2)}x</td>
+                    <td class="px-3 py-2 text-sm ${campaign.roas_7d > 1 ? 'text-green-600' : 'text-red-600'}">${campaign.roas_7d.toFixed(2)}x</td>
+                    <td class="px-3 py-2 text-sm ${campaign.roas_14d > 1 ? 'text-green-600' : 'text-red-600'}">${campaign.roas_14d.toFixed(2)}x</td>
+                    <td class="px-3 py-2 text-sm ${campaign.roas_30d > 1 ? 'text-green-600' : 'text-red-600'}">${campaign.roas_30d.toFixed(2)}x</td>
+                    <td class="px-3 py-2 text-sm">
+                        <span class="${campaign.change24h > 0 ? 'text-green-600' : 'text-red-600'}">
+                            <i class="fas fa-arrow-${campaign.change24h > 0 ? 'up' : 'down'} mr-1"></i>
+                            ${Math.abs(campaign.change24h).toFixed(1)}%
+                        </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${campaign.conversions.toLocaleString()}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        $${campaign.revenue.toLocaleString()}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        $${campaign.cost.toLocaleString()}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm ${campaign.roas > 1 ? 'text-green-600' : 'text-red-600'}">
-                        ${campaign.roas.toFixed(2)}x
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm ${campaign.profit > 0 ? 'text-green-600' : 'text-red-600'}">
-                        $${campaign.profit.toLocaleString()}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button onclick="viewCampaignDetails('${campaign.id}')" class="text-blue-600 hover:text-blue-900">
-                            <i class="fas fa-eye"></i>
-                        </button>
+                    <td class="px-3 py-2 text-sm text-gray-900">${campaign.cvr.toFixed(2)}%</td>
+                    <td class="px-3 py-2 text-sm text-gray-900">$${campaign.aov.toFixed(2)}</td>
+                    <td class="px-3 py-2 text-sm ${campaign.profit > 0 ? 'text-green-600' : 'text-red-600'}">$${campaign.profit.toFixed(2)}</td>
+                    <td class="px-3 py-2 text-sm">
+                        <div class="flex items-center">
+                            <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: ${campaign.qualityScore || 0}%"></div>
+                            </div>
+                            <span class="text-xs">${campaign.qualityScore || 0}</span>
+                        </div>
                     </td>
                 </tr>
             `).join('');
         }
 
-        function getStatusStyle(status) {
+        function getStatusBadgeClass(status) {
             switch (status) {
-                case 'Active': return 'bg-green-100 text-green-800';
-                case 'Paused': return 'bg-yellow-100 text-yellow-800';
-                case 'Stopped': return 'bg-red-100 text-red-800';
+                case 'ACTIVE': return 'bg-green-100 text-green-800';
+                case 'PAUSED': return 'bg-yellow-100 text-yellow-800';
+                case 'STOPPED': return 'bg-red-100 text-red-800';
                 default: return 'bg-gray-100 text-gray-800';
             }
         }
 
-        function viewCampaignDetails(campaignId) {
-            const campaign = allCampaigns.find(c => c.id === campaignId);
-            if (campaign) {
-                alert(`Campaign Details:\n\nName: ${campaign.name}\nSource: ${campaign.source}\nRevenue: $${campaign.revenue}\nSpend: $${campaign.cost}\nROAS: ${campaign.roas.toFixed(2)}x\nProfit: $${campaign.profit}`);
+        function openOffersModal(campaignId) {
+            const campaign = allCampaigns.find(c => (c.id || c.name) === campaignId);
+            if (!campaign) {
+                debugLog(`Campaign not found for ID: ${campaignId}`);
+                return;
             }
+            
+            debugLog(`Opening offers modal for campaign: ${campaign.name}`);
+            
+            document.getElementById('modalOfferCampaignName').textContent = campaign.name;
+            document.getElementById('offerModal').classList.add('active');
+            
+            // Load offer data for this campaign
+            loadOfferData(campaign);
+        }
+
+        async function loadOfferData(campaign) {
+            const modalContent = document.getElementById('offerModalContent');
+            modalContent.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-4xl text-blue-500 mb-4"></i>
+                    <p class="text-gray-600">Loading offer data...</p>
+                </div>
+            `;
+            
+            // For now, show campaign details since we don't have offer endpoint
+            setTimeout(() => {
+                modalContent.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-900 mb-2">Campaign Details</h4>
+                            <p class="text-sm text-gray-600">Name: ${campaign.name}</p>
+                            <p class="text-sm text-gray-600">Traffic Source: ${campaign.trafficSource || 'Unknown'}</p>
+                            <p class="text-sm text-gray-600">Status: ${campaign.status || 'Unknown'}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-900 mb-2">Performance</h4>
+                            <p class="text-sm text-gray-600">Visits: ${campaign.visits.toLocaleString()}</p>
+                            <p class="text-sm text-gray-600">Conversions: ${campaign.conversions.toLocaleString()}</p>
+                            <p class="text-sm text-gray-600">CVR: ${campaign.cvr.toFixed(2)}%</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-900 mb-2">Revenue</h4>
+                            <p class="text-sm text-gray-600">Revenue: $${campaign.revenue.toLocaleString()}</p>
+                            <p class="text-sm text-gray-600">Spend: $${campaign.cost.toLocaleString()}</p>
+                            <p class="text-sm text-gray-600">Profit: $${campaign.profit.toFixed(2)}</p>
+                        </div>
+                    </div>
+                `;
+            }, 1000);
+        }
+
+        function closeOfferModal() {
+            document.getElementById('offerModal').classList.remove('active');
         }
 
         function showLoadingState() {
@@ -876,18 +706,21 @@
                 return;
             }
             
-            const headers = ['Campaign', 'Source', 'Status', 'Visits', 'Conversions', 'Revenue', 'Spend', 'ROAS', 'Profit'];
+            const headers = ['Campaign', 'Traffic Source', 'Status', 'Visits', 'Conversions', 'Revenue', 'Spend', 'CPA', 'ROAS', 'CVR', 'AOV', 'Profit'];
             const csvContent = [
                 headers.join(','),
                 ...filteredCampaigns.map(campaign => [
                     `"${campaign.name}"`,
-                    campaign.source,
-                    campaign.status,
+                    campaign.trafficSource || 'Unknown',
+                    campaign.status || 'Unknown',
                     campaign.visits,
                     campaign.conversions,
                     campaign.revenue,
                     campaign.cost,
+                    campaign.cpa.toFixed(2),
                     campaign.roas.toFixed(2),
+                    campaign.cvr.toFixed(2),
+                    campaign.aov.toFixed(2),
                     campaign.profit.toFixed(2)
                 ].join(','))
             ].join('\n');
