@@ -432,10 +432,16 @@
                 
                 if (totalCampaigns === 0) {
                     showEmptyState();
+                    updateConnectionStatus('voluum', 'error', 'No data available from any source');
+                    updateConnectionStatus('facebook', 'error', 'No data available from any source');
+                    updateConnectionStatus('taboola', 'error', 'No data available from any source');
                 }
                 
             } catch (error) {
                 debugLog(`❌ Critical error during data loading: ${error.message}`);
+                updateConnectionStatus('voluum', 'error', `Critical error: ${error.message}`);
+                updateConnectionStatus('facebook', 'error', `Critical error: ${error.message}`);
+                updateConnectionStatus('taboola', 'error', `Critical error: ${error.message}`);
                 showEmptyState();
             } finally {
                 hideLoadingState();
@@ -448,15 +454,48 @@
             
             try {
                 const dateRange = document.getElementById('dateRangeFilter').value;
-                const response = await fetch(`/api/voluum/campaigns-simple?date_range=${dateRange}`);
+                const url = `/api/voluum/campaigns-simple?date_range=${dateRange}`;
+                
+                debugLog(`Fetching from: ${url}`);
+                
+                // Add timeout to prevent infinite loading
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
+                
+                debugLog(`Response status: ${response.status}`);
+                debugLog(`Response ok: ${response.ok}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                const data = await response.json();
+                const responseText = await response.text();
+                debugLog(`Response text length: ${responseText.length}`);
+                debugLog(`Response preview: ${responseText.substring(0, 200)}...`);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    debugLog(`JSON parse error: ${parseError.message}`);
+                    throw new Error(`Invalid JSON response: ${parseError.message}`);
+                }
+                
+                debugLog(`Data received - Success: ${data.success}`);
                 
                 if (data.success === false) {
+                    debugLog(`API returned error: ${data.error}`);
+                    updateConnectionStatus('voluum', 'error', `API Error: ${data.error}`);
                     throw new Error(data.error || 'Voluum API error');
                 }
                 
@@ -477,11 +516,7 @@
             } catch (error) {
                 debugLog(`❌ Voluum error: ${error.message}`);
                 updateConnectionStatus('voluum', 'error', `Voluum Error: ${error.message}`);
-                
-                // Return mock data for development
-                const mockData = generateMockVoluumData();
-                updateConnectionStatus('voluum', 'warning', 'Voluum: Using mock data');
-                return mockData;
+                throw error; // Re-throw to prevent mock data fallback
             }
         }
 
@@ -527,11 +562,7 @@
             } catch (error) {
                 debugLog(`❌ Facebook error: ${error.message}`);
                 updateConnectionStatus('facebook', 'error', `Facebook Error: ${error.message}`);
-                
-                // Return mock data for development
-                const mockData = generateMockFacebookData();
-                updateConnectionStatus('facebook', 'warning', 'Facebook: Using mock data');
-                return mockData;
+                throw error; // Re-throw to prevent mock data fallback
             }
         }
 
@@ -577,16 +608,29 @@
             } catch (error) {
                 debugLog(`❌ Taboola error: ${error.message}`);
                 updateConnectionStatus('taboola', 'error', `Taboola Error: ${error.message}`);
-                
-                // Return mock data for development
-                const mockData = generateMockTaboolaData();
-                updateConnectionStatus('taboola', 'warning', 'Taboola: Using mock data');
-                return mockData;
+                throw error; // Re-throw to prevent mock data fallback
             }
         }
 
+        // Remove all mock data generation functions - using real data only
         function processAllData(combinedData) {
             debugLog('🔄 Processing combined data from all sources...');
+            
+            // Handle case where data might be null or undefined
+            if (!combinedData || !combinedData.campaigns || combinedData.campaigns.length === 0) {
+                debugLog('No campaign data to process');
+                allCampaigns = [];
+                updateOverviewStats({ 
+                    totalCampaigns: 0, 
+                    activeCampaigns: 0, 
+                    totalRevenue: 0, 
+                    totalSpend: 0, 
+                    averageRoas: 0, 
+                    totalConversions: 0 
+                });
+                applyFilters();
+                return;
+            }
             
             // Ensure all campaigns have required fields
             allCampaigns = combinedData.campaigns.map(campaign => ({
@@ -855,88 +899,6 @@
             a.download = `campaign_data_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             URL.revokeObjectURL(url);
-        }
-
-        // Mock data generators for development
-        function generateMockVoluumData() {
-            const campaigns = [
-                {
-                    id: 'vol_001',
-                    name: 'Voluum Campaign A - NewsBreak',
-                    visits: 15000,
-                    conversions: 150,
-                    revenue: 2250,
-                    cost: 1800,
-                    status: 'Active',
-                    hasTraffic: true
-                },
-                {
-                    id: 'vol_002',
-                    name: 'Voluum Campaign B - Taboola',
-                    visits: 12000,
-                    conversions: 120,
-                    revenue: 1920,
-                    cost: 1600,
-                    status: 'Active',
-                    hasTraffic: true
-                }
-            ];
-            
-            return { campaigns };
-        }
-
-        function generateMockFacebookData() {
-            const campaigns = [
-                {
-                    id: 'fb_001',
-                    name: 'Facebook Campaign A - Lead Gen',
-                    visits: 8000,
-                    conversions: 80,
-                    revenue: 1200,
-                    cost: 1000,
-                    status: 'Active',
-                    hasTraffic: true
-                },
-                {
-                    id: 'fb_002',
-                    name: 'Facebook Campaign B - Conversions',
-                    visits: 6000,
-                    conversions: 60,
-                    revenue: 900,
-                    cost: 800,
-                    status: 'Active',
-                    hasTraffic: true
-                }
-            ];
-            
-            return { campaigns };
-        }
-
-        function generateMockTaboolaData() {
-            const campaigns = [
-                {
-                    id: 'tab_001',
-                    name: 'Taboola Campaign A - Native',
-                    visits: 10000,
-                    conversions: 100,
-                    revenue: 1500,
-                    cost: 1200,
-                    status: 'Active',
-                    hasTraffic: true
-                },
-                {
-                    id: 'tab_002',
-                    name: 'Taboola Campaign B - Display',
-                    visits: 7000,
-                    conversions: 70,
-                    revenue: 1050,
-                    cost: 900,
-                    status: 'Active',
-                    hasTraffic: true
-                }
-            ];
-            
-            return { campaigns };
         }
     </script>
 </body>
