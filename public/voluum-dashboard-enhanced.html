@@ -402,14 +402,40 @@
                 
                 debugLog(`Fetching from: ${url}`);
                 
-                const response = await fetch(url);
+                // Add timeout to prevent infinite loading
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
+                
                 debugLog(`Response status: ${response.status}`);
+                debugLog(`Response ok: ${response.ok}`);
+                debugLog(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers))}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                const data = await response.json();
+                const responseText = await response.text();
+                debugLog(`Response text length: ${responseText.length}`);
+                debugLog(`Response preview: ${responseText.substring(0, 200)}...`);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    debugLog(`JSON parse error: ${parseError.message}`);
+                    throw new Error(`Invalid JSON response: ${parseError.message}`);
+                }
+                
                 debugLog(`Data received - Success: ${data.success}`);
                 
                 if (data.success === false) {
@@ -418,7 +444,6 @@
                     // Show error state instead of trying to process empty data
                     updateConnectionStatus('error', `API Error: ${data.error}`);
                     showEmptyState();
-                    hideLoadingState();
                     return;
                 } else {
                     debugLog('Real enhanced Voluum data received successfully');
@@ -430,7 +455,19 @@
                 console.error('Error loading data:', error);
                 debugLog(`Error: ${error.message}`);
                 
-                updateConnectionStatus('error', `Connection failed: ${error.message}`);
+                if (error.name === 'AbortError') {
+                    debugLog('Request timed out after 30 seconds');
+                    updateConnectionStatus('error', 'Request timed out - API may be down');
+                } else if (error.message.includes('404')) {
+                    debugLog('API endpoint not found');
+                    updateConnectionStatus('error', 'API endpoint not found - check deployment');
+                } else if (error.message.includes('Failed to fetch')) {
+                    debugLog('Network error or CORS issue');
+                    updateConnectionStatus('error', 'Network error - check API deployment');
+                } else {
+                    updateConnectionStatus('error', `Connection failed: ${error.message}`);
+                }
+                
                 showEmptyState();
             } finally {
                 hideLoadingState();
@@ -1082,6 +1119,31 @@
 
         function closeOfferModal() {
             document.getElementById('offerModal').classList.remove('active');
+        }
+
+        // Test API connection function
+        async function testApiConnection() {
+            debugLog('Testing API connection...');
+            updateConnectionStatus('loading', 'Testing API connection...');
+            
+            try {
+                const response = await fetch('/api/test-connection');
+                const data = await response.json();
+                
+                debugLog(`Test API response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success) {
+                    debugLog('✅ API is working');
+                    debugLog(`Environment variables: ID=${data.env_check.volume_key_id_exists}, Key=${data.env_check.volume_key_exists}`);
+                    updateConnectionStatus('success', 'API connection test passed');
+                } else {
+                    debugLog('❌ API test failed');
+                    updateConnectionStatus('error', 'API test failed');
+                }
+            } catch (error) {
+                debugLog(`❌ API test error: ${error.message}`);
+                updateConnectionStatus('error', `API test error: ${error.message}`);
+            }
         }
 
         // Helper functions
