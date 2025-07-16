@@ -247,7 +247,16 @@
                 </div>
             </div>
             <div id="debugInfo" class="text-sm text-gray-600 space-y-1 max-h-32 overflow-y-auto">
-                <div>Ready to connect...</div>
+                <div>Ready to connect to Voluum API...</div>
+            </div>
+            <div id="troubleshootingInfo" class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                <h4 class="font-semibold text-yellow-800 mb-2">Troubleshooting Tips:</h4>
+                <ul class="text-sm text-yellow-700 space-y-1">
+                    <li>• Check that Voluum API credentials are configured in Vercel</li>
+                    <li>• Verify the date range has campaign data</li>
+                    <li>• Try "Last 7 Days" or "Last 30 Days" for more data</li>
+                    <li>• Check Voluum account has API access enabled</li>
+                </ul>
             </div>
         </div>
 
@@ -317,12 +326,26 @@
 
         <!-- Empty State -->
         <div id="emptyState" class="text-center py-12 hidden">
-            <i class="fas fa-filter text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-semibold text-gray-700 mb-2">No Campaigns Found</h3>
-            <p class="text-gray-600 mb-4">Try adjusting your filters or refresh the data</p>
-            <button onclick="resetAllFilters()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                Reset Filters
-            </button>
+            <i class="fas fa-database text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">No Campaign Data Available</h3>
+            <p class="text-gray-600 mb-4">Unable to load campaign data from Voluum API</p>
+            <div class="text-sm text-gray-500 mb-6">
+                <p>This could be due to:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>Missing or invalid Voluum API credentials</li>
+                    <li>No campaign data for the selected date range</li>
+                    <li>API connection issues</li>
+                    <li>Account permissions restrictions</li>
+                </ul>
+            </div>
+            <div class="space-x-4">
+                <button onclick="loadData()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-sync mr-2"></i>Try Again
+                </button>
+                <button onclick="resetAllFilters()" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                    Reset Filters
+                </button>
+            </div>
         </div>
     </div>
 
@@ -391,13 +414,12 @@
                 
                 if (data.success === false) {
                     debugLog(`API returned error: ${data.error}`);
-                    if (data.data && data.data.campaigns) {
-                        debugLog('Using enhanced fallback data provided by API');
-                        processData(data.data);
-                        updateConnectionStatus('warning', `Using enhanced mock data - ${data.error}`);
-                    } else {
-                        throw new Error(data.error || 'API returned error');
-                    }
+                    
+                    // Show error state instead of trying to process empty data
+                    updateConnectionStatus('error', `API Error: ${data.error}`);
+                    showEmptyState();
+                    hideLoadingState();
+                    return;
                 } else {
                     debugLog('Real enhanced Voluum data received successfully');
                     processData(data.data || data);
@@ -418,7 +440,24 @@
         function processData(data) {
             debugLog('Processing enhanced campaign data...');
             
+            // Handle case where data might be null or undefined
+            if (!data || !data.campaigns) {
+                debugLog('No campaign data to process');
+                allCampaigns = [];
+                updateOverviewStats({ liveCampaigns: 0, activeCampaigns: 0, totalRevenue: 0, totalSpend: 0, averageRoas: 0, totalConversions: 0, trendingUp: 0, trendingDown: 0 });
+                applyFilters();
+                return;
+            }
+            
             allCampaigns = data.campaigns || [];
+            
+            // If no campaigns, show empty state
+            if (allCampaigns.length === 0) {
+                debugLog('No campaigns in data');
+                updateOverviewStats({ liveCampaigns: 0, activeCampaigns: 0, totalRevenue: 0, totalSpend: 0, averageRoas: 0, totalConversions: 0, trendingUp: 0, trendingDown: 0 });
+                applyFilters();
+                return;
+            }
             
             // Ensure all required fields exist with Voluum revenue/cost emphasis
             allCampaigns.forEach(campaign => {
