@@ -112,7 +112,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-3xl font-bold">Enhanced Voluum Performance Tracker</h1>
-                    <p class="text-white/80 mt-1">Multi-source analysis with campaign & offer insights</p>
+                    <p class="text-white/80 mt-1">Campaign analysis with Voluum data & offer insights</p>
                 </div>
                 <div class="flex gap-3">
                     <button id="exportBtn" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors">
@@ -242,9 +242,9 @@
 
         <!-- Connection Status -->
         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
-            <h3 class="font-semibold text-gray-900 mb-2">Connection Status</h3>
+            <h3 class="font-semibold text-gray-900 mb-2">Voluum Connection Status</h3>
             <div id="connectionStatus" class="text-sm text-gray-600">
-                Ready to connect...
+                Ready to connect to Voluum API...
             </div>
         </div>
 
@@ -352,15 +352,13 @@
     </div>
 
     <script>
-        // Global variables
+        // Global variables - simplified for Voluum only
         let allCampaigns = [];
         let filteredCampaigns = [];
         let currentSort = { field: 'cost', direction: 'desc' };
         let debugMode = false;
         let connectionData = {
-            voluum: { status: 'disconnected', count: 0 },
-            facebook: { status: 'disconnected', count: 0 },
-            taboola: { status: 'disconnected', count: 0 }
+            voluum: { status: 'disconnected', count: 0 }
         };
 
         // Debug logging function
@@ -423,29 +421,21 @@
             };
         }
 
-        // Load data from all sources
+        // Load data from Voluum only
         async function loadAllData() {
-            debugLog('Loading data from all sources...');
+            debugLog('Loading data from Voluum only...');
             showLoadingState();
             
             const dateRange = document.getElementById('dateRange').value;
             debugLog('Selected date range:', dateRange);
             
             try {
-                // Parallel loading from all sources
-                const [voluumData, facebookData, taboolaData] = await Promise.allSettled([
-                    loadVoluumData(dateRange),
-                    loadFacebookData(dateRange),
-                    loadTaboolaData(dateRange)
-                ]);
-
-                // Process and combine data
-                processAllData([
-                    { source: 'voluum', data: voluumData },
-                    { source: 'facebook', data: facebookData },
-                    { source: 'taboola', data: taboolaData }
-                ]);
-
+                // Load only from Voluum API
+                const voluumData = await loadVoluumData(dateRange);
+                
+                // Process Voluum data only
+                processVoluumData(voluumData);
+                
                 hideLoadingState();
                 
             } catch (error) {
@@ -454,7 +444,7 @@
             }
         }
 
-        // Load Voluum data
+        // Load Voluum data only
         async function loadVoluumData(dateRange) {
             debugLog('Loading Voluum data...');
             
@@ -478,77 +468,18 @@
             } catch (error) {
                 debugLog('Voluum connection failed:', error);
                 connectionData.voluum = { status: 'error', count: 0, error: error.message };
-                return [];
+                throw error;
             }
         }
 
-        // Load Facebook data
-        async function loadFacebookData(dateRange) {
-            debugLog('Loading Facebook data...');
-            
-            try {
-                const response = await fetch(`/api/campaigns?range=${dateRange}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' },
-                    signal: AbortSignal.timeout(30000)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Facebook API error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                connectionData.facebook = { status: 'connected', count: data.length || 0 };
-                debugLog('Facebook data loaded:', data.length || 0, 'campaigns');
-                
-                return data;
-                
-            } catch (error) {
-                debugLog('Facebook connection failed:', error);
-                connectionData.facebook = { status: 'error', count: 0, error: error.message };
-                return [];
-            }
-        }
-
-        // Load Taboola data
-        async function loadTaboolaData(dateRange) {
-            debugLog('Loading Taboola data...');
-            
-            try {
-                const response = await fetch(`/api/taboola-campaigns?range=${dateRange}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' },
-                    signal: AbortSignal.timeout(30000)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Taboola API error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                connectionData.taboola = { status: 'connected', count: data.length || 0 };
-                debugLog('Taboola data loaded:', data.length || 0, 'campaigns');
-                
-                return data;
-                
-            } catch (error) {
-                debugLog('Taboola connection failed:', error);
-                connectionData.taboola = { status: 'error', count: 0, error: error.message };
-                return [];
-            }
-        }
-
-        // Process and normalize data from all sources
-        function processAllData(sources) {
-            debugLog('Processing data from all sources...');
+        // Process Voluum data only
+        function processVoluumData(voluumData) {
+            debugLog('Processing Voluum data only...');
             allCampaigns = [];
 
-            sources.forEach(({ source, data }) => {
-                if (data.status === 'fulfilled' && Array.isArray(data.value)) {
-                    const campaigns = data.value.map(campaign => normalizeCampaign(campaign, source));
-                    allCampaigns = allCampaigns.concat(campaigns);
-                }
-            });
+            if (Array.isArray(voluumData)) {
+                allCampaigns = voluumData.map(campaign => normalizeCampaign(campaign, 'voluum'));
+            }
 
             // Filter out campaigns with no activity (0 spend and 0 clicks/visits)
             allCampaigns = allCampaigns.filter(campaign => {
@@ -559,7 +490,7 @@
                 return hasSpend || hasTraffic || isActive;
             });
 
-            debugLog('Total processed campaigns:', allCampaigns.length);
+            debugLog('Total processed campaigns from Voluum:', allCampaigns.length);
             
             // Update connection status
             updateConnectionStatus();
@@ -571,13 +502,13 @@
             updateOverviewStats();
         }
 
-        // Normalize campaign data structure
+        // Normalize campaign data structure from Voluum only
         function normalizeCampaign(campaign, source) {
             const normalized = {
-                id: campaign.id || campaign.name || generateId(),
-                name: campaign.name || 'Unnamed Campaign',
-                source: determineTrafficSource(campaign, source),
-                dataSource: source,
+                id: campaign.id || campaign.campaignId || campaign.name || generateId(),
+                name: campaign.name || campaign.campaignName || 'Unnamed Campaign',
+                source: campaign.trafficSource || determineTrafficSourceFromName(campaign.name),
+                dataSource: 'voluum',
                 status: normalizeStatus(campaign.status),
                 visits: campaign.visits || campaign.clicks || 0,
                 conversions: campaign.conversions || 0,
@@ -607,24 +538,18 @@
             return normalized;
         }
 
-        function determineTrafficSource(campaign, source) {
-            // Priority: explicit traffic source > campaign name indicators > source parameter
-            if (campaign.trafficSource) {
-                return campaign.trafficSource;
-            }
+        function determineTrafficSourceFromName(name) {
+            if (!name) return 'Unknown';
             
-            const name = (campaign.name || '').toLowerCase();
-            if (name.includes('newsbreak')) return 'NewsBreak';
-            if (name.includes('facebook') || name.includes('fb')) return 'Facebook';
-            if (name.includes('taboola')) return 'Taboola';
-            if (name.includes('admaven')) return 'AdMaven';
-            if (name.includes('adcash')) return 'AdCash';
-            if (name.includes('voluum')) return 'Voluum';
+            const n = name.toLowerCase();
+            if (n.includes('newsbreak')) return 'NewsBreak';
+            if (n.includes('facebook') || n.includes('fb')) return 'Facebook';
+            if (n.includes('taboola')) return 'Taboola';
+            if (n.includes('admaven')) return 'AdMaven';
+            if (n.includes('adcash')) return 'AdCash';
+            if (n.includes('voluum')) return 'Voluum';
             
-            // Default based on source
-            return source === 'voluum' ? 'Voluum' : 
-                   source === 'facebook' ? 'Facebook' : 
-                   source === 'taboola' ? 'Taboola' : 'Unknown';
+            return 'Unknown';
         }
 
         function normalizeStatus(status) {
@@ -675,16 +600,19 @@
             return 'campaign_' + Math.random().toString(36).substr(2, 9);
         }
 
-        // Update connection status display
+        // Update connection status display for Voluum only
         function updateConnectionStatus() {
             const statusEl = document.getElementById('connectionStatus');
-            const statuses = Object.entries(connectionData).map(([source, data]) => {
-                const icon = data.status === 'connected' ? '✅' : 
-                           data.status === 'error' ? '❌' : '⏳';
-                return `${icon} ${source.charAt(0).toUpperCase() + source.slice(1)}: ${data.count} campaigns`;
-            });
+            const voluumStatus = connectionData.voluum;
             
-            statusEl.innerHTML = statuses.join(' | ');
+            const icon = voluumStatus.status === 'connected' ? '✅' : 
+                       voluumStatus.status === 'error' ? '❌' : '⏳';
+            
+            statusEl.innerHTML = `${icon} Voluum: ${voluumStatus.count} campaigns loaded`;
+            
+            if (voluumStatus.status === 'error') {
+                statusEl.innerHTML += `<br><span class="text-red-500 text-sm">Error: ${voluumStatus.error}</span>`;
+            }
         }
 
         // Apply all filters
