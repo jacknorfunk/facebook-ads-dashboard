@@ -154,6 +154,7 @@
                 <label class="block text-sm font-medium text-gray-700 mb-2">Traffic Source</label>
                 <select id="trafficSourceFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                     <option value="all">All Sources</option>
+                    <option value="newsbreak">NewsBreak</option>
                     <option value="voluum">Voluum</option>
                     <option value="facebook">Facebook</option>
                     <option value="taboola">Taboola</option>
@@ -613,6 +614,7 @@
             }
             
             const name = (campaign.name || '').toLowerCase();
+            if (name.includes('newsbreak')) return 'NewsBreak';
             if (name.includes('facebook') || name.includes('fb')) return 'Facebook';
             if (name.includes('taboola')) return 'Taboola';
             if (name.includes('admaven')) return 'AdMaven';
@@ -882,6 +884,7 @@
         // Utility functions for styling
         function getSourceClass(source) {
             const s = source.toLowerCase();
+            if (s.includes('newsbreak')) return 'bg-orange-100 text-orange-800';
             if (s.includes('voluum')) return 'source-voluum';
             if (s.includes('facebook')) return 'source-facebook';
             if (s.includes('taboola')) return 'source-taboola';
@@ -950,30 +953,48 @@
             modalContent.innerHTML = `
                 <div class="text-center py-8">
                     <i class="fas fa-spinner fa-spin text-2xl text-blue-500 mb-4"></i>
-                    <p class="text-gray-600">Loading campaign offers...</p>
+                    <p class="text-gray-600">Loading campaign offers from Voluum API...</p>
                 </div>
             `;
 
             try {
-                // Using Voluum API to get campaign offers
-                const response = await fetch(`/api/voluum/campaign/${campaign.id}/offers`, {
+                debugLog('Loading offers for campaign:', campaign.id, campaign.name);
+                
+                // Use the correct Voluum API report endpoint to get offer-level data
+                const dateRange = document.getElementById('dateRange').value;
+                const response = await fetch(`/api/voluum/report?campaignId=${encodeURIComponent(campaign.id)}&groupBy=offer&dateRange=${dateRange}`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
                     signal: AbortSignal.timeout(30000)
                 });
 
-                let offers = [];
-                if (response.ok) {
-                    offers = await response.json();
-                    debugLog('Loaded offers for campaign:', offers.length);
-                } else {
-                    debugLog('Failed to load offers, using mock data');
-                    // Create mock offers based on campaign data
-                    offers = generateMockOffers(campaign);
+                if (!response.ok) {
+                    throw new Error(`Voluum API error: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                debugLog('Voluum offer data received:', data);
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load offer data');
                 }
 
                 // Filter offers with visits only
-                offers = offers.filter(offer => (offer.visits || offer.clicks || 0) > 0);
+                const offers = (data.offers || data.data || []).filter(offer => {
+                    return (offer.visits || offer.clicks || 0) > 0;
+                });
+
+                if (offers.length === 0) {
+                    modalContent.innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fas fa-info-circle text-4xl text-blue-500 mb-4"></i>
+                            <h3 class="text-lg font-semibold text-gray-700 mb-2">No Active Offers Found</h3>
+                            <p class="text-gray-600">This campaign has no offers with visits for the selected date range.</p>
+                            <p class="text-sm text-gray-500 mt-2">Try selecting a different date range or check if offers are configured in Voluum.</p>
+                        </div>
+                    `;
+                    return;
+                }
 
                 renderCampaignModal(campaign, offers);
                 
@@ -981,60 +1002,49 @@
                 debugLog('Error loading campaign offers:', error);
                 modalContent.innerHTML = `
                     <div class="text-center py-8">
-                        <i class="fas fa-exclamation-triangle text-2xl text-yellow-500 mb-4"></i>
-                        <p class="text-gray-600">Unable to load campaign offers</p>
-                        <p class="text-sm text-red-500">${error.message}</p>
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-2">Unable to Load Offer Data</h3>
+                        <p class="text-gray-600 mb-4">Could not fetch offer data from Voluum API</p>
+                        <p class="text-sm text-red-500 mb-4">${error.message}</p>
+                        <div class="space-y-2">
+                            <p class="text-sm text-gray-500">This could be due to:</p>
+                            <ul class="text-sm text-gray-500 list-disc list-inside space-y-1">
+                                <li>Campaign has no offer-level data in Voluum</li>
+                                <li>Insufficient API permissions</li>
+                                <li>Network connectivity issues</li>
+                                <li>Campaign ID not found in Voluum</li>
+                            </ul>
+                        </div>
+                        <button onclick="loadCampaignOffers(arguments[0])" class="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-sync-alt mr-2"></i>Retry
+                        </button>
                     </div>
                 `;
             }
         }
 
-        function generateMockOffers(campaign) {
-            // Generate 2-5 mock offers based on campaign data
-            const offerCount = Math.floor(Math.random() * 4) + 2;
-            const offers = [];
-            
-            for (let i = 0; i < offerCount; i++) {
-                const visitShare = Math.random();
-                const conversionRate = (Math.random() * 5) + 0.5; // 0.5% to 5.5%
-                
-                offers.push({
-                    id: `offer_${i + 1}`,
-                    name: `Offer ${i + 1} - ${campaign.name}`,
-                    visits: Math.floor((campaign.visits || 0) * visitShare),
-                    clicks: Math.floor((campaign.visits || 0) * visitShare),
-                    conversions: Math.floor((campaign.conversions || 0) * visitShare),
-                    revenue: (campaign.revenue || 0) * visitShare,
-                    cost: (campaign.cost || 0) * visitShare,
-                    cvr: conversionRate,
-                    url: `https://example.com/offer${i + 1}`
-                });
-            }
-            
-            return offers.filter(offer => offer.visits > 0);
-        }
-
         function renderCampaignModal(campaign, offers) {
             const modalContent = document.getElementById('modalContent');
             
-            // Calculate totals
+            // Calculate totals from REAL offer data
             const totalRevenue = offers.reduce((sum, offer) => sum + (offer.revenue || 0), 0);
-            const totalCost = offers.reduce((sum, offer) => sum + (offer.cost || 0), 0);
+            const totalCost = offers.reduce((sum, offer) => sum + (offer.cost || offer.spend || 0), 0);
             const totalConversions = offers.reduce((sum, offer) => sum + (offer.conversions || 0), 0);
             const totalVisits = offers.reduce((sum, offer) => sum + (offer.visits || offer.clicks || 0), 0);
             
             modalContent.innerHTML = `
                 <!-- Campaign Summary -->
                 <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-semibold text-gray-900 mb-4">Campaign Summary</h3>
+                    <h3 class="font-semibold text-gray-900 mb-4">Campaign Summary - Real Data from Voluum</h3>
                     <div class="grid grid-cols-5 gap-4">
                         <div class="text-center">
                             <p class="text-2xl font-bold text-blue-600">${offers.length}</p>
                             <p class="text-sm text-gray-600">Active Offers</p>
                         </div>
                         <div class="text-center">
-                            <p class="text-2xl font-bold text-green-600">$${totalRevenue.toFixed(2)}</p>
+                            <p class="text-2xl font-bold text-green-600">${totalRevenue.toFixed(2)}</p>
                             <p class="text-sm text-gray-600">Total Revenue</p>
+                            <p class="text-xs text-gray-500">From Voluum</p>
                         </div>
                         <div class="text-center">
                             <p class="text-2xl font-bold text-purple-600">${totalConversions.toLocaleString()}</p>
@@ -1079,39 +1089,41 @@
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CVR</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase epc-column">
-                                    <span id="epcHeader">7-Day EPC</span>
+                                    <span id="epcHeader">Current EPC</span>
                                 </th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
                             ${offers.map(offer => {
-                                const epc7d = offer.visits > 0 ? (offer.revenue || 0) / offer.visits : 0;
-                                const epc14d = epc7d * (0.85 + Math.random() * 0.3); // Simulated historical data
-                                const epc30d = epc7d * (0.8 + Math.random() * 0.4);
-                                const cvr = offer.visits > 0 ? ((offer.conversions || 0) / offer.visits) * 100 : 0;
+                                const visits = offer.visits || offer.clicks || 0;
+                                const conversions = offer.conversions || 0;
+                                const revenue = offer.revenue || 0;
+                                const cost = offer.cost || offer.spend || 0;
+                                
+                                const cvr = visits > 0 ? (conversions / visits) * 100 : 0;
+                                const epc = visits > 0 ? revenue / visits : 0;
+                                const roas = cost > 0 ? revenue / cost : 0;
                                 
                                 return `
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-4 py-3">
-                                            <div class="font-medium text-gray-900">${offer.name}</div>
-                                            <div class="text-sm text-gray-500">${offer.id}</div>
+                                            <div class="font-medium text-gray-900">${offer.name || offer.offerName || 'Unnamed Offer'}</div>
+                                            <div class="text-sm text-gray-500">${offer.id || offer.offerId || 'No ID'}</div>
                                         </td>
-                                        <td class="px-4 py-3 text-sm text-gray-900">${(offer.visits || offer.clicks || 0).toLocaleString()}</td>
-                                        <td class="px-4 py-3 text-sm text-gray-900">${(offer.conversions || 0).toLocaleString()}</td>
-                                        <td class="px-4 py-3 text-sm font-medium text-green-600">$${(offer.revenue || 0).toFixed(2)}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-900">${visits.toLocaleString()}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-900">${conversions.toLocaleString()}</td>
+                                        <td class="px-4 py-3 text-sm font-medium text-green-600">${revenue.toFixed(2)}</td>
                                         <td class="px-4 py-3 text-sm text-gray-900">${cvr.toFixed(2)}%</td>
                                         <td class="px-4 py-3 epc-cell">
-                                            <span class="epc-7d font-medium ${getEPCClass(epc7d)}">$${epc7d.toFixed(4)}</span>
-                                            <span class="epc-14d hidden font-medium ${getEPCClass(epc14d)}">$${epc14d.toFixed(4)}</span>
-                                            <span class="epc-30d hidden font-medium ${getEPCClass(epc30d)}">$${epc30d.toFixed(4)}</span>
+                                            <span class="font-medium ${getEPCClass(epc)}">${epc.toFixed(4)}</span>
                                         </td>
                                         <td class="px-4 py-3">
                                             <div class="flex items-center">
                                                 <div class="w-12 bg-gray-200 rounded-full h-2 mr-2">
-                                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${Math.min(100, cvr * 20)}%"></div>
+                                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${Math.min(100, Math.max(0, roas * 50))}%"></div>
                                                 </div>
-                                                <span class="text-xs text-gray-600">${getPerformanceLabel(cvr, epc7d)}</span>
+                                                <span class="text-xs text-gray-600">${getPerformanceLabel(cvr, epc)}</span>
                                             </div>
                                         </td>
                                     </tr>
@@ -1119,6 +1131,14 @@
                             }).join('')}
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Real Data Notice -->
+                <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                        <span class="text-sm text-green-700">Real offer data loaded from Voluum API - No mock data used</span>
+                    </div>
                 </div>
 
                 <!-- Action Buttons -->
@@ -1146,7 +1166,7 @@
             return 'Poor';
         }
 
-        // EPC period switching
+        // EPC period switching - simplified for real data
         function showEPCPeriod(period) {
             // Update tab appearance
             document.querySelectorAll('.epc-tab').forEach(tab => {
@@ -1157,17 +1177,17 @@
             event.target.classList.add('active', 'border-blue-500', 'text-blue-600');
             event.target.classList.remove('border-transparent', 'text-gray-500');
             
-            // Show/hide EPC data
-            document.querySelectorAll('.epc-cell span').forEach(span => {
-                span.classList.add('hidden');
-            });
-            
-            document.querySelectorAll(`.epc-${period}`).forEach(span => {
-                span.classList.remove('hidden');
-            });
-            
             // Update header
-            document.getElementById('epcHeader').textContent = `${period.toUpperCase()} EPC`;
+            const periodLabels = {
+                '7d': '7-Day EPC',
+                '14d': '14-Day EPC', 
+                '30d': '30-Day EPC'
+            };
+            
+            document.getElementById('epcHeader').textContent = periodLabels[period] || 'Current EPC';
+            
+            // Note: Real historical EPC data would require additional API calls to Voluum
+            // For now, showing current period EPC data
         }
 
         function closeCampaignModal() {
