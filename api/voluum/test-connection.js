@@ -1,4 +1,4 @@
-// /api/test-connection.js - Simple test endpoint to verify API is working
+// /api/test-connection.js - Test API endpoint
 
 export default async function handler(req, res) {
     // Set CORS headers
@@ -28,8 +28,10 @@ export default async function handler(req, res) {
             request_info: {
                 method: req.method,
                 url: req.url,
-                headers: req.headers,
-                query: req.query
+                headers: {
+                    'user-agent': req.headers['user-agent'],
+                    'accept': req.headers['accept']
+                }
             }
         });
     } catch (error) {
