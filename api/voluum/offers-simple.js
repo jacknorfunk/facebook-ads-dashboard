@@ -40,18 +40,11 @@ export default async function handler(req, res) {
         const accessKey = process.env.VOLUME_KEY;
         
         if (!accessId || !accessKey) {
-            log('ERROR: Missing environment variables - returning mock data');
-            const mockOffers = generateCampaignSpecificMockOffers(campaignId);
+            log('ERROR: Missing environment variables');
             return res.status(200).json({
-                success: true,
-                offers: mockOffers,
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: 'Missing Voluum API credentials',
-                    campaign_id: campaignId,
-                    offers_count: mockOffers.length
-                }
+                success: false,
+                error: 'Missing Voluum API credentials',
+                debug_logs: debugLogs
             });
         }
 
@@ -79,17 +72,10 @@ export default async function handler(req, res) {
             const authError = await authResponse.text();
             log(`AUTH FAILED - Status: ${authResponse.status}, Error: ${authError.substring(0, 200)}`);
             
-            const mockOffers = generateCampaignSpecificMockOffers(campaignId);
             return res.status(200).json({
-                success: true,
-                offers: mockOffers,
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: `Authentication failed: ${authResponse.status}`,
-                    campaign_id: campaignId,
-                    offers_count: mockOffers.length
-                }
+                success: false,
+                error: `Authentication failed: ${authResponse.status}`,
+                debug_logs: debugLogs
             });
         }
 
@@ -98,17 +84,10 @@ export default async function handler(req, res) {
         
         if (!sessionToken) {
             log('ERROR: No token in auth response');
-            const mockOffers = generateCampaignSpecificMockOffers(campaignId);
             return res.status(200).json({
-                success: true,
-                offers: mockOffers,
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: 'No session token received',
-                    campaign_id: campaignId,
-                    offers_count: mockOffers.length
-                }
+                success: false,
+                error: 'No session token received',
+                debug_logs: debugLogs
             });
         }
 
@@ -133,17 +112,10 @@ export default async function handler(req, res) {
 
         if (!campaignResponse.ok) {
             log(`Campaign verification failed: ${campaignResponse.status}`);
-            const mockOffers = generateCampaignSpecificMockOffers(campaignId);
             return res.status(200).json({
-                success: true,
-                offers: mockOffers,
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: `Campaign verification failed: ${campaignResponse.status}`,
-                    campaign_id: campaignId,
-                    offers_count: mockOffers.length
-                }
+                success: false,
+                error: `Campaign verification failed: ${campaignResponse.status}`,
+                debug_logs: debugLogs
             });
         }
 
@@ -152,22 +124,20 @@ export default async function handler(req, res) {
 
         if (!campaignData.rows || campaignData.rows.length === 0) {
             log('Campaign not found or no data for date range');
-            const mockOffers = generateCampaignSpecificMockOffers(campaignId);
             return res.status(200).json({
-                success: true,
-                offers: mockOffers,
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: 'Campaign not found or no data for selected date range',
-                    campaign_id: campaignId,
-                    offers_count: mockOffers.length
-                }
+                success: false,
+                error: 'Campaign not found or no data for selected date range',
+                debug_logs: debugLogs
             });
         }
 
-        // Step 4: Fetch offer-level data for this specific campaign
-        const offerReportUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=offer&campaignId=${encodeURIComponent(campaignId)}&limit=100&include=ACTIVE,PAUSED`;
+        // Step 4: Fetch offer-level data for this specific campaign - enhanced with multi-period data
+        const { fromDate: from7d, toDate: to7d } = getDateRange('last_7_days');
+        const { fromDate: from14d, toDate: to14d } = getDateRange('last_14_days');
+        const { fromDate: from30d, toDate: to30d } = getDateRange('last_30_days');
+        
+        // Fetch current period offers
+        const offerReportUrl = `https://api.voluum.com/report?from=${fromDate}&to=${toDate}&groupBy=offer&campaignId=${encodeURIComponent(campaignId)}&limit=100&columns=offerId,offerName,offerUrl,visits,clicks,conversions,revenue,cost,impressions&include=ACTIVE,PAUSED`;
         
         log(`Fetching offers: ${offerReportUrl}`);
         
@@ -183,54 +153,75 @@ export default async function handler(req, res) {
             const reportError = await offerResponse.text();
             log(`OFFER REPORT FAILED - Status: ${offerResponse.status}, Error: ${reportError.substring(0, 200)}`);
             
-            const mockOffers = generateCampaignSpecificMockOffers(campaignId);
             return res.status(200).json({
-                success: true,
-                offers: mockOffers,
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: `Offer report fetch failed: ${offerResponse.status}`,
-                    campaign_id: campaignId,
-                    offers_count: mockOffers.length
-                }
+                success: false,
+                error: `Offer report fetch failed: ${offerResponse.status}`,
+                debug_logs: debugLogs
             });
         }
 
         const offerData = await offerResponse.json();
         log(`Offer data received - Total rows: ${offerData.totalRows || 0}`);
 
-        // Step 5: Process offer data
-        const processedOffers = processOfferData(offerData, campaignData.rows[0], debugLogs);
+        // Fetch multi-period data for EPC trending
+        const multiPeriodData = {};
+        const periods = [
+            { name: '7d', from: from7d, to: to7d },
+            { name: '14d', from: from14d, to: to14d },
+            { name: '30d', from: from30d, to: to30d }
+        ];
+
+        for (const period of periods) {
+            try {
+                const periodUrl = `https://api.voluum.com/report?from=${period.from}&to=${period.to}&groupBy=offer&campaignId=${encodeURIComponent(campaignId)}&limit=100&columns=offerId,offerName,visits,clicks,conversions,revenue,cost`;
+                
+                const periodResponse = await fetch(periodUrl, {
+                    method: 'GET',
+                    headers: {
+                        'cwauth-token': sessionToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (periodResponse.ok) {
+                    const periodData = await periodResponse.json();
+                    multiPeriodData[period.name] = periodData.rows || [];
+                    log(`${period.name} data: ${periodData.totalRows || 0} rows`);
+                } else {
+                    log(`${period.name} data fetch failed: ${periodResponse.status}`);
+                    multiPeriodData[period.name] = [];
+                }
+            } catch (error) {
+                log(`Error fetching ${period.name} data: ${error.message}`);
+                multiPeriodData[period.name] = [];
+            }
+        }
+
+        // Step 5: Process offer data with multi-period EPC trending
+        const processedOffers = processOfferDataWithTrending(offerData, multiPeriodData, debugLogs);
         
         log(`Processing complete - ${processedOffers.length} offers processed`);
 
-        // If no real offers found, provide campaign-specific mock data
-        if (processedOffers.length === 0) {
-            log('No real offers found - generating mock data');
-            const mockOffers = generateCampaignSpecificMockOffers(campaignId);
+        // Only return offers that have had visits
+        const offersWithVisits = processedOffers.filter(offer => offer.visits > 0);
+        
+        if (offersWithVisits.length === 0) {
+            log('No offers found with visits');
             return res.status(200).json({
-                success: true,
-                offers: mockOffers,
-                mock_data: true,
-                debug_logs: debugLogs,
-                debug_info: {
-                    reason: 'No offers found for this campaign in selected date range',
-                    campaign_id: campaignId,
-                    offers_count: mockOffers.length
-                }
+                success: false,
+                error: 'No offers found with visits for this campaign',
+                debug_logs: debugLogs
             });
         }
 
         return res.status(200).json({
             success: true,
-            offers: processedOffers,
-            mock_data: false,
+            offers: offersWithVisits,
             debug_logs: debugLogs,
             debug_info: {
                 campaign_id: campaignId,
                 date_range: dateRange,
-                total_offers: processedOffers.length,
+                total_offers: offersWithVisits.length,
                 raw_rows: offerData.totalRows || 0
             }
         });
@@ -239,30 +230,41 @@ export default async function handler(req, res) {
         log(`CRITICAL ERROR: ${error.message}`);
         log(`Error stack: ${error.stack}`);
         
-        // Return mock data on any error
-        const mockOffers = generateCampaignSpecificMockOffers(req.query.campaign_id || 'unknown');
-        
         return res.status(200).json({
-            success: true,
-            offers: mockOffers,
-            mock_data: true,
-            debug_logs: debugLogs,
-            debug_info: {
-                reason: `Critical error: ${error.message}`,
-                campaign_id: req.query.campaign_id || 'unknown',
-                offers_count: mockOffers.length
-            }
+            success: false,
+            error: error.message,
+            debug_logs: debugLogs
         });
     }
 }
 
-function processOfferData(offerData, campaignInfo, debugLogs) {
-    debugLogs.push('Processing offer data...');
+function processOfferDataWithTrending(offerData, multiPeriodData, debugLogs) {
+    debugLogs.push('Processing offer data with EPC trending...');
     
     const offers = [];
     const rows = offerData.rows || [];
     
     debugLogs.push(`Processing ${rows.length} offer rows`);
+    
+    // Create maps for multi-period data lookup
+    const period7dMap = new Map();
+    const period14dMap = new Map();
+    const period30dMap = new Map();
+    
+    multiPeriodData['7d']?.forEach(row => {
+        const id = row.offerId || row.offerName;
+        if (id) period7dMap.set(id, row);
+    });
+    
+    multiPeriodData['14d']?.forEach(row => {
+        const id = row.offerId || row.offerName;
+        if (id) period14dMap.set(id, row);
+    });
+    
+    multiPeriodData['30d']?.forEach(row => {
+        const id = row.offerId || row.offerName;
+        if (id) period30dMap.set(id, row);
+    });
     
     // Process each offer row
     rows.forEach((row, index) => {
@@ -272,7 +274,7 @@ function processOfferData(offerData, campaignInfo, debugLogs) {
             const offerName = row.offerName || row.name || `Offer ${index + 1}`;
             const offerUrl = row.offerUrl || row.url || '';
             
-            // Core metrics - ensure we get revenue/cost from Voluum, not traffic source
+            // Core metrics - ensure we get revenue/cost from Voluum
             const visits = parseFloat(row.visits || 0);
             const conversions = parseFloat(row.conversions || 0);
             const revenue = parseFloat(row.revenue || 0); // Voluum revenue
@@ -280,39 +282,57 @@ function processOfferData(offerData, campaignInfo, debugLogs) {
             const clicks = parseFloat(row.clicks || 0);
             const impressions = parseFloat(row.impressions || 0);
             
-            // Calculate derived metrics
+            // Get multi-period data
+            const data7d = period7dMap.get(offerId) || period7dMap.get(offerName) || {};
+            const data14d = period14dMap.get(offerId) || period14dMap.get(offerName) || {};
+            const data30d = period30dMap.get(offerId) || period30dMap.get(offerName) || {};
+            
+            // Calculate current period metrics
             const roas = cost > 0 ? revenue / cost : 0;
             const cpa = conversions > 0 ? cost / conversions : 0;
             const cvr = visits > 0 ? (conversions / visits) * 100 : 0;
             const epc = visits > 0 ? revenue / visits : 0;
             const payout = conversions > 0 ? revenue / conversions : 0;
             
-            // Only include offers with some activity
-            if (visits > 0 || conversions > 0 || revenue > 0 || cost > 0) {
-                const offer = {
-                    id: offerId,
-                    name: offerName,
-                    offerName: offerName,
-                    url: offerUrl,
-                    visits: visits,
-                    conversions: conversions,
-                    revenue: revenue, // From Voluum
-                    cost: cost, // From Voluum  
-                    clicks: clicks,
-                    impressions: impressions,
-                    roas: roas,
-                    cpa: cpa,
-                    cvr: cvr,
-                    epc: epc,
-                    payout: payout
-                };
-                
-                offers.push(offer);
-                
-                // Log first few offers for debugging
-                if (index < 3) {
-                    debugLogs.push(`Offer ${index + 1}: "${offer.name}" | Visits: ${offer.visits} | Revenue: $${offer.revenue} | Cost: $${offer.cost} | ROAS: ${offer.roas.toFixed(2)}`);
-                }
+            // Calculate multi-period EPC trending
+            const visits7d = parseFloat(data7d.visits || 0);
+            const revenue7d = parseFloat(data7d.revenue || 0);
+            const epc_7d = visits7d > 0 ? revenue7d / visits7d : 0;
+            
+            const visits14d = parseFloat(data14d.visits || 0);
+            const revenue14d = parseFloat(data14d.revenue || 0);
+            const epc_14d = visits14d > 0 ? revenue14d / visits14d : 0;
+            
+            const visits30d = parseFloat(data30d.visits || 0);
+            const revenue30d = parseFloat(data30d.revenue || 0);
+            const epc_30d = visits30d > 0 ? revenue30d / visits30d : 0;
+            
+            const offer = {
+                id: offerId,
+                name: offerName,
+                offerName: offerName,
+                url: offerUrl,
+                visits: visits,
+                conversions: conversions,
+                revenue: revenue, // From Voluum
+                cost: cost, // From Voluum  
+                clicks: clicks,
+                impressions: impressions,
+                roas: roas,
+                cpa: cpa,
+                cvr: cvr,
+                epc: epc,
+                epc_7d: epc_7d,
+                epc_14d: epc_14d,
+                epc_30d: epc_30d,
+                payout: payout
+            };
+            
+            offers.push(offer);
+            
+            // Log first few offers for debugging
+            if (index < 3) {
+                debugLogs.push(`Offer ${index + 1}: "${offer.name}" | Visits: ${offer.visits} | Revenue: ${offer.revenue} | Cost: ${offer.cost} | EPC: ${offer.epc.toFixed(3)} | EPC 7D: ${offer.epc_7d.toFixed(3)}`);
             }
             
         } catch (error) {
@@ -320,172 +340,9 @@ function processOfferData(offerData, campaignInfo, debugLogs) {
         }
     });
     
-    debugLogs.push(`Final processing result: ${offers.length} active offers processed`);
+    debugLogs.push(`Final processing result: ${offers.length} offers processed with EPC trending`);
     
     return offers;
-}
-
-function generateCampaignSpecificMockOffers(campaignId) {
-    // Generate realistic offers based on campaign name/ID
-    const campaignName = decodeURIComponent(campaignId || '');
-    
-    let mockOffers = [];
-    
-    if (campaignName.toLowerCase().includes('newsbreak')) {
-        // NewsBreak-specific offers
-        mockOffers = [
-            {
-                id: 'offer_nb_1',
-                name: 'NewsBreak Native - Home Insurance Lead',
-                offerName: 'NewsBreak Native - Home Insurance Lead',
-                url: 'https://offers.newsbreak.com/insurance/home-lead',
-                visits: 15420,
-                conversions: 387,
-                revenue: 4644.00, // Voluum revenue
-                cost: 4201.50, // Voluum cost
-                clicks: 14892,
-                impressions: 45230,
-                roas: 1.11,
-                cpa: 10.86,
-                cvr: 2.51,
-                epc: 0.301,
-                payout: 12.00
-            },
-            {
-                id: 'offer_nb_2', 
-                name: 'NewsBreak Display - Insurance Quote',
-                offerName: 'NewsBreak Display - Insurance Quote',
-                url: 'https://offers.newsbreak.com/insurance/quote',
-                visits: 8920,
-                conversions: 156,
-                revenue: 2184.00,
-                cost: 2456.30,
-                clicks: 8445,
-                impressions: 28450,
-                roas: 0.89,
-                cpa: 15.74,
-                cvr: 1.75,
-                epc: 0.245,
-                payout: 14.00
-            }
-        ];
-    } else if (campaignName.toLowerCase().includes('taboola')) {
-        // Taboola-specific offers
-        mockOffers = [
-            {
-                id: 'offer_tab_1',
-                name: 'Taboola Native - Insurance CPA',
-                offerName: 'Taboola Native - Insurance CPA',
-                url: 'https://ads.taboola.com/insurance/cpa-offer',
-                visits: 12350,
-                conversions: 234,
-                revenue: 3510.00,
-                cost: 3892.45,
-                clicks: 11890,
-                impressions: 67890,
-                roas: 0.90,
-                cpa: 16.64,
-                cvr: 1.89,
-                epc: 0.284,
-                payout: 15.00
-            },
-            {
-                id: 'offer_tab_2',
-                name: 'Taboola Content - Lead Generation', 
-                offerName: 'Taboola Content - Lead Generation',
-                url: 'https://ads.taboola.com/leadgen/form',
-                visits: 6789,
-                conversions: 89,
-                revenue: 1335.00,
-                cost: 1567.23,
-                clicks: 6234,
-                impressions: 34567,
-                roas: 0.85,
-                cpa: 17.61,
-                cvr: 1.31,
-                epc: 0.197,
-                payout: 15.00
-            }
-        ];
-    } else if (campaignName.toLowerCase().includes('facebook')) {
-        // Facebook-specific offers
-        mockOffers = [
-            {
-                id: 'offer_fb_1',
-                name: 'Facebook Lead Ad - Medicare Supplement',
-                offerName: 'Facebook Lead Ad - Medicare Supplement',
-                url: 'https://facebook.com/tr/medicare-supplement',
-                visits: 9870,
-                conversions: 445,
-                revenue: 6675.00,
-                cost: 4321.15,
-                clicks: 9456,
-                impressions: 45670,
-                roas: 1.54,
-                cpa: 9.71,
-                cvr: 4.51,
-                epc: 0.676,
-                payout: 15.00
-            },
-            {
-                id: 'offer_fb_2',
-                name: 'Facebook Video Ad - Insurance Quote',
-                offerName: 'Facebook Video Ad - Insurance Quote', 
-                url: 'https://facebook.com/tr/insurance-quote',
-                visits: 5432,
-                conversions: 178,
-                revenue: 2492.00,
-                cost: 2134.67,
-                clicks: 5123,
-                impressions: 23450,
-                roas: 1.17,
-                cpa: 11.99,
-                cvr: 3.28,
-                epc: 0.459,
-                payout: 14.00
-            }
-        ];
-    } else {
-        // Generic offers for unknown campaigns
-        mockOffers = [
-            {
-                id: 'offer_gen_1',
-                name: 'Generic Offer - Insurance Lead',
-                offerName: 'Generic Offer - Insurance Lead',
-                url: 'https://example.com/insurance-lead',
-                visits: 5000,
-                conversions: 125,
-                revenue: 1875.00,
-                cost: 1750.00,
-                clicks: 4750,
-                impressions: 15000,
-                roas: 1.07,
-                cpa: 14.00,
-                cvr: 2.50,
-                epc: 0.375,
-                payout: 15.00
-            },
-            {
-                id: 'offer_gen_2',
-                name: 'Generic Offer - Quote Form',
-                offerName: 'Generic Offer - Quote Form',
-                url: 'https://example.com/quote-form',
-                visits: 3200,
-                conversions: 64,
-                revenue: 896.00,
-                cost: 1024.00,
-                clicks: 3100,
-                impressions: 9600,
-                roas: 0.88,
-                cpa: 16.00,
-                cvr: 2.00,
-                epc: 0.280,
-                payout: 14.00
-            }
-        ];
-    }
-    
-    return mockOffers;
 }
 
 function getDateRange(range) {
