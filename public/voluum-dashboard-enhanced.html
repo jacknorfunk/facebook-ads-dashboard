@@ -448,7 +448,7 @@
             
             try {
                 const dateRange = document.getElementById('dateRangeFilter').value;
-                const response = await fetch(`/api/voluum/campaigns?date_range=${dateRange}`);
+                const response = await fetch(`/api/voluum/campaigns-simple?date_range=${dateRange}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -460,11 +460,11 @@
                     throw new Error(data.error || 'Voluum API error');
                 }
                 
-                // Process Voluum data
+                // Process Voluum data using the actual API structure
                 const processedData = {
-                    campaigns: data.campaigns.map(campaign => ({
+                    campaigns: (data.data?.campaigns || []).map(campaign => ({
                         ...campaign,
-                        source: 'Voluum',
+                        source: campaign.trafficSource || 'Voluum',
                         dataSource: 'voluum'
                     }))
                 };
@@ -490,7 +490,7 @@
             updateConnectionStatus('facebook', 'loading', 'Connecting to Facebook API...');
             
             try {
-                const response = await fetch('/api/facebook/campaigns');
+                const response = await fetch('/api/campaigns');
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -498,14 +498,22 @@
                 
                 const data = await response.json();
                 
-                if (data.success === false) {
-                    throw new Error(data.error || 'Facebook API error');
+                if (!Array.isArray(data)) {
+                    throw new Error('Facebook API returned invalid data format');
                 }
                 
-                // Process Facebook data
+                // Process Facebook data using the actual API structure
                 const processedData = {
-                    campaigns: data.campaigns.map(campaign => ({
-                        ...campaign,
+                    campaigns: data.map(campaign => ({
+                        id: campaign.id,
+                        name: campaign.name,
+                        visits: campaign.clicks || 0,
+                        conversions: campaign.conversions || 0,
+                        revenue: campaign.revenue || 0,
+                        cost: campaign.spend || 0,
+                        roas: campaign.roas || (campaign.spend > 0 ? (campaign.revenue || 0) / campaign.spend : 0),
+                        status: campaign.status || 'Active',
+                        hasTraffic: true,
                         source: 'Facebook',
                         dataSource: 'facebook'
                     }))
@@ -532,7 +540,7 @@
             updateConnectionStatus('taboola', 'loading', 'Connecting to Taboola API...');
             
             try {
-                const response = await fetch('/api/taboola/campaigns');
+                const response = await fetch('/api/taboola-campaigns');
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -540,14 +548,22 @@
                 
                 const data = await response.json();
                 
-                if (data.success === false) {
-                    throw new Error(data.error || 'Taboola API error');
+                if (!Array.isArray(data)) {
+                    throw new Error('Taboola API returned invalid data format');
                 }
                 
-                // Process Taboola data
+                // Process Taboola data using the actual API structure
                 const processedData = {
-                    campaigns: data.campaigns.map(campaign => ({
-                        ...campaign,
+                    campaigns: data.map(campaign => ({
+                        id: campaign.id,
+                        name: campaign.name,
+                        visits: campaign.clicks || 0,
+                        conversions: campaign.conversions || 0,
+                        revenue: campaign.revenue || 0,
+                        cost: campaign.spend || 0,
+                        roas: campaign.roas || (campaign.spend > 0 ? (campaign.revenue || 0) / campaign.spend : 0),
+                        status: campaign.campaignStatus || 'Active',
+                        hasTraffic: true,
                         source: 'Taboola',
                         dataSource: 'taboola'
                     }))
