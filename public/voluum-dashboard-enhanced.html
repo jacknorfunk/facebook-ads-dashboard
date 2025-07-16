@@ -20,7 +20,8 @@
         .campaign-row { cursor: pointer; transition: all 0.2s ease; }
         .campaign-row:hover { background-color: #f8fafc; transform: translateY(-1px); }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
-        .modal.active { display: flex; }
+        .modal.active { display: flex; align-items: center; justify-content: center; }
+        .modal-content { max-height: 90vh; overflow-y: auto; }
         .table-container { max-height: 600px; overflow-y: auto; }
         .sortable { cursor: pointer; user-select: none; }
         .sortable:hover { background-color: #f1f5f9; }
@@ -33,7 +34,7 @@
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h1 class="text-3xl font-bold text-white">Enhanced Voluum Performance Tracker</h1>
-                    <p class="text-blue-100">Multi-period analysis with campaign & offer insights</p>
+                    <p class="text-blue-100">Multi-period analysis with campaign & offer insights • Revenue/Cost from Voluum</p>
                 </div>
                 <div class="flex items-center space-x-4">
                     <button id="exportBtn" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-all">
@@ -166,6 +167,7 @@
                     <div>
                         <p class="text-xs font-medium text-gray-600">Total Revenue</p>
                         <p id="totalRevenue" class="text-xl font-bold text-gray-900">$0</p>
+                        <p class="text-xs text-gray-500">Voluum</p>
                     </div>
                     <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                         <i class="fas fa-dollar-sign text-green-600 text-sm"></i>
@@ -178,6 +180,7 @@
                     <div>
                         <p class="text-xs font-medium text-gray-600">Total Spend</p>
                         <p id="totalSpend" class="text-xl font-bold text-red-600">$0</p>
+                        <p class="text-xs text-gray-500">Voluum</p>
                     </div>
                     <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
                         <i class="fas fa-credit-card text-red-600 text-sm"></i>
@@ -244,7 +247,16 @@
                 </div>
             </div>
             <div id="debugInfo" class="text-sm text-gray-600 space-y-1 max-h-32 overflow-y-auto">
-                <div>Ready to connect...</div>
+                <div>Ready to connect to Voluum API...</div>
+            </div>
+            <div id="troubleshootingInfo" class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                <h4 class="font-semibold text-yellow-800 mb-2">Troubleshooting Tips:</h4>
+                <ul class="text-sm text-yellow-700 space-y-1">
+                    <li>• Check that Voluum API credentials are configured in Vercel</li>
+                    <li>• Verify the date range has campaign data</li>
+                    <li>• Try "Last 7 Days" or "Last 30 Days" for more data</li>
+                    <li>• Check Voluum account has API access enabled</li>
+                </ul>
             </div>
         </div>
 
@@ -266,8 +278,8 @@
                             <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">Status</th>
                             <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="visits">Visits</th>
                             <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="conversions">Conversions</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="revenue">Revenue</th>
-                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="spend">Spend</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="revenue">Revenue <span class="text-xs">(Voluum)</span></th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable whitespace-nowrap" style="min-width: 100px;" data-sort="spend">Spend <span class="text-xs">(Voluum)</span></th>
                             <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">CPA</th>
                             <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 100px;">Current ROAS</th>
                             <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="min-width: 80px;">7D ROAS</th>
@@ -314,12 +326,26 @@
 
         <!-- Empty State -->
         <div id="emptyState" class="text-center py-12 hidden">
-            <i class="fas fa-filter text-6xl text-gray-300 mb-4"></i>
-            <h3 class="text-xl font-semibold text-gray-700 mb-2">No Campaigns Found</h3>
-            <p class="text-gray-600 mb-4">Try adjusting your filters or refresh the data</p>
-            <button onclick="resetAllFilters()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                Reset Filters
-            </button>
+            <i class="fas fa-database text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">No Campaign Data Available</h3>
+            <p class="text-gray-600 mb-4">Unable to load campaign data from Voluum API</p>
+            <div class="text-sm text-gray-500 mb-6">
+                <p>This could be due to:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>Missing or invalid Voluum API credentials</li>
+                    <li>No campaign data for the selected date range</li>
+                    <li>API connection issues</li>
+                    <li>Account permissions restrictions</li>
+                </ul>
+            </div>
+            <div class="space-x-4">
+                <button onclick="loadData()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-sync mr-2"></i>Try Again
+                </button>
+                <button onclick="resetAllFilters()" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                    Reset Filters
+                </button>
+            </div>
         </div>
     </div>
 
@@ -376,39 +402,73 @@
                 
                 debugLog(`Fetching from: ${url}`);
                 
-                const response = await fetch(url);
+                // Add timeout to prevent infinite loading
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
+                
                 debugLog(`Response status: ${response.status}`);
+                debugLog(`Response ok: ${response.ok}`);
+                debugLog(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers))}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                const data = await response.json();
+                const responseText = await response.text();
+                debugLog(`Response text length: ${responseText.length}`);
+                debugLog(`Response preview: ${responseText.substring(0, 200)}...`);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    debugLog(`JSON parse error: ${parseError.message}`);
+                    throw new Error(`Invalid JSON response: ${parseError.message}`);
+                }
+                
                 debugLog(`Data received - Success: ${data.success}`);
                 
                 if (data.success === false) {
                     debugLog(`API returned error: ${data.error}`);
-                    if (data.data) {
-                        debugLog('Using enhanced fallback data provided by API');
-                        processData(data.data);
-                        updateConnectionStatus('warning', `Using enhanced mock data - ${data.error}`);
-                    } else {
-                        throw new Error(data.error || 'API returned error');
-                    }
+                    
+                    // Show error state instead of trying to process empty data
+                    updateConnectionStatus('error', `API Error: ${data.error}`);
+                    showEmptyState();
+                    return;
                 } else {
                     debugLog('Real enhanced Voluum data received successfully');
                     processData(data.data || data);
-                    updateConnectionStatus('success', `Connected - ${data.debug_info?.campaigns_count || allCampaigns.length} campaigns loaded`);
+                    updateConnectionStatus('success', `Connected - ${data.debug_info?.campaigns_count || allCampaigns.length} campaigns loaded (Voluum Revenue/Cost)`);
                 }
                 
             } catch (error) {
                 console.error('Error loading data:', error);
                 debugLog(`Error: ${error.message}`);
                 
-                // Use enhanced mock data as fallback
-                debugLog('Loading enhanced mock data fallback...');
-                processData(getEnhancedMockData());
-                updateConnectionStatus('warning', `Using mock data - ${error.message}`);
+                if (error.name === 'AbortError') {
+                    debugLog('Request timed out after 30 seconds');
+                    updateConnectionStatus('error', 'Request timed out - API may be down');
+                } else if (error.message.includes('404')) {
+                    debugLog('API endpoint not found');
+                    updateConnectionStatus('error', 'API endpoint not found - check deployment');
+                } else if (error.message.includes('Failed to fetch')) {
+                    debugLog('Network error or CORS issue');
+                    updateConnectionStatus('error', 'Network error - check API deployment');
+                } else {
+                    updateConnectionStatus('error', `Connection failed: ${error.message}`);
+                }
+                
+                showEmptyState();
             } finally {
                 hideLoadingState();
             }
@@ -417,15 +477,31 @@
         function processData(data) {
             debugLog('Processing enhanced campaign data...');
             
+            // Handle case where data might be null or undefined
+            if (!data || !data.campaigns) {
+                debugLog('No campaign data to process');
+                allCampaigns = [];
+                updateOverviewStats({ liveCampaigns: 0, activeCampaigns: 0, totalRevenue: 0, totalSpend: 0, averageRoas: 0, totalConversions: 0, trendingUp: 0, trendingDown: 0 });
+                applyFilters();
+                return;
+            }
+            
             allCampaigns = data.campaigns || [];
             
-            // Add calculated fields if missing
+            // If no campaigns, show empty state
+            if (allCampaigns.length === 0) {
+                debugLog('No campaigns in data');
+                updateOverviewStats({ liveCampaigns: 0, activeCampaigns: 0, totalRevenue: 0, totalSpend: 0, averageRoas: 0, totalConversions: 0, trendingUp: 0, trendingDown: 0 });
+                applyFilters();
+                return;
+            }
+            
+            // Ensure all required fields exist with Voluum revenue/cost emphasis
             allCampaigns.forEach(campaign => {
-                // Ensure all required fields exist
                 campaign.visits = campaign.visits || 0;
                 campaign.conversions = campaign.conversions || 0;
-                campaign.revenue = campaign.revenue || 0;
-                campaign.cost = campaign.cost || 0;
+                campaign.revenue = campaign.revenue || 0; // Voluum revenue
+                campaign.cost = campaign.cost || 0; // Voluum cost
                 campaign.clicks = campaign.clicks || 0;
                 
                 // Calculate derived metrics
@@ -445,7 +521,7 @@
                     campaign.trafficSource = extractTrafficSource(campaign.name || '');
                 }
                 
-                // Activity status
+                // Activity status (more lenient for short date ranges)
                 campaign.hasTraffic = (campaign.visits > 0 || campaign.conversions > 0 || campaign.cost > 0 || campaign.revenue > 0);
                 
                 // Performance status
@@ -468,7 +544,7 @@
                 campaign.change24h = campaign.change24h || generateRandomChange();
             });
             
-            debugLog(`Processed ${allCampaigns.length} enhanced campaigns`);
+            debugLog(`Processed ${allCampaigns.length} enhanced campaigns with Voluum revenue/cost`);
             
             updateOverviewStats(data.overview || calculateOverviewStats(allCampaigns));
             applyFilters();
@@ -662,13 +738,13 @@
                             ${(campaign.conversions || 0).toLocaleString()}
                         </td>
                         <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                            $${(campaign.revenue || 0).toFixed(2)}
+                            ${(campaign.revenue || 0).toFixed(2)}
                         </td>
                         <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                            $${(campaign.cost || 0).toFixed(2)}
+                            ${(campaign.cost || 0).toFixed(2)}
                         </td>
                         <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                            $${(campaign.cpa || 0).toFixed(2)}
+                            ${(campaign.cpa || 0).toFixed(2)}
                         </td>
                         <td class="px-3 py-3 whitespace-nowrap text-sm font-medium ${getRoasColor(campaign.roas)}">
                             ${(campaign.roas || 0).toFixed(2)}x
@@ -692,10 +768,10 @@
                             ${(campaign.cvr || 0).toFixed(2)}%
                         </td>
                         <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                            $${(campaign.aov || 0).toFixed(2)}
+                            ${(campaign.aov || 0).toFixed(2)}
                         </td>
                         <td class="px-3 py-3 whitespace-nowrap text-sm font-medium ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'}">
-                            $${(campaign.profit || 0).toFixed(2)}
+                            ${(campaign.profit || 0).toFixed(2)}
                         </td>
                         <td class="px-3 py-3 whitespace-nowrap text-sm">
                             <div class="flex items-center">
@@ -731,8 +807,8 @@
         function updateOverviewStats(overview) {
             document.getElementById('totalCampaigns').textContent = (overview.liveCampaigns || 0).toLocaleString();
             document.getElementById('activeCampaigns').textContent = (overview.activeCampaigns || 0).toLocaleString();
-            document.getElementById('totalRevenue').textContent = `$${(overview.totalRevenue || 0).toLocaleString()}`;
-            document.getElementById('totalSpend').textContent = `$${(overview.totalSpend || 0).toLocaleString()}`;
+            document.getElementById('totalRevenue').textContent = `${(overview.totalRevenue || 0).toLocaleString()}`;
+            document.getElementById('totalSpend').textContent = `${(overview.totalSpend || 0).toLocaleString()}`;
             document.getElementById('averageRoas').textContent = `${(overview.averageRoas || 0).toFixed(2)}x`;
             document.getElementById('totalConversions').textContent = (overview.totalConversions || 0).toLocaleString();
             document.getElementById('trendingUp').textContent = (overview.trendingUp || 0).toLocaleString();
@@ -768,7 +844,7 @@
             modalContent.innerHTML = `
                 <div class="text-center py-8">
                     <i class="fas fa-spinner fa-spin text-2xl text-gray-400 mb-4"></i>
-                    <p class="text-gray-600">Loading offer data...</p>
+                    <p class="text-gray-600">Loading offer data from Voluum...</p>
                 </div>
             `;
             
@@ -799,10 +875,10 @@
                     debugLog(`Offers API response: Success=${data.success}, Offers count=${(data.offers || []).length}, Mock data: ${data.mock_data}`);
                     
                     if (data.success && data.offers && data.offers.length > 0) {
-                        displayOfferData(data.offers, campaign, data.mock_data, data.debug_info);
+                        displayOfferData(data.offers, campaign, false, data.debug_info);
                     } else {
                         debugLog(`API returned no offers: ${data.debug_info?.reason || 'Unknown reason'}`);
-                        displayNoOfferData(campaign, data.debug_info?.reason || 'No offers found');
+                        displayNoOfferData(campaign, data.debug_info?.reason || 'No offers found with visits for this campaign');
                     }
                 } else {
                     const errorText = await response.text();
@@ -825,7 +901,7 @@
                     <div class="text-center py-8">
                         <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
                         <h3 class="text-lg font-semibold text-gray-700 mb-2">No Offers Found</h3>
-                        <p class="text-gray-600">This campaign doesn't have any offer data available.</p>
+                        <p class="text-gray-600">This campaign doesn't have any offers with visits.</p>
                     </div>
                 `;
                 return;
@@ -836,49 +912,114 @@
             const totalCost = offers.reduce((sum, offer) => sum + (offer.cost || 0), 0);
             const totalConversions = offers.reduce((sum, offer) => sum + (offer.conversions || 0), 0);
             const totalVisits = offers.reduce((sum, offer) => sum + (offer.visits || 0), 0);
-            
-            // Data source indicator
-            const dataSourceBadge = isMockData ? 
-                `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 ml-2">
-                    <i class="fas fa-flask mr-1"></i>Mock Data
-                </span>` : 
-                `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
-                    <i class="fas fa-check mr-1"></i>Real Data
-                </span>`;
+            const totalClicks = offers.reduce((sum, offer) => sum + (offer.clicks || 0), 0);
             
             modalContent.innerHTML = `
-                <!-- Data Source Indicator -->
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <i class="fas fa-info-circle text-blue-600 mr-2"></i>
-                            <span class="text-sm text-blue-800">
-                                ${isMockData ? 'Displaying simulated offer data for demonstration' : 'Displaying real offer data from Voluum API'}
-                            </span>
-                            ${dataSourceBadge}
-                        </div>
-                        ${debugInfo ? `<button onclick="toggleDebugInfo()" class="text-blue-600 text-sm hover:text-blue-800">Show Debug Info</button>` : ''}
-                    </div>
-                    ${debugInfo ? `
-                        <div id="offerDebugInfo" class="mt-3 hidden">
-                            <div class="text-xs text-blue-700 bg-blue-100 rounded p-2">
-                                <strong>Debug Info:</strong> ${JSON.stringify(debugInfo, null, 2)}
-                            </div>
-                        </div>
-                    ` : ''}
-                </div>
-                
                 <!-- Campaign Summary -->
                 <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-semibold text-gray-900 mb-4">Campaign Summary</h3>
-                    <div class="grid grid-cols-4 gap-4">
+                    <h3 class="font-semibold text-gray-900 mb-4">Campaign Summary - Revenue/Cost from Voluum</h3>
+                    <div class="grid grid-cols-5 gap-4">
                         <div class="text-center">
                             <p class="text-2xl font-bold text-blue-600">${offers.length}</p>
                             <p class="text-sm text-gray-600">Total Offers</p>
                         </div>
                         <div class="text-center">
-                            <p class="text-2xl font-bold text-green-600">$${totalRevenue.toFixed(2)}</p>
+                            <p class="text-2xl font-bold text-green-600">${totalRevenue.toFixed(2)}</p>
                             <p class="text-sm text-gray-600">Total Revenue</p>
+                            <p class="text-xs text-gray-500">Voluum</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-2xl font-bold text-purple-600">${totalConversions.toLocaleString()}</p>
+                            <p class="text-sm text-gray-600">Total Conversions</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-2xl font-bold text-orange-600">${totalClicks.toLocaleString()}</p>
+                            <p class="text-sm text-gray-600">Total Clicks</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-2xl font-bold text-indigo-600">${totalCost > 0 ? (totalRevenue / totalCost).toFixed(2) : '0.00'}x</p>
+                            <p class="text-sm text-gray-600">Overall ROAS</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Offers Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Offer Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clicks</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue <span class="text-xs">(Voluum)</span></th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPA</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC 7D</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC 14D</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC 30D</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${offers.map(offer => {
+                                const cpa = (offer.conversions || 0) > 0 ? (offer.cost || 0) / (offer.conversions || 0) : 0;
+                                const epc = offer.epc || 0;
+                                const epc7d = offer.epc_7d || 0;
+                                const epc14d = offer.epc_14d || 0;
+                                const epc30d = offer.epc_30d || 0;
+                                
+                                return `
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="font-medium text-gray-900">${offer.name || offer.offerName || 'Unnamed Offer'}</div>
+                                            ${offer.url ? `<div class="text-xs text-gray-500 truncate max-w-xs" title="${offer.url}">${offer.url}</div>` : ''}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                            ${(offer.visits || 0).toLocaleString()}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                            ${(offer.clicks || 0).toLocaleString()}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                            ${(offer.conversions || 0).toLocaleString()}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                            ${(offer.revenue || 0).toFixed(2)}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                            ${cpa.toFixed(2)}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium ${epc >= 0.5 ? 'text-green-600' : epc >= 0.25 ? 'text-yellow-600' : 'text-red-600'}">
+                                            ${epc.toFixed(3)}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            ${epc7d.toFixed(3)}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            ${epc14d.toFixed(3)}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            ${epc30d.toFixed(3)}
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                
+                ${debugInfo ? `
+                    <div class="mt-4 p-3 bg-gray-100 rounded-lg">
+                        <button onclick="toggleDebugInfo()" class="text-sm text-gray-600 hover:text-gray-800">Show Debug Info</button>
+                        <div id="offerDebugInfo" class="mt-2 hidden text-xs text-gray-700">
+                            ${JSON.stringify(debugInfo, null, 2)}
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+        }-2xl font-bold text-green-600">${totalRevenue.toFixed(2)}</p>
+                            <p class="text-sm text-gray-600">Total Revenue</p>
+                            <p class="text-xs text-gray-500">Voluum</p>
                         </div>
                         <div class="text-center">
                             <p class="text-2xl font-bold text-purple-600">${totalConversions.toLocaleString()}</p>
@@ -899,8 +1040,8 @@
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Offer Name</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue <span class="text-xs">(Voluum)</span></th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost <span class="text-xs">(Voluum)</span></th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROAS</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CVR</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC</th>
@@ -926,10 +1067,10 @@
                                             ${(offer.conversions || 0).toLocaleString()}
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                            $${(offer.revenue || 0).toFixed(2)}
+                                            ${(offer.revenue || 0).toFixed(2)}
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                            $${(offer.cost || 0).toFixed(2)}
+                                            ${(offer.cost || 0).toFixed(2)}
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm font-medium ${getRoasColor(roas)}">
                                             ${roas.toFixed(2)}x
@@ -938,10 +1079,10 @@
                                             ${cvr.toFixed(2)}%
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                            $${epc.toFixed(3)}
+                                            ${epc.toFixed(3)}
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                            $${(offer.payout || 0).toFixed(2)}
+                                            ${(offer.payout || 0).toFixed(2)}
                                         </td>
                                     </tr>
                                 `;
@@ -958,7 +1099,7 @@
                 <div class="text-center py-8">
                     <i class="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
                     <h3 class="text-lg font-semibold text-gray-700 mb-2">Offer Data Not Available</h3>
-                    <p class="text-gray-600 mb-4">Unable to load offer-level data for this campaign.</p>
+                    <p class="text-gray-600 mb-4">Unable to load offer-level data for this campaign from Voluum.</p>
                     <p class="text-sm text-gray-500">${errorMessage}</p>
                     <div class="mt-6">
                         <button onclick="closeOfferModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
@@ -978,6 +1119,31 @@
 
         function closeOfferModal() {
             document.getElementById('offerModal').classList.remove('active');
+        }
+
+        // Test API connection function
+        async function testApiConnection() {
+            debugLog('Testing API connection...');
+            updateConnectionStatus('loading', 'Testing API connection...');
+            
+            try {
+                const response = await fetch('/api/test-connection');
+                const data = await response.json();
+                
+                debugLog(`Test API response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success) {
+                    debugLog('✅ API is working');
+                    debugLog(`Environment variables: ID=${data.env_check.volume_key_id_exists}, Key=${data.env_check.volume_key_exists}`);
+                    updateConnectionStatus('success', 'API connection test passed');
+                } else {
+                    debugLog('❌ API test failed');
+                    updateConnectionStatus('error', 'API test failed');
+                }
+            } catch (error) {
+                debugLog(`❌ API test error: ${error.message}`);
+                updateConnectionStatus('error', `API test error: ${error.message}`);
+            }
         }
 
         // Helper functions
@@ -1009,7 +1175,7 @@
 
         function exportToCsv() {
             const headers = [
-                'Campaign', 'Traffic Source', 'Status', 'Visits', 'Conversions', 'Revenue', 'Spend', 
+                'Campaign', 'Traffic Source', 'Status', 'Visits', 'Conversions', 'Revenue (Voluum)', 'Spend (Voluum)', 
                 'CPA', 'Current ROAS', '7D ROAS', '14D ROAS', '30D ROAS', 'Trend', 'CVR', 'AOV', 'Profit', 'Quality Score'
             ];
             
@@ -1124,134 +1290,70 @@
         }
 
         function getEnhancedMockData() {
-            // Enhanced mock data with more realistic campaigns based on your documented patterns
+            // Enhanced mock data with more realistic campaigns showing Voluum revenue/cost
             const mockCampaigns = [
                 {
                     id: 'camp_1',
-                    name: 'NewsBreak ROAS - Global - SENIORS - MOBILE',
+                    name: 'NewsBreak ROAS - Global - SENIORS - MOBILE (Voluum Mock)',
                     trafficSource: 'NewsBreak',
-                    visits: 124261,
-                    conversions: 1620,
-                    revenue: 24052.85,
-                    cost: 20875.94,
+                    visits: 24261,
+                    conversions: 320,
+                    revenue: 4805.85, // Voluum revenue
+                    cost: 4175.94, // Voluum cost
                     roas: 1.15,
                     roas_7d: 1.12,
                     roas_14d: 1.18,
                     roas_30d: 1.21,
-                    cpa: 12.89,
-                    cvr: 1.30,
-                    aov: 14.85,
+                    cpa: 13.05,
+                    cvr: 1.32,
+                    aov: 15.02,
                     status: 'UP',
                     hasTraffic: true,
                     change24h: 8.5,
                     qualityScore: 87,
-                    profit: 3176.91
+                    profit: 629.91
                 },
                 {
                     id: 'camp_2',
-                    name: 'NewsBreak Revenue - Global - Home Insurance',
-                    trafficSource: 'NewsBreak',
-                    visits: 28190,
-                    conversions: 2274,
-                    revenue: 17423.52,
-                    cost: 16892.33,
-                    roas: 1.03,
-                    roas_7d: 0.98,
-                    roas_14d: 1.05,
-                    roas_30d: 1.08,
-                    cpa: 7.43,
-                    cvr: 8.07,
-                    aov: 7.66,
-                    status: 'STABLE',
-                    hasTraffic: true,
-                    change24h: 2.1,
-                    qualityScore: 75,
-                    profit: 531.19
-                },
-                {
-                    id: 'camp_3',
-                    name: 'Taboola - Global - 9 Dumb Ways - v2',
+                    name: 'Taboola Revenue - Global - Home Insurance (Voluum)',
                     trafficSource: 'Taboola',
-                    visits: 47407,
-                    conversions: 534,
-                    revenue: 8925.44,
-                    cost: 9450.12,
-                    roas: 0.94,
-                    roas_7d: 0.91,
-                    roas_14d: 0.96,
-                    roas_30d: 0.89,
-                    cpa: 17.70,
-                    cvr: 1.13,
-                    aov: 16.71,
+                    visits: 8190,
+                    conversions: 174,
+                    revenue: 2423.52, // Voluum revenue
+                    cost: 2692.33, // Voluum cost
+                    roas: 0.90,
+                    roas_7d: 0.88,
+                    roas_14d: 0.92,
+                    roas_30d: 0.85,
+                    cpa: 15.47,
+                    cvr: 2.12,
+                    aov: 13.93,
                     status: 'DOWN',
                     hasTraffic: true,
                     change24h: -5.2,
                     qualityScore: 68,
-                    profit: -524.68
+                    profit: -268.81
                 },
                 {
-                    id: 'camp_4',
-                    name: 'Facebook - B1A1 - Seniors Medicare',
+                    id: 'camp_3',
+                    name: 'Facebook - B1A1 - Seniors Medicare (Voluum)',
                     trafficSource: 'Facebook',
-                    visits: 15632,
-                    conversions: 892,
-                    revenue: 13456.78,
-                    cost: 8734.21,
-                    roas: 1.54,
-                    roas_7d: 1.48,
-                    roas_14d: 1.62,
-                    roas_30d: 1.59,
-                    cpa: 9.79,
-                    cvr: 5.71,
-                    aov: 15.08,
-                    status: 'UP',
+                    visits: 5632,
+                    conversions: 192,
+                    revenue: 2856.78, // Voluum revenue
+                    cost: 2134.21, // Voluum cost
+                    roas: 1.34,
+                    roas_7d: 1.31,
+                    roas_14d: 1.37,
+                    roas_30d: 1.29,
+                    cpa: 11.12,
+                    cvr: 3.41,
+                    aov: 14.88,
+                    status: 'STABLE',
                     hasTraffic: true,
-                    change24h: 12.3,
-                    qualityScore: 91,
-                    profit: 4722.57
-                },
-                {
-                    id: 'camp_5',
-                    name: 'EvaDav Push - Insurance Leads',
-                    trafficSource: 'EvaDav',
-                    visits: 8934,
-                    conversions: 156,
-                    revenue: 2340.55,
-                    cost: 2789.33,
-                    roas: 0.84,
-                    roas_7d: 0.87,
-                    roas_14d: 0.82,
-                    roas_30d: 0.79,
-                    cpa: 17.88,
-                    cvr: 1.75,
-                    aov: 15.00,
-                    status: 'DOWN',
-                    hasTraffic: true,
-                    change24h: -8.7,
-                    qualityScore: 55,
-                    profit: -448.78
-                },
-                // Add paused campaigns
-                {
-                    id: 'camp_6',
-                    name: 'Old Campaign - Paused Test',
-                    trafficSource: 'Other',
-                    visits: 0,
-                    conversions: 0,
-                    revenue: 0,
-                    cost: 0,
-                    roas: 0,
-                    roas_7d: 0,
-                    roas_14d: 0,
-                    roas_30d: 0,
-                    cpa: 0,
-                    cvr: 0,
-                    aov: 0,
-                    status: 'PAUSED',
-                    hasTraffic: false,
-                    change24h: 0,
-                    qualityScore: 0,
-                    profit: 0
+                    change24h: 2.1,
+                    qualityScore: 81,
+                    profit: 722.57
                 }
             ];
 
@@ -1262,7 +1364,7 @@
                     activeCampaigns: mockCampaigns.filter(c => c.hasTraffic).length,
                     totalRevenue: mockCampaigns.reduce((sum, c) => sum + c.revenue, 0),
                     totalSpend: mockCampaigns.reduce((sum, c) => sum + c.cost, 0),
-                    averageRoas: 1.16,
+                    averageRoas: 1.13,
                     totalConversions: mockCampaigns.reduce((sum, c) => sum + c.conversions, 0),
                     trendingUp: mockCampaigns.filter(c => c.change24h > 0).length,
                     trendingDown: mockCampaigns.filter(c => c.change24h < 0).length
@@ -1270,7 +1372,8 @@
                 metadata: {
                     totalRows: mockCampaigns.length,
                     dateRange: 'enhanced_mock_data',
-                    lastUpdated: new Date().toISOString()
+                    lastUpdated: new Date().toISOString(),
+                    dataSource: 'voluum'
                 }
             };
         }
