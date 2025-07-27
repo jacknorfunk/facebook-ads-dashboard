@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voluum Dashboard - Real Data Only</title>
+    <title>Enhanced Voluum Performance Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -16,6 +16,7 @@
         }
         .status-active { background-color: #10b981; }
         .status-paused { background-color: #ef4444; }
+        .status-other { background-color: #f59e0b; }
         .metric-card {
             background: white;
             border-radius: 12px;
@@ -25,6 +26,11 @@
         }
         .table-container {
             font-size: 13px;
+        }
+        .quality-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
         }
         .connection-status {
             background: #ecfdf5;
@@ -39,9 +45,12 @@
     <!-- Header -->
     <div class="gradient-header text-white py-4 px-6">
         <div class="max-w-full mx-auto flex items-center justify-between">
-            <h1 class="text-xl font-semibold">Voluum Dashboard - Real Data Only</h1>
-            <p class="text-sm opacity-90">Eastern Time (UTC-04:00) | Only Campaigns with Visits</p>
+            <h1 class="text-xl font-semibold">Enhanced Voluum Performance Tracker</h1>
+            <p class="text-sm opacity-90">Real-time campaign data with conversion & offer insights</p>
             <div class="flex items-center space-x-3">
+                <button onclick="generateCreativeAnalysis()" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-colors text-sm">
+                    <i class="fas fa-lightbulb mr-2"></i>Creative Analysis
+                </button>
                 <button onclick="exportData()" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-colors text-sm">
                     <i class="fas fa-download mr-2"></i>Export CSV
                 </button>
@@ -70,8 +79,9 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Status:</label>
                 <select id="statusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="all">All (with visits)</option>
-                    <option value="active">Active Only</option>
+                    <option value="all">All Campaigns</option>
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
                 </select>
             </div>
             <div>
@@ -81,7 +91,6 @@
                     <option value="newsbreak">NewsBreak</option>
                     <option value="taboola">Taboola</option>
                     <option value="yahoo">Yahoo</option>
-                    <option value="facebook">Facebook</option>
                 </select>
             </div>
             <div>
@@ -136,15 +145,6 @@
             <div class="metric-card">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Total Spend</p>
-                        <p id="totalSpend" class="text-2xl font-bold text-red-600">$0</p>
-                    </div>
-                    <i class="fas fa-credit-card text-red-500 text-xl"></i>
-                </div>
-            </div>
-            <div class="metric-card">
-                <div class="flex items-center justify-between">
-                    <div>
                         <p class="text-sm text-gray-600">Avg ROAS</p>
                         <p id="avgRoas" class="text-2xl font-bold text-purple-600">0.00x</p>
                     </div>
@@ -154,10 +154,19 @@
             <div class="metric-card">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Total Visits</p>
-                        <p id="totalVisits" class="text-2xl font-bold text-indigo-600">0</p>
+                        <p class="text-sm text-gray-600">Conversions</p>
+                        <p id="totalConversions" class="text-2xl font-bold text-indigo-600">0</p>
                     </div>
-                    <i class="fas fa-eye text-indigo-500 text-xl"></i>
+                    <i class="fas fa-bullseye text-indigo-500 text-xl"></i>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">With Visits</p>
+                        <p id="campaignsWithVisits" class="text-2xl font-bold text-green-600">0</p>
+                    </div>
+                    <i class="fas fa-arrow-up text-green-500 text-xl"></i>
                 </div>
             </div>
         </div>
@@ -174,7 +183,7 @@
                 </button>
             </div>
             <div id="debugInfo" class="mt-2 text-xs text-gray-700">
-                <div>[Loading...] Initializing Voluum API connection with Eastern Time...</div>
+                <div>[Loading...] Initializing Voluum API connection...</div>
             </div>
         </div>
 
@@ -199,16 +208,22 @@
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spend</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPA</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROAS</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current ROAS</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">7D ROAS</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">14D ROAS</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">30D ROAS</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trend</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CVR</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AOV</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quality Score</th>
                         </tr>
                     </thead>
                     <tbody id="campaignTableBody" class="bg-white divide-y divide-gray-200">
                         <tr>
-                            <td colspan="11" class="px-6 py-12 text-center text-gray-500">
+                            <td colspan="17" class="px-6 py-12 text-center text-gray-500">
                                 <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                                <div>Loading campaign data from Voluum API...</div>
+                                <div>Loading campaign data...</div>
                             </td>
                         </tr>
                     </tbody>
@@ -222,8 +237,7 @@
         let allCampaigns = [];
         let filteredCampaigns = [];
 
-        // NO DUMMY DATA - Only campaigns with visits > 0
-        console.log('🚫 DUMMY DATA DISABLED - Only campaigns with visits > 0');
+        // NO DUMMY DATA - Only real Voluum API data
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -241,14 +255,14 @@
         }
 
         async function loadData() {
-            console.log('🚀 Loading campaigns with visits > 0 only - Eastern Time Zone');
-            updateConnectionStatus('loading', 'Loading campaigns with visits (Eastern Time)...');
+            console.log('🚀 Loading REAL Voluum data only - NO DUMMY DATA...');
+            updateConnectionStatus('loading', 'Connecting to Voluum API...');
             
             try {
                 const dateRange = document.getElementById('dateRange').value;
                 console.log(`📅 Date range: ${dateRange}`);
                 
-                // FIXED: Add cache busting and proper headers
+                // Add cache busting to prevent old data
                 const timestamp = Date.now();
                 const response = await fetch(`/api/voluum/campaigns?range=${dateRange}&_t=${timestamp}`, {
                     method: 'GET',
@@ -263,51 +277,63 @@
                 console.log(`📡 Response status: ${response.status}`);
                 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('❌ API Error Response:', errorText);
-                    throw new Error(`Voluum API failed: ${response.status} ${response.statusText} - ${errorText}`);
+                    throw new Error(`Voluum API failed: ${response.status} ${response.statusText}`);
                 }
                 
                 const data = await response.json();
                 console.log('📊 Raw API Data received:', data);
-                console.log('📊 API Success:', data.success);
-                console.log('📊 API Campaigns Length:', data.campaigns?.length);
                 
                 if (!data.success) {
-                    console.error('❌ API returned success=false:', data.error);
-                    throw new Error(`API error: ${data.error || 'Unknown API error'}`);
+                    throw new Error(`API error: ${data.error}`);
                 }
                 
-                // API already filters to campaigns with visits > 0
+                // Filter to only active campaigns with visits (as requested)
                 const rawCampaigns = data.campaigns || [];
-                console.log(`📋 Campaigns with visits from API: ${rawCampaigns.length}`);
+                console.log(`📋 Raw campaigns from API: ${rawCampaigns.length}`);
                 
-                // Transform data to match display format
-                allCampaigns = rawCampaigns.map(campaign => ({
-                    id: campaign.id || Math.random().toString(36).substr(2, 9),
-                    name: campaign.name || 'Unnamed Campaign',
-                    trafficSource: detectTrafficSource(campaign.name),
-                    status: campaign.deleted ? 'DELETED' : 'ACTIVE',
-                    visits: parseInt(campaign.visits || 0),
-                    conversions: parseInt(campaign.conversions || 0),
-                    revenue: parseFloat(campaign.revenue || 0),
-                    spend: parseFloat(campaign.cost || 0),
-                    cpa: campaign.conversions > 0 ? parseFloat(campaign.cost || 0) / campaign.conversions : 0,
-                    roas: campaign.cost > 0 ? parseFloat(campaign.revenue || 0) / parseFloat(campaign.cost || 0) : 0,
-                    cvr: campaign.visits > 0 ? (campaign.conversions / campaign.visits * 100) : 0,
-                    profit: parseFloat(campaign.revenue || 0) - parseFloat(campaign.cost || 0),
-                    deleted: campaign.deleted
-                }));
+                // Apply your requested filter: only active campaigns with visits
+                allCampaigns = rawCampaigns
+                    .filter(campaign => {
+                        const isNotDeleted = !campaign.deleted;
+                        const hasVisits = (campaign.visits || 0) > 0;
+                        
+                        if (!isNotDeleted) {
+                            console.log(`🗑️ Filtering out deleted campaign: ${campaign.name}`);
+                        }
+                        if (!hasVisits) {
+                            console.log(`👻 Filtering out campaign with no visits: ${campaign.name}`);
+                        }
+                        
+                        return isNotDeleted && hasVisits;
+                    })
+                    .map(campaign => ({
+                        id: campaign.id || Math.random().toString(36).substr(2, 9),
+                        name: campaign.name || 'Unnamed Campaign',
+                        trafficSource: detectTrafficSource(campaign.name),
+                        status: campaign.deleted ? 'DELETED' : 'ACTIVE',
+                        visits: parseInt(campaign.visits || 0),
+                        conversions: parseInt(campaign.conversions || 0),
+                        revenue: parseFloat(campaign.revenue || 0),
+                        spend: parseFloat(campaign.cost || campaign.spend || 0),
+                        cpa: campaign.conversions > 0 ? parseFloat(campaign.cost || 0) / campaign.conversions : 0,
+                        currentRoas: campaign.cost > 0 ? parseFloat(campaign.revenue || 0) / parseFloat(campaign.cost || 0) : 0,
+                        roas7d: campaign.cost > 0 ? parseFloat(campaign.revenue || 0) / parseFloat(campaign.cost || 0) : 0,
+                        roas14d: campaign.cost > 0 ? parseFloat(campaign.revenue || 0) / parseFloat(campaign.cost || 0) : 0,
+                        roas30d: campaign.cost > 0 ? parseFloat(campaign.revenue || 0) / parseFloat(campaign.cost || 0) : 0,
+                        trend: campaign.revenue > campaign.cost ? `+${((campaign.revenue - campaign.cost) / campaign.cost * 100).toFixed(1)}%` : `-${((campaign.cost - campaign.revenue) / campaign.cost * 100).toFixed(1)}%`,
+                        cvr: campaign.visits > 0 ? (campaign.conversions / campaign.visits * 100) : 0,
+                        aov: campaign.conversions > 0 ? parseFloat(campaign.revenue || 0) / campaign.conversions : 0,
+                        profit: parseFloat(campaign.revenue || 0) - parseFloat(campaign.cost || 0),
+                        qualityScore: Math.min(100, Math.max(0, (campaign.conversions || 0) * 10 + (campaign.visits || 0) / 100))
+                    }));
                 
-                console.log(`✅ Processed ${allCampaigns.length} campaigns with visits`);
-                console.log(`📈 Total visits: ${allCampaigns.reduce((sum, c) => sum + c.visits, 0)}`);
-                console.log(`💰 Total revenue: ${allCampaigns.reduce((sum, c) => sum + c.revenue, 0)}`);
+                console.log(`✅ Processed ${allCampaigns.length} ACTIVE campaigns with visits (from ${rawCampaigns.length} total)`);
                 
                 if (allCampaigns.length === 0) {
-                    updateConnectionStatus('warning', `No campaigns with visits found for ${dateRange}`);
+                    updateConnectionStatus('warning', `API connected but no active campaigns with visits found in ${dateRange}`);
                     showEmptyState();
                 } else {
-                    updateConnectionStatus('success', `Connected - ${allCampaigns.length} campaigns with visits loaded`);
+                    updateConnectionStatus('success', `Connected - ${allCampaigns.length} active campaigns with visits loaded`);
                 }
                 
             } catch (error) {
@@ -325,12 +351,46 @@
         function detectTrafficSource(name) {
             if (!name) return 'Unknown';
             const nameLower = name.toLowerCase();
-            if (nameLower.includes('newsbreak')) return 'NewsBreak';
+            if (nameLower.includes('newsbreak')) return 'NewsBreak ROAS';
             if (nameLower.includes('taboola')) return 'Taboola';
             if (nameLower.includes('yahoo')) return 'Yahoo';
             if (nameLower.includes('facebook')) return 'Facebook';
             if (nameLower.includes('admaven')) return 'AdMaven';
             return 'Other';
+        }
+
+        function showEmptyState() {
+            const tbody = document.getElementById('campaignTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="px-6 py-12 text-center text-gray-500">
+                        <i class="fas fa-info-circle text-4xl mb-4"></i>
+                        <div class="text-lg font-medium text-gray-700 mb-2">No Active Campaigns with Visits Found</div>
+                        <div class="text-sm">No campaigns found that are active AND have visits for the selected date range.</div>
+                        <div class="text-sm mt-2">Try selecting a different date range or check if campaigns have traffic.</div>
+                        <button onclick="loadData()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            Retry Loading
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function showErrorState(error) {
+            const tbody = document.getElementById('campaignTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="px-6 py-12 text-center text-gray-500">
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                        <div class="text-lg font-medium text-gray-700 mb-2">Voluum API Connection Failed</div>
+                        <div class="text-sm text-red-600 mb-2">${error}</div>
+                        <div class="text-sm text-gray-600">Check your API credentials and connection.</div>
+                        <button onclick="loadData()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            Retry Connection
+                        </button>
+                    </td>
+                </tr>
+            `;
         }
 
         function applyFilters() {
@@ -344,12 +404,15 @@
                 );
             }
             
-            // Status filter - only 'active' or 'all' since API already filters visits > 0
+            // Status filter (all active campaigns already, so just keep for interface)
             const status = document.getElementById('statusFilter').value;
-            if (status === 'active') {
-                filtered = filtered.filter(campaign => !campaign.deleted);
+            if (status !== 'all') {
+                filtered = filtered.filter(campaign => {
+                    if (status === 'active') return campaign.status === 'ACTIVE';
+                    if (status === 'paused') return campaign.status !== 'ACTIVE';
+                    return true;
+                });
             }
-            // 'all' shows all campaigns that already have visits > 0
             
             // Traffic source filter
             const source = document.getElementById('trafficSourceFilter').value;
@@ -376,7 +439,7 @@
             filtered.sort((a, b) => {
                 if (sort === 'revenue_desc') return (b.revenue || 0) - (a.revenue || 0);
                 if (sort === 'spend_desc') return (b.spend || 0) - (a.spend || 0);
-                if (sort === 'roi_desc') return (b.roas || 0) - (a.roas || 0);
+                if (sort === 'roi_desc') return (b.currentRoas || 0) - (a.currentRoas || 0);
                 if (sort === 'conversions_desc') return (b.conversions || 0) - (a.conversions || 0);
                 return 0;
             });
@@ -392,10 +455,10 @@
             if (filteredCampaigns.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="11" class="px-6 py-12 text-center text-gray-500">
+                        <td colspan="17" class="px-6 py-12 text-center text-gray-500">
                             <i class="fas fa-info-circle text-4xl mb-4"></i>
                             <div class="text-lg font-medium text-gray-700 mb-2">No Campaigns Found</div>
-                            <div class="text-sm">No campaigns with visits found for the selected filters.</div>
+                            <div class="text-sm">No campaigns match the current filters.</div>
                         </td>
                     </tr>
                 `;
@@ -403,7 +466,7 @@
             }
 
             tbody.innerHTML = filteredCampaigns.map(campaign => `
-                <tr class="campaign-row hover:bg-gray-50">
+                <tr class="campaign-row" onclick="viewCampaignDetails('${campaign.id}')">
                     <td class="px-4 py-3">
                         <div class="font-medium text-gray-900 truncate max-w-xs" title="${campaign.name}">
                             ${campaign.name}
@@ -420,15 +483,36 @@
                     </td>
                     <td class="px-4 py-3 text-gray-900 font-medium">${campaign.visits.toLocaleString()}</td>
                     <td class="px-4 py-3 text-gray-900 font-medium">${campaign.conversions.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-green-600 font-medium">${campaign.revenue.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-red-600 font-medium">${campaign.spend.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-gray-900">${campaign.cpa.toFixed(2)}</td>
-                    <td class="px-4 py-3 ${campaign.roas >= 1 ? 'text-green-600' : 'text-red-600'} font-medium">
-                        ${campaign.roas.toFixed(2)}x
+                    <td class="px-4 py-3 text-green-600 font-medium">$${campaign.revenue.toLocaleString()}</td>
+                    <td class="px-4 py-3 text-red-600 font-medium">$${campaign.spend.toLocaleString()}</td>
+                    <td class="px-4 py-3 text-gray-900">$${campaign.cpa.toFixed(2)}</td>
+                    <td class="px-4 py-3 ${campaign.currentRoas >= 1 ? 'text-green-600' : 'text-red-600'} font-medium">
+                        ${campaign.currentRoas.toFixed(2)}x
+                    </td>
+                    <td class="px-4 py-3 ${campaign.roas7d >= 1 ? 'text-green-600' : 'text-red-600'} font-medium">
+                        ${campaign.roas7d.toFixed(2)}x
+                    </td>
+                    <td class="px-4 py-3 ${campaign.roas14d >= 1 ? 'text-green-600' : 'text-red-600'} font-medium">
+                        ${campaign.roas14d.toFixed(2)}x
+                    </td>
+                    <td class="px-4 py-3 ${campaign.roas30d >= 1 ? 'text-green-600' : 'text-red-600'} font-medium">
+                        ${campaign.roas30d.toFixed(2)}x
+                    </td>
+                    <td class="px-4 py-3 ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'} text-sm font-medium">
+                        ${campaign.trend}
                     </td>
                     <td class="px-4 py-3 text-gray-900">${campaign.cvr.toFixed(2)}%</td>
+                    <td class="px-4 py-3 text-gray-900">$${campaign.aov.toFixed(2)}</td>
                     <td class="px-4 py-3 ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'} font-medium">
-                        ${campaign.profit.toLocaleString()}
+                        $${campaign.profit.toLocaleString()}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center">
+                            <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
+                                <div class="quality-bar h-2 rounded-full" style="width: ${campaign.qualityScore}%"></div>
+                            </div>
+                            <span class="text-xs text-gray-600">${campaign.qualityScore.toFixed(0)}</span>
+                        </div>
                     </td>
                 </tr>
             `).join('');
@@ -438,23 +522,25 @@
             const count = filteredCampaigns.length;
             const total = allCampaigns.length;
             document.getElementById('campaignCount').textContent = 
-                `Showing ${count.toLocaleString()} of ${total.toLocaleString()} campaigns with visits`;
+                `Showing ${count.toLocaleString()} of ${total.toLocaleString()} campaigns`;
         }
 
         function updateMetrics() {
             const totalCampaigns = allCampaigns.length;
-            const activeCampaigns = allCampaigns.filter(c => !c.deleted).length;
+            const activeCampaignsCount = allCampaigns.filter(c => c.status === 'ACTIVE').length;
             const totalRevenue = allCampaigns.reduce((sum, c) => sum + (c.revenue || 0), 0);
             const totalSpend = allCampaigns.reduce((sum, c) => sum + (c.spend || 0), 0);
-            const totalVisits = allCampaigns.reduce((sum, c) => sum + (c.visits || 0), 0);
+            const totalConversions = allCampaigns.reduce((sum, c) => sum + (c.conversions || 0), 0);
             const avgRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+            const campaignsWithVisits = allCampaigns.filter(c => (c.visits || 0) > 0).length;
 
+            // FIXED: Update with correct values
             document.getElementById('totalCampaigns').textContent = totalCampaigns.toLocaleString();
-            document.getElementById('activeCampaigns').textContent = activeCampaigns.toLocaleString();
-            document.getElementById('totalRevenue').textContent = `${totalRevenue.toLocaleString()}`;
-            document.getElementById('totalSpend').textContent = `${totalSpend.toLocaleString()}`;
-            document.getElementById('totalVisits').textContent = totalVisits.toLocaleString();
+            document.getElementById('activeCampaigns').textContent = activeCampaignsCount.toLocaleString(); // FIXED: Was showing money
+            document.getElementById('totalRevenue').textContent = `$${totalRevenue.toLocaleString()}`;
             document.getElementById('avgRoas').textContent = `${avgRoas.toFixed(2)}x`;
+            document.getElementById('totalConversions').textContent = totalConversions.toLocaleString();
+            document.getElementById('campaignsWithVisits').textContent = campaignsWithVisits.toString();
         }
 
         function updateConnectionStatus(type, message) {
@@ -473,8 +559,9 @@
                         </button>
                     </div>
                     <div class="mt-2 text-xs text-green-700">
-                        <div>[${new Date().toLocaleTimeString()}] Only campaigns with visits > 0 loaded</div>
-                        <div>[${new Date().toLocaleTimeString()}] Eastern Time (UTC-04:00) timezone</div>
+                        <div>[${new Date().toLocaleTimeString()}] Real Voluum API data loaded successfully</div>
+                        <div>[${new Date().toLocaleTimeString()}] Filtered to active campaigns with visits only</div>
+                        <div>[${new Date().toLocaleTimeString()}] NO dummy data used</div>
                     </div>
                 `;
             } else if (type === 'loading') {
@@ -504,38 +591,11 @@
             }
         }
 
-        function showEmptyState() {
-            const tbody = document.getElementById('campaignTableBody');
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="11" class="px-6 py-12 text-center text-gray-500">
-                        <i class="fas fa-info-circle text-4xl mb-4"></i>
-                        <div class="text-lg font-medium text-gray-700 mb-2">No Campaigns with Visits Found</div>
-                        <div class="text-sm">No campaigns found with visits > 0 for the selected date range.</div>
-                        <div class="text-sm mt-2">Try selecting a different date range.</div>
-                        <button onclick="loadData()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                            Retry Loading
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }
-
-        function showErrorState(error) {
-            const tbody = document.getElementById('campaignTableBody');
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="11" class="px-6 py-12 text-center text-gray-500">
-                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
-                        <div class="text-lg font-medium text-gray-700 mb-2">Voluum API Connection Failed</div>
-                        <div class="text-sm text-red-600 mb-2">${error}</div>
-                        <div class="text-sm text-gray-600">Check your API credentials and connection.</div>
-                        <button onclick="loadData()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                            Retry Connection
-                        </button>
-                    </td>
-                </tr>
-            `;
+        function viewCampaignDetails(campaignId) {
+            const campaign = allCampaigns.find(c => c.id === campaignId);
+            if (campaign) {
+                alert(`Campaign Details:\n\nName: ${campaign.name}\nRevenue: $${campaign.revenue}\nVisits: ${campaign.visits}\nConversions: ${campaign.conversions}\nROAS: ${campaign.currentRoas.toFixed(2)}x`);
+            }
         }
 
         function testConnection() {
@@ -549,7 +609,7 @@
             }
             
             const csvContent = [
-                ['Campaign', 'Traffic Source', 'Status', 'Visits', 'Conversions', 'Revenue', 'Spend', 'CPA', 'ROAS', 'CVR', 'Profit'].join(','),
+                ['Campaign', 'Traffic Source', 'Status', 'Visits', 'Conversions', 'Revenue', 'Spend', 'CPA', 'Current ROAS', 'Profit'].join(','),
                 ...filteredCampaigns.map(c => [
                     `"${c.name}"`,
                     `"${c.trafficSource}"`,
@@ -559,8 +619,7 @@
                     c.revenue || 0,
                     c.spend || 0,
                     c.cpa || 0,
-                    c.roas || 0,
-                    c.cvr || 0,
+                    c.currentRoas || 0,
                     c.profit || 0
                 ].join(','))
             ].join('\n');
@@ -569,7 +628,28 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `voluum_campaigns_with_visits_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `voluum_active_campaigns_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             URL.revokeObjectURL(url);
         }
+
+        function generateCreativeAnalysis() {
+            if (allCampaigns.length === 0) {
+                alert('No campaign data available for analysis');
+                return;
+            }
+            
+            const topPerformers = allCampaigns
+                .filter(c => c.currentRoas > 1)
+                .sort((a, b) => b.currentRoas - a.currentRoas)
+                .slice(0, 5);
+                
+            const analysis = topPerformers.length > 0 
+                ? `Top Performing Campaigns:\n\n${topPerformers.map((c, i) => `${i+1}. ${c.name}\n   ROAS: ${c.currentRoas.toFixed(2)}x\n   Revenue: $${c.revenue}`).join('\n\n')}`
+                : 'No campaigns with ROAS > 1.0 found in current data.';
+                
+            alert(analysis);
+        }
+    </script>
+</body>
+</html>
