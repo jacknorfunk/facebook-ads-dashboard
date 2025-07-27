@@ -86,18 +86,25 @@ export default async function handler(req, res) {
 
         console.log(`📊 Raw report data: ${rows.length} rows found`);
 
-        // Step 4: Transform campaigns and prioritize those with recent activity
+        // Step 4: Transform campaigns with better error handling for empty data
         const campaigns = rows.map((row, index) => {
+            // Log the actual raw data structure
+            if (index < 3) {
+                console.log(`Raw row ${index}:`, row);
+                console.log(`Raw row ${index} type:`, typeof row);
+                console.log(`Raw row ${index} length:`, Array.isArray(row) ? row.length : 'not array');
+            }
+
             const campaign = {
-                id: row[0] || `campaign_${index}`,
-                name: row[1] || 'Unknown Campaign',
-                visits: parseInt(row[2]) || 0,
-                conversions: parseInt(row[3]) || 0,
-                revenue: parseFloat(row[4]) || 0,
-                cost: parseFloat(row[5]) || 0,
-                clicks: parseInt(row[6]) || 0,
-                status: 'ACTIVE', // Assume active if in recent data
-                trafficSource: determineTrafficSource(row[1] || '')
+                id: (row && row[0]) ? row[0] : `campaign_${index}`,
+                name: (row && row[1]) ? row[1] : `Raw Row ${index}: ${JSON.stringify(row)}`, // Show actual data for debugging
+                visits: (row && row[2]) ? parseInt(row[2]) : 0,
+                conversions: (row && row[3]) ? parseInt(row[3]) : 0,
+                revenue: (row && row[4]) ? parseFloat(row[4]) : 0,
+                cost: (row && row[5]) ? parseFloat(row[5]) : 0,
+                clicks: (row && row[6]) ? parseInt(row[6]) : 0,
+                status: 'ACTIVE',
+                trafficSource: 'Voluum'
             };
 
             // Calculate metrics
@@ -166,7 +173,8 @@ export default async function handler(req, res) {
                 original_date_range: `${startDate} to ${endDate}`,
                 api_endpoint: 'report',
                 columns_requested: columns,
-                sample_raw_data: campaigns.slice(0, 3), // Show first 3 campaigns for debugging
+                sample_raw_data: rows.slice(0, 3), // Show actual RAW Voluum data
+                sample_processed_data: campaigns.slice(0, 3), // Show how we processed it
                 top_campaigns_by_activity: activeCampaigns.slice(0, 5).map(c => ({
                     name: c.name,
                     visits: c.visits,
