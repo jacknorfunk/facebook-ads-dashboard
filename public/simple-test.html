@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Voluum Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <div class="max-w-4xl mx-auto p-6">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="flex items-center">
+                <i class="fas fa-flask text-3xl text-blue-500 mr-4"></i>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Simple Voluum API Test</h1>
+                    <p class="text-gray-600">Direct test of your Voluum API endpoints</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Buttons -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Test Campaigns API</h3>
+                <button onclick="testCampaignsAPI()" id="campaignsBtn" class="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    <i class="fas fa-bullhorn mr-2"></i>Test /api/voluum/campaigns-simple
+                </button>
+                <div id="campaignsResult" class="mt-4 hidden">
+                    <!-- Results will be shown here -->
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Test Report API</h3>
+                <button onclick="testReportAPI()" id="reportBtn" class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    <i class="fas fa-chart-bar mr-2"></i>Test /api/voluum/report
+                </button>
+                <div id="reportResult" class="mt-4 hidden">
+                    <!-- Results will be shown here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Manual API Test -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Manual Authentication Test</h3>
+            <p class="text-gray-600 mb-4">This will test Voluum authentication directly from your browser</p>
+            <button onclick="testDirectAuth()" id="authBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                <i class="fas fa-key mr-2"></i>Test Direct Voluum Auth
+            </button>
+            <div id="authResult" class="mt-4 hidden">
+                <!-- Results will be shown here -->
+            </div>
+        </div>
+
+        <!-- Console Output -->
+        <div class="bg-gray-900 rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-white">Console Output</h3>
+                <button onclick="clearConsole()" class="text-gray-400 hover:text-white text-sm">
+                    <i class="fas fa-eraser mr-1"></i>Clear
+                </button>
+            </div>
+            <div id="console" class="text-green-400 font-mono text-sm space-y-1 max-h-96 overflow-y-auto">
+                <div>Ready to test Voluum API...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            const colorClass = type === 'error' ? 'text-red-400' : type === 'success' ? 'text-green-400' : 'text-blue-400';
+            
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span class="text-gray-500">[${timestamp}]</span> <span class="${colorClass}">${message}</span>`;
+            console.appendChild(logEntry);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById('console').innerHTML = '<div>Console cleared...</div>';
+        }
+
+        function showResult(elementId, success, data) {
+            const element = document.getElementById(elementId);
+            element.classList.remove('hidden');
+            
+            const statusClass = success ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
+            const icon = success ? 'fa-check-circle text-green-500' : 'fa-times-circle text-red-500';
+            
+            element.innerHTML = `
+                <div class="border rounded-lg p-4 ${statusClass}">
+                    <div class="flex items-center mb-2">
+                        <i class="fas ${icon} mr-2"></i>
+                        <span class="font-semibold">${success ? 'Success' : 'Failed'}</span>
+                    </div>
+                    <pre class="text-xs overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+        }
+
+        async function testCampaignsAPI() {
+            log('Testing campaigns API...', 'info');
+            document.getElementById('campaignsBtn').disabled = true;
+            
+            try {
+                const response = await fetch('/api/voluum/campaigns-simple?range=yesterday');
+                log(`Response status: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                const data = await response.json();
+                log(`Data received: ${JSON.stringify(data).substring(0, 100)}...`, 'info');
+                
+                showResult('campaignsResult', response.ok && data.success, data);
+                
+                if (response.ok && data.success) {
+                    log(`✅ Campaigns API working! Found ${data.campaigns?.length || 0} campaigns`, 'success');
+                } else {
+                    log(`❌ Campaigns API failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`, 'error');
+                showResult('campaignsResult', false, { error: error.message, type: 'NetworkError' });
+            }
+            
+            document.getElementById('campaignsBtn').disabled = false;
+        }
+
+        async function testReportAPI() {
+            log('Testing report API...', 'info');
+            document.getElementById('reportBtn').disabled = true;
+            
+            try {
+                // First, we need a campaign ID, so let's use a dummy one for testing
+                const response = await fetch('/api/voluum/report?campaignId=test&groupBy=offer&range=yesterday');
+                log(`Response status: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                const data = await response.json();
+                log(`Data received: ${JSON.stringify(data).substring(0, 100)}...`, 'info');
+                
+                showResult('reportResult', response.ok, data);
+                
+                if (response.ok) {
+                    log(`✅ Report API accessible`, 'success');
+                } else {
+                    log(`❌ Report API failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`, 'error');
+                showResult('reportResult', false, { error: error.message, type: 'NetworkError' });
+            }
+            
+            document.getElementById('reportBtn').disabled = false;
+        }
+
+        async function testDirectAuth() {
+            log('Testing direct Voluum authentication...', 'info');
+            document.getElementById('authBtn').disabled = true;
+            
+            try {
+                // Test direct authentication to Voluum API
+                log('Attempting direct Voluum API call...', 'info');
+                
+                const response = await fetch('https://api.voluum.com/auth/access/session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        accessId: 'a011157d-f6cb-473e-890b-55d0c2ff9957',
+                        accessKey: 'Eze2P_8VvLieARbZ0voepPQmJVmk9oRmzk4M'
+                    })
+                });
+                
+                log(`Direct auth response: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                if (response.ok) {
+                    const authData = await response.json();
+                    log(`✅ Direct auth successful! Token received: ${authData.token ? 'Yes' : 'No'}`, 'success');
+                    
+                    if (authData.token) {
+                        // Test campaigns with the token
+                        log('Testing campaigns with token...', 'info');
+                        
+                        const campaignsResponse = await fetch('https://api.voluum.com/campaign', {
+                            method: 'GET',
+                            headers: {
+                                'cwauth-token': authData.token,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        
+                        log(`Campaigns response: ${campaignsResponse.status}`, campaignsResponse.ok ? 'success' : 'error');
+                        
+                        if (campaignsResponse.ok) {
+                            const campaignsData = await campaignsResponse.json();
+                            log(`✅ Direct campaigns access successful! Found ${campaignsData.length} campaigns`, 'success');
+                            showResult('authResult', true, {
+                                auth: 'Success',
+                                campaigns: campaignsData.length,
+                                method: 'cwauth-token'
+                            });
+                        } else {
+                            const errorText = await campaignsResponse.text();
+                            log(`❌ Campaigns access failed: ${errorText.substring(0, 100)}`, 'error');
+                            showResult('authResult', false, {
+                                auth: 'Success',
+                                campaigns: 'Failed',
+                                error: errorText.substring(0, 200)
+                            });
+                        }
+                    }
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ Direct auth failed: ${errorText.substring(0, 100)}`, 'error');
+                    showResult('authResult', false, {
+                        auth: 'Failed',
+                        error: errorText.substring(0, 200)
+                    });
+                }
+                
+            } catch (error) {
+                log(`❌ CORS or network error: ${error.message}`, 'error');
+                log('ℹ️ This might be due to CORS restrictions - this is normal', 'info');
+                showResult('authResult', false, {
+                    error: error.message,
+                    note: 'CORS error is normal for browser direct API calls'
+                });
+            }
+            
+            document.getElementById('authBtn').disabled = false;
+        }
+
+        // Auto-test on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Page loaded. Ready for testing.', 'info');
+            log('Click the buttons above to test different API endpoints.', 'info');
+        });
+    </script>
+</body>
+</html>
