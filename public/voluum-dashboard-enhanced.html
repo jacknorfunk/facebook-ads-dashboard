@@ -235,109 +235,7 @@
         let allCampaigns = [];
         let filteredCampaigns = [];
 
-        // Sample data that matches the screenshot
-        const sampleCampaigns = [
-            {
-                id: 1,
-                name: "NewsBreak ROAS - Global - SENIORS - MOBILE",
-                trafficSource: "NewsBreak ROAS",
-                status: "STABLE",
-                visits: 20748,
-                conversions: 400,
-                revenue: 19596.20,
-                spend: 17119.40,
-                cpa: 42.36,
-                currentRoas: 1.14,
-                roas7d: 1.14,
-                roas14d: 1.00,
-                roas30d: 1.00,
-                trend: "+16.1%",
-                cvr: 1.34,
-                aov: 114.89,
-                profit: 9776.24,
-                qualityScore: 100
-            },
-            {
-                id: 2,
-                name: "NewsBreak Premier - Global - Home Insurance",
-                trafficSource: "NewsBreak Premier",
-                status: "UP",
-                visits: 7190,
-                conversions: 72,
-                revenue: 4515.69,
-                spend: 2631.01,
-                cpa: 27.67,
-                currentRoas: 0.97,
-                roas7d: 1.04,
-                roas14d: 0.98,
-                roas30d: 0.98,
-                trend: "+8.4%",
-                cvr: 2.34,
-                aov: 73.66,
-                profit: 1504.71,
-                qualityScore: 85
-            },
-            {
-                id: 3,
-                name: "NewsBreak ROAS - Global - SENIORS - MOBILE",
-                trafficSource: "NewsBreak ROAS",
-                status: "UP",
-                visits: 10220,
-                conversions: 174,
-                revenue: 12510.57,
-                spend: 9190.64,
-                cpa: 110.04,
-                currentRoas: 1.36,
-                roas7d: 1.24,
-                roas14d: 1.21,
-                roas30d: 1.17,
-                trend: "+61.7%",
-                cvr: 1.70,
-                aov: 114.43,
-                profit: 3605.15,
-                qualityScore: 92
-            },
-            {
-                id: 4,
-                name: "NewsBreak ROAS - Global - Ten% V2",
-                trafficSource: "NewsBreak ROAS",
-                status: "UP",
-                visits: 16117,
-                conversions: 143,
-                revenue: 12176.49,
-                spend: 17126.66,
-                cpa: 119.47,
-                currentRoas: 1.33,
-                roas7d: 1.36,
-                roas14d: 1.36,
-                roas30d: 1.46,
-                trend: "+29.6%",
-                cvr: 0.87,
-                aov: 118.01,
-                profit: 3192.61,
-                qualityScore: 88
-            },
-            {
-                id: 5,
-                name: "NewsBreak ROAS - Global - Home Insurance - R",
-                trafficSource: "NewsBreak ROAS",
-                status: "STABLE",
-                visits: 4071,
-                conversions: 100,
-                revenue: 11947.14,
-                spend: 13668.76,
-                cpa: 84.28,
-                currentRoas: 1.17,
-                roas7d: 1.13,
-                roas14d: 1.12,
-                roas30d: 1.04,
-                trend: "+11.6%",
-                cvr: 0.58,
-                aov: 54.99,
-                profit: 4278.38,
-                qualityScore: 76
-            }
-        ];
+        // NO DUMMY DATA - Only real Voluum API data
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -355,31 +253,129 @@
         }
 
         async function loadData() {
+            console.log('🚀 Loading REAL Voluum data only...');
+            updateConnectionStatus('loading', 'Connecting to Voluum API...');
+            
             try {
-                // Try to load real data from your API first
                 const dateRange = document.getElementById('dateRange').value;
-                const response = await fetch(`/api/voluum/campaigns?range=${dateRange}`);
+                console.log(`📅 Date range: ${dateRange}`);
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.campaigns) {
-                        allCampaigns = data.campaigns;
-                        updateConnectionStatus(true, `Connected - ${data.campaigns.length} campaigns loaded`);
-                    } else {
-                        throw new Error('No campaign data received');
+                // ONLY use real Voluum API - NO fallback data
+                const response = await fetch(`/api/voluum/campaigns?range=${dateRange}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
                     }
-                } else {
-                    throw new Error(`API returned ${response.status}`);
+                });
+                
+                console.log(`📡 Response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Voluum API failed: ${response.status} ${response.statusText}`);
                 }
+                
+                const data = await response.json();
+                console.log('📊 Data received:', data);
+                
+                if (!data.success) {
+                    throw new Error(`API error: ${data.error}`);
+                }
+                
+                if (!data.campaigns || data.campaigns.length === 0) {
+                    console.log('⚠️ No campaigns found');
+                    allCampaigns = [];
+                    updateConnectionStatus('warning', 'Connected but no campaigns found for date range');
+                    showEmptyState();
+                    return;
+                }
+                
+                // Process real Voluum data
+                allCampaigns = data.campaigns.map(campaign => ({
+                    id: campaign.id || Math.random().toString(36).substr(2, 9),
+                    name: campaign.name || 'Unnamed Campaign',
+                    trafficSource: detectTrafficSource(campaign.name),
+                    status: mapStatus(campaign.status),
+                    visits: parseInt(campaign.visits || 0),
+                    conversions: parseInt(campaign.conversions || 0),
+                    revenue: parseFloat(campaign.revenue || 0),
+                    spend: parseFloat(campaign.cost || campaign.spend || 0),
+                    cpa: campaign.conversions > 0 ? parseFloat(campaign.cost || 0) / campaign.conversions : 0,
+                    currentRoas: campaign.cost > 0 ? parseFloat(campaign.revenue || 0) / parseFloat(campaign.cost || 0) : 0,
+                    roas7d: parseFloat(campaign.roi || 0) / 100 + 1,
+                    roas14d: parseFloat(campaign.roi || 0) / 100 + 1,
+                    roas30d: parseFloat(campaign.roi || 0) / 100 + 1,
+                    trend: campaign.roi >= 0 ? `+${campaign.roi}%` : `${campaign.roi}%`,
+                    cvr: campaign.visits > 0 ? (campaign.conversions / campaign.visits * 100) : 0,
+                    aov: campaign.conversions > 0 ? parseFloat(campaign.revenue || 0) / campaign.conversions : 0,
+                    profit: parseFloat(campaign.revenue || 0) - parseFloat(campaign.cost || 0),
+                    qualityScore: Math.min(100, Math.max(0, (campaign.conversions || 0) * 10))
+                }));
+                
+                console.log(`✅ Processed ${allCampaigns.length} real campaigns`);
+                updateConnectionStatus('success', `Connected - ${allCampaigns.length} real campaigns loaded`);
+                
             } catch (error) {
-                console.log('API failed, using sample data:', error.message);
-                // Use sample data when API fails
-                allCampaigns = sampleCampaigns;
-                updateConnectionStatus(false, 'Using sample data - API connection failed');
+                console.error('❌ Voluum API Error:', error);
+                allCampaigns = [];
+                updateConnectionStatus('error', `Failed: ${error.message}`);
+                showErrorState(error.message);
+                return;
             }
             
             applyFilters();
             updateMetrics();
+        }
+
+        function detectTrafficSource(name) {
+            if (!name) return 'Unknown';
+            const nameLower = name.toLowerCase();
+            if (nameLower.includes('newsbreak')) return 'NewsBreak ROAS';
+            if (nameLower.includes('taboola')) return 'Taboola';
+            if (nameLower.includes('yahoo')) return 'Yahoo';
+            if (nameLower.includes('facebook')) return 'Facebook';
+            return 'Other';
+        }
+
+        function mapStatus(status) {
+            if (!status) return 'UNKNOWN';
+            const statusLower = status.toLowerCase();
+            if (statusLower.includes('active') || statusLower.includes('running')) return 'UP';
+            if (statusLower.includes('paused') || statusLower.includes('stopped')) return 'DOWN';
+            return 'STABLE';
+        }
+
+        function showEmptyState() {
+            const tbody = document.getElementById('campaignTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="px-6 py-12 text-center text-gray-500">
+                        <i class="fas fa-info-circle text-4xl mb-4"></i>
+                        <div class="text-lg font-medium text-gray-700 mb-2">No Campaign Data Available</div>
+                        <div class="text-sm">No campaigns found for the selected date range.</div>
+                        <div class="text-sm mt-2">Try selecting a different date range or check your Voluum account.</div>
+                        <button onclick="loadData()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            Retry Loading
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function showErrorState(error) {
+            const tbody = document.getElementById('campaignTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="px-6 py-12 text-center text-gray-500">
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                        <div class="text-lg font-medium text-gray-700 mb-2">Voluum API Connection Failed</div>
+                        <div class="text-sm text-red-600 mb-2">${error}</div>
+                        <div class="text-sm text-gray-600">Check your API credentials and connection.</div>
+                        <button onclick="loadData()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            Retry Connection
+                        </button>
+                    </td>
+                </tr>
+            `;
         }
 
         function applyFilters() {
@@ -503,11 +499,10 @@
             document.getElementById('trendingUp').textContent = trendingUp.toString();
         }
 
-        function updateConnectionStatus(connected, message) {
+        function updateConnectionStatus(type, message) {
             const statusEl = document.getElementById('connectionStatus');
-            const debugEl = document.getElementById('debugInfo');
             
-            if (connected) {
+            if (type === 'success') {
                 statusEl.className = 'connection-status';
                 statusEl.innerHTML = `
                     <div class="flex items-center justify-between">
@@ -520,18 +515,33 @@
                         </button>
                     </div>
                     <div class="mt-2 text-xs text-green-700">
-                        <div>[${new Date().toLocaleTimeString()}] Getting enhanced data feed...</div>
-                        <div>[${new Date().toLocaleTimeString()}] Using working endpoint: /api/voluum/campaigns</div>
+                        <div>[${new Date().toLocaleTimeString()}] Real Voluum API data loaded successfully</div>
+                        <div>[${new Date().toLocaleTimeString()}] Using endpoint: /api/voluum/campaigns</div>
                         <div>[${new Date().toLocaleTimeString()}] Response status: 200</div>
-                        <div>[${new Date().toLocaleTimeString()}] Data received - Success: true</div>
                     </div>
                 `;
-            } else {
+            } else if (type === 'loading') {
+                statusEl.className = 'bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4';
+                statusEl.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
+                        <span class="text-blue-800 font-medium">${message}</span>
+                    </div>
+                `;
+            } else if (type === 'warning') {
                 statusEl.className = 'bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4';
                 statusEl.innerHTML = `
                     <div class="flex items-center">
                         <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
                         <span class="text-yellow-800 font-medium">${message}</span>
+                    </div>
+                `;
+            } else {
+                statusEl.className = 'bg-red-50 border border-red-200 rounded-lg p-3 mb-4';
+                statusEl.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                        <span class="text-red-800 font-medium">${message}</span>
                     </div>
                 `;
             }
