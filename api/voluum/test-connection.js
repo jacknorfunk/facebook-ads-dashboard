@@ -184,7 +184,7 @@ export default async function handler(req, res) {
             campaignsResponse = await fetch('https://api.voluum.com/campaign', {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'cwauth-token': token,
                     'Content-Type': 'application/json'
                 },
                 signal: AbortSignal.timeout(10000)
