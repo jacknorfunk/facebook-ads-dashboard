@@ -1,103 +1,362 @@
-// /api/voluum/campaigns.js - WORKING VERSION (REVERTED)
-
+// /api/voluum/campaigns.js - FIXED: Ensure we're pulling campaigns, not offers
 export default async function handler(req, res) {
-    if (req.method !== 'GET') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
-
     try {
-        const { range = 'last7days' } = req.query;
-        
-        // Calculate date range
-        const now = new Date();
-        let dateFrom, dateTo;
-        
-        switch (range) {
-            case 'yesterday':
-                const yesterday = new Date(now);
-                yesterday.setDate(yesterday.getDate() - 1);
-                dateFrom = yesterday.toISOString().split('T')[0];
-                dateTo = yesterday.toISOString().split('T')[0];
-                break;
-            case 'last30days':
-                const thirtyDaysAgo = new Date(now);
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                dateFrom = thirtyDaysAgo.toISOString().split('T')[0];
-                dateTo = now.toISOString().split('T')[0];
-                break;
-            case 'last7days':
-            default:
-                const sevenDaysAgo = new Date(now);
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                dateFrom = sevenDaysAgo.toISOString().split('T')[0];
-                dateTo = now.toISOString().split('T')[0];
-                break;
+        const volumeKeyId = process.env.VOLUME_KEY_ID;
+        const volumeKey = process.env.VOLUME_KEY;
+
+        if (!volumeKeyId || !volumeKey) {
+            return res.status(500).json({
+                success: false,
+                error: 'Missing Voluum API credentials'
+            });
         }
 
-        console.log(`📅 Date Range: ${dateFrom} to ${dateTo}`);
-
-        // Voluum API Request
-        const volumeUrl = 'https://api.voluum.com/report';
-        const volumeParams = new URLSearchParams({
-            tz: 'America/New_York',
-            dateFrom: dateFrom,
-            dateTo: dateTo,
-            groupBy: 'campaign',
-            columns: 'campaignId,campaignName,visits,conversions,revenue,cost,deleted'
+        // Step 1: Get authentication token
+        const authResponse = await fetch('https://api.voluum.com/auth/access/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                accessId: volumeKeyId,
+                accessKey: volumeKey
+            })
         });
 
-        const response = await fetch(`${volumeUrl}?${volumeParams}`, {
-            method: 'GET',
+        if (!authResponse.ok) {
+            return res.status(500).json({
+                success: false,
+                error: `Authentication failed: ${authResponse.status}`
+            });
+        }
+
+        const authData = await authResponse.json();
+        const token = authData.token;
+
+        // Step 2: Calculate date range - FIXED to properly handle all options
+        const range = req.query.range || 'last7days';
+        let startDate, endDate;
+        
+        const now = new Date();
+        endDate = now.toISOString().split('T')[0];
+        
+        switch(range) {
+            case 'today':
+                startDate = endDate;
+                break;
+            case 'yesterday':
+                const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                startDate = yesterday.toISOString().split('T')[0];
+                endDate = startDate;
+                break;
+            case 'last7days':
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                break;
+            case 'last30days':
+                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                break;
+            case 'last90days':
+                startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                break;
+            case 'thismonth':
+                const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                startDate = thisMonth.toISOString().split('T')[0];
+                break;
+            case 'lastmonth':
+                const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+                startDate = lastMonth.toISOString().split('T')[0];
+                endDate = lastMonthEnd.toISOString().split('T')[0];
+                break;
+            default:
+                // Default to last 7 days
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        }
+
+        // Step 3: Try multiple approaches to get CAMPAIGN data (not offers)
+        
+        // CRITICAL: Ensure we're getting campaign-level data, not offer-level data
+        const campaignColumns = [
+            'campaignId',
+            'campaignName',
+            'visits',
+            'uniqueVisits', 
+            'conversions',
+            'allConversions',
+            'revenue',
+            'allConversionsRevenue',
+            'cost',
+            'totalCost',
+            'clicks',
+            'totalClicks'
+        ].join(',');
+
+        let reportData;
+        let reportUrl;
+
+        // FIXED: Use the ACTUAL selected date range, not a fixed 90-day range
+        console.log(`📅 Using selected date range: ${startDate} to ${endDate} (${range})`);
+        
+        // Method 1: Try campaign-level reporting with CORRECT TIMEZONE
+        // FIXED: Use Eastern Time to match Voluum account settings
+        reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=${campaignColumns}&tz=America/New_York&limit=1000`;
+        
+        console.log('🎯 Requesting CAMPAIGN-level data (not offers):', reportUrl);
+        console.log(`📊 Date filter: ${range} (${startDate} to ${endDate})`);
+        console.log('🕐 Using Eastern Time timezone to match Voluum account');
+        
+        const reportResponse = await fetch(reportUrl, {
             headers: {
-                'Authorization': `Bearer ${process.env.VOLUUM_API_TOKEN}`,
+                'cwauth-token': token,
                 'Content-Type': 'application/json'
             }
         });
 
-        if (!response.ok) {
-            throw new Error(`Voluum API error: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log(`📊 Voluum API Response: ${data.rows?.length || 0} campaigns returned`);
-
-        // Filter to only active campaigns with visits
-        const campaigns = (data.rows || [])
-            .map(row => ({
-                id: row.campaignId || Math.random().toString(36).substr(2, 9),
-                name: row.campaignName || 'Unnamed Campaign',
-                visits: parseInt(row.visits || 0),
-                conversions: parseInt(row.conversions || 0),
-                revenue: parseFloat(row.revenue || 0),
-                cost: parseFloat(row.cost || 0),
-                deleted: row.deleted === true || row.deleted === 'true'
-            }))
-            .filter(campaign => {
-                const isNotDeleted = !campaign.deleted;
-                const hasVisits = campaign.visits > 0;
-                return isNotDeleted && hasVisits;
+        if (!reportResponse.ok) {
+            const errorText = await reportResponse.text();
+            console.log('❌ Campaign report failed, trying alternative approach...');
+            
+            // Method 2: If campaign grouping fails, try direct campaign endpoint
+            const campaignListUrl = 'https://api.voluum.com/campaign';
+            console.log('🔄 Trying direct campaign list endpoint:', campaignListUrl);
+            
+            const campaignListResponse = await fetch(campaignListUrl, {
+                headers: {
+                    'cwauth-token': token,
+                    'Content-Type': 'application/json'
+                }
             });
 
-        console.log(`✅ Returning ${campaigns.length} active campaigns with visits`);
+            if (!campaignListResponse.ok) {
+                return res.status(500).json({
+                    success: false,
+                    error: `Both report and campaign endpoints failed. Report: ${reportResponse.status}, Campaign list: ${campaignListResponse.status}`,
+                    debug_info: {
+                        report_error: errorText,
+                        attempted_urls: [reportUrl, campaignListUrl],
+                        date_range_used: `${startDate} to ${endDate}`,
+                        selected_range: range
+                    }
+                });
+            }
 
-        return res.status(200).json({
+            // Parse campaign list response
+            const campaignListData = await campaignListResponse.json();
+            console.log('📋 Campaign list response:', campaignListData);
+            
+            // Transform campaign list data to match expected format
+            const campaigns = (campaignListData.campaigns || campaignListData || []).map((campaign, index) => {
+                return {
+                    id: campaign.id || campaign.campaignId || `campaign_${index}`,
+                    name: campaign.name || campaign.campaignName || `Campaign ${index}`,
+                    visits: 0, // Campaign list doesn't include metrics, would need separate report call
+                    conversions: 0,
+                    revenue: 0,
+                    cost: 0,
+                    clicks: 0,
+                    status: campaign.status || 'ACTIVE',
+                    trafficSource: determineTrafficSource(campaign.name || campaign.campaignName || ''),
+                    roas: 0,
+                    cpa: 0,
+                    cvr: 0,
+                    aov: 0
+                };
+            });
+
+            return res.json({
+                success: true,
+                campaigns: campaigns,
+                debug_info: {
+                    data_source: 'campaign_list_endpoint',
+                    total_found: campaigns.length,
+                    date_range_used: `${startDate} to ${endDate}`,
+                    selected_range: range,
+                    note: 'Campaign list endpoint used - metrics will be 0 unless we fetch separate reports',
+                    raw_response: campaignListData,
+                    timestamp: new Date().toISOString()
+                }
+            });
+        }
+
+        reportData = await reportResponse.json();
+        const rows = reportData.rows || [];
+
+        console.log(`📊 Campaign report data: ${rows.length} rows found`);
+        console.log(`🔍 Sample raw data structure:`, rows.slice(0, 2));
+
+        // Step 4: Transform campaign data - ensure we're processing campaigns, not offers
+        const campaigns = rows.map((row, index) => {
+            // Log the actual raw data structure
+            if (index < 3) {
+                console.log(`Raw campaign row ${index}:`, row);
+                console.log(`Raw campaign row ${index} keys:`, Object.keys(row || {}));
+            }
+
+            // Check if this looks like offer data instead of campaign data
+            const hasOfferFields = row?.offerId || row?.offerName;
+            const hasCampaignFields = row?.campaignId || row?.campaignName;
+            
+            if (hasOfferFields && !hasCampaignFields) {
+                console.warn(`⚠️ Row ${index} appears to be offer data, not campaign data:`, {
+                    offerId: row?.offerId,
+                    offerName: row?.offerName,
+                    campaignId: row?.campaignId,
+                    campaignName: row?.campaignName
+                });
+            }
+
+            // Build campaign object from row data
+            const campaign = {
+                id: row?.campaignId || row?.id || `campaign_${index}`,
+                name: row?.campaignName || row?.name || `Campaign ${index}`,
+                visits: parseInt(row?.visits || row?.uniqueVisits || 0),
+                conversions: parseInt(row?.conversions || row?.allConversions || 0),
+                revenue: parseFloat(row?.revenue || row?.allConversionsRevenue || 0),
+                cost: parseFloat(row?.cost || row?.totalCost || 0),
+                clicks: parseInt(row?.clicks || row?.totalClicks || 0),
+                status: row?.status || 'ACTIVE',
+                deleted: row?.deleted === true, // FIXED: Properly check boolean value
+                trafficSource: determineTrafficSource(row?.campaignName || row?.name || '')
+            };
+
+            // Debug logging for first few campaigns
+            if (index < 3) {
+                console.log(`🔍 Campaign ${index} deletion check:`);
+                console.log(`  - Raw deleted field: ${row?.deleted} (type: ${typeof row?.deleted})`);
+                console.log(`  - Processed deleted: ${campaign.deleted}`);
+                console.log(`  - Campaign name: ${campaign.name}`);
+            }
+
+            // Calculate metrics
+            campaign.roas = campaign.cost > 0 ? (campaign.revenue / campaign.cost) : 0;
+            campaign.cpa = campaign.conversions > 0 ? (campaign.cost / campaign.conversions) : 0;
+            campaign.cvr = campaign.visits > 0 ? ((campaign.conversions / campaign.visits) * 100) : 0;
+            campaign.aov = campaign.conversions > 0 ? (campaign.revenue / campaign.conversions) : 0;
+
+            // Log first few campaigns for debugging
+            if (index < 3) {
+                console.log(`Processed campaign ${index}:`, {
+                    name: campaign.name,
+                    visits: campaign.visits,
+                    conversions: campaign.conversions,
+                    revenue: campaign.revenue,
+                    cost: campaign.cost,
+                    clicks: campaign.clicks
+                });
+            }
+
+            return campaign;
+        });
+
+        // Step 5: Filter for TRULY ACTIVE campaigns with actual activity
+        // CRITICAL FIX: Only show campaigns that are NOT deleted AND have visits
+        console.log('🔍 Filtering for active campaigns with visits...');
+        
+        const activeCampaigns = campaigns
+            .filter(campaign => {
+                // Check if campaign is deleted
+                const isDeleted = campaign.deleted === true;
+                
+                // Check if campaign has visits
+                const hasVisits = campaign.visits > 0;
+                
+                // Debug logging for first few campaigns
+                if (campaigns.indexOf(campaign) < 5) {
+                    console.log(`Campaign ${campaigns.indexOf(campaign)}: ${campaign.name}`);
+                    console.log(`  - deleted: ${isDeleted}`);
+                    console.log(`  - visits: ${campaign.visits}`);
+                    console.log(`  - revenue: ${campaign.revenue}`);
+                    console.log(`  - will include: ${!isDeleted && hasVisits}`);
+                }
+                
+                // Only include campaigns that are NOT deleted AND have visits
+                if (isDeleted) {
+                    console.log(`🗑️ Excluding deleted campaign: ${campaign.name}`);
+                    return false;
+                }
+                
+                if (!hasVisits) {
+                    console.log(`👻 Excluding campaign with no visits: ${campaign.name}`);
+                    return false;
+                }
+                
+                return true;
+            })
+            .sort((a, b) => {
+                // Sort by visits (most visited first)
+                return (b.visits || 0) - (a.visits || 0);
+            }); // NO LIMIT - show ALL active campaigns
+
+        console.log(`🎯 Final result: ${activeCampaigns.length} ACTIVE campaigns with visits (from ${campaigns.length} total)`);
+
+        // Log filtering summary
+        const deletedCount = campaigns.filter(c => c.deleted === true).length;
+        const withVisitsCount = campaigns.filter(c => c.visits > 0).length;
+        const activeWithVisitsCount = campaigns.filter(c => c.deleted !== true && c.visits > 0).length;
+        
+        console.log(`📊 Campaign breakdown:`);
+        console.log(`  - Total campaigns: ${campaigns.length}`);
+        console.log(`  - Deleted campaigns: ${deletedCount}`);
+        console.log(`  - Campaigns with visits: ${withVisitsCount}`);
+        console.log(`  - Active campaigns with visits: ${activeWithVisitsCount}`);
+
+        // Log top campaigns
+        if (activeCampaigns.length > 0) {
+            console.log('✅ Top 3 active campaigns with visits:');
+            activeCampaigns.slice(0, 3).forEach((campaign, i) => {
+                console.log(`  ${i + 1}. ${campaign.name}: ${campaign.visits} visits, ${campaign.revenue} revenue`);
+            });
+        } else {
+            console.log('⚠️ No active campaigns with visits found');
+        }
+
+        return res.json({
             success: true,
-            campaigns: campaigns,
-            metadata: {
-                dateRange: range,
-                dateFrom,
-                dateTo,
-                timezone: 'America/New_York',
-                totalCampaigns: campaigns.length
+            campaigns: activeCampaigns,
+            debug_info: {
+                data_source: 'campaign_report_endpoint',
+                total_found: campaigns.length,
+                active_campaigns: activeCampaigns.length,
+                date_range_used: `${startDate} to ${endDate}`,
+                selected_range: range,
+                api_endpoint: 'report with groupBy=campaign',
+                columns_requested: campaignColumns,
+                sample_raw_data: rows.slice(0, 3),
+                sample_processed_data: campaigns.slice(0, 3),
+                verification: {
+                    data_type: 'campaigns',
+                    grouped_by: 'campaign',
+                    not_offers: true,
+                    date_filter_applied: true,
+                    timezone_used: 'America/New_York (Eastern Time)',
+                    timezone_note: 'Matches Voluum account timezone UTC-04:00'
+                },
+                timestamp: new Date().toISOString()
             }
         });
 
     } catch (error) {
-        console.error('❌ API Error:', error);
+        console.error('❌ Voluum API error:', error);
         return res.status(500).json({
             success: false,
             error: error.message,
-            campaigns: []
+            debug_info: {
+                error_details: error.stack
+            }
         });
     }
+}
+
+function determineTrafficSource(campaignName) {
+    if (!campaignName) return 'Voluum';
+    
+    const name = campaignName.toLowerCase();
+    if (name.includes('newsbreak')) return 'NewsBreak';
+    if (name.includes('facebook') || name.includes('fb')) return 'Facebook';
+    if (name.includes('taboola')) return 'Taboola';
+    if (name.includes('admaven')) return 'AdMaven';
+    if (name.includes('adcash')) return 'AdCash';
+    if (name.includes('revcontent')) return 'RevContent';
+    if (name.includes('outbrain')) return 'Outbrain';
+    if (name.includes('mgid')) return 'MGID';
+    
+    return 'Voluum';
 }
