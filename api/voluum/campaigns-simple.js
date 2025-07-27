@@ -1,14 +1,12 @@
-// /api/voluum/campaigns-simple.js - VOLUUM ONLY - Fixed implementation
+// /api/voluum/campaigns-simple.js - FIXED to return direct array format
 export default async function handler(req, res) {
     try {
         const volumeKeyId = process.env.VOLUME_KEY_ID;
         const volumeKey = process.env.VOLUME_KEY;
 
         if (!volumeKeyId || !volumeKey) {
-            return res.status(500).json({
-                success: false,
-                error: 'Missing Voluum API credentials'
-            });
+            console.log('❌ Missing environment variables');
+            return res.status(500).json([]);
         }
 
         // Step 1: Get authentication token
@@ -22,7 +20,8 @@ export default async function handler(req, res) {
         });
 
         if (!authResponse.ok) {
-            throw new Error(`Auth failed: ${authResponse.status}`);
+            console.log('❌ Auth failed:', authResponse.status);
+            return res.status(500).json([]);
         }
 
         const authData = await authResponse.json();
@@ -30,68 +29,44 @@ export default async function handler(req, res) {
 
         console.log('✅ Voluum authentication successful');
 
-        // Step 2: Use the methods that worked in your breakthrough
-        let campaigns = [];
+        // Step 2: Get campaigns from known workspaces
+        let allCampaigns = [];
 
-        // Method 1: Try bulk campaign CSV (this bypassed workspace restrictions in your test)
-        try {
-            console.log('🔄 Trying bulk campaign method...');
-            const bulkResponse = await fetch('https://api.voluum.com/bulk/campaign', {
-                headers: {
-                    'cwauth-token': token,
-                    'Accept': 'text/csv'
-                }
-            });
-            
-            if (bulkResponse.ok) {
-                const csvData = await bulkResponse.text();
-                console.log('📊 Bulk CSV response length:', csvData.length);
-                
-                if (csvData.length > 100) { // Has actual data beyond headers
-                    campaigns = parseCsvToJson(csvData);
-                    console.log('✅ SUCCESS: Found', campaigns.length, 'campaigns via bulk CSV');
-                }
-            }
-        } catch (err) {
-            console.log('❌ Bulk CSV failed:', err.message);
-        }
+        // Your workspaces that contain campaigns
+        const workspaces = [
+            '9345f0cf-ffb4-43b6-8548-3f71c346bcea', // MG+J workspace
+            'ff231fd9-7055-4caa-97f0-ec6e18d26083'  // Tim - B1A1 workspace
+        ];
 
-        // Method 2: Try specific workspaces that contain your campaigns
-        if (campaigns.length === 0) {
-            const knownWorkspaces = [
-                '9345f0cf-ffb4-43b6-8548-3f71c346bcea', // MG+J workspace
-                'ff231fd9-7055-4caa-97f0-ec6e18d26083'  // Tim - B1A1 workspace
-            ];
-
-            for (const workspaceId of knownWorkspaces) {
-                try {
-                    console.log(`🔄 Checking workspace: ${workspaceId}`);
-                    
-                    const wsResponse = await fetch('https://api.voluum.com/campaign', {
-                        headers: {
-                            'cwauth-token': token,
-                            'X-Workspace-Id': workspaceId,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (wsResponse.ok) {
-                        const wsData = await wsResponse.json();
-                        if (wsData && Array.isArray(wsData) && wsData.length > 0) {
-                            campaigns = campaigns.concat(wsData);
-                            console.log(`✅ Found ${wsData.length} campaigns in workspace ${workspaceId}`);
-                        }
-                    }
-                } catch (err) {
-                    console.log(`❌ Workspace ${workspaceId} failed:`, err.message);
-                }
-            }
-        }
-
-        // Method 3: Try report endpoint without date restrictions
-        if (campaigns.length === 0) {
+        // Method 1: Try workspace-specific campaign calls
+        for (const workspaceId of workspaces) {
             try {
-                console.log('🔄 Trying report endpoint...');
+                console.log(`🔄 Checking workspace: ${workspaceId}`);
+                
+                const wsResponse = await fetch('https://api.voluum.com/campaign', {
+                    headers: {
+                        'cwauth-token': token,
+                        'X-Workspace-Id': workspaceId,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (wsResponse.ok) {
+                    const wsData = await wsResponse.json();
+                    if (wsData && Array.isArray(wsData) && wsData.length > 0) {
+                        allCampaigns = allCampaigns.concat(wsData);
+                        console.log(`✅ Found ${wsData.length} campaigns in workspace ${workspaceId}`);
+                    }
+                }
+            } catch (err) {
+                console.log(`❌ Workspace ${workspaceId} failed:`, err.message);
+            }
+        }
+
+        // Method 2: If no campaigns from workspaces, try global report without dates
+        if (allCampaigns.length === 0) {
+            try {
+                console.log('🔄 Trying global report endpoint...');
                 const reportResponse = await fetch('https://api.voluum.com/report?groupBy=campaign&columns=campaignId,campaignName,visits,conversions,revenue,cost', {
                     headers: {
                         'cwauth-token': token,
@@ -102,17 +77,45 @@ export default async function handler(req, res) {
                 if (reportResponse.ok) {
                     const reportData = await reportResponse.json();
                     if (reportData.rows && reportData.rows.length > 0) {
-                        campaigns = reportData.rows;
-                        console.log('✅ Found campaigns via report endpoint:', reportData.rows.length);
+                        allCampaigns = reportData.rows;
+                        console.log('✅ Found campaigns via global report:', reportData.rows.length);
                     }
                 }
             } catch (err) {
-                console.log('❌ Report endpoint failed:', err.message);
+                console.log('❌ Global report failed:', err.message);
             }
         }
 
-        // Step 3: Process and normalize the campaign data
-        const normalizedCampaigns = campaigns.map(campaign => ({
+        // Method 3: Try report with date range as fallback
+        if (allCampaigns.length === 0) {
+            try {
+                const dateRange = req.query.range || '30';
+                const endDate = new Date().toISOString().split('T')[0];
+                const startDate = new Date(Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                
+                console.log(`🔄 Trying date range report: ${startDate} to ${endDate}`);
+                
+                const dateReportResponse = await fetch(`https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=campaignId,campaignName,visits,conversions,revenue,cost`, {
+                    headers: {
+                        'cwauth-token': token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (dateReportResponse.ok) {
+                    const dateReportData = await dateReportResponse.json();
+                    if (dateReportData.rows && dateReportData.rows.length > 0) {
+                        allCampaigns = dateReportData.rows;
+                        console.log('✅ Found campaigns via date report:', dateReportData.rows.length);
+                    }
+                }
+            } catch (err) {
+                console.log('❌ Date range report failed:', err.message);
+            }
+        }
+
+        // Step 3: Normalize and return campaigns in the format your dashboard expects
+        const normalizedCampaigns = allCampaigns.map(campaign => ({
             id: campaign.id || campaign.campaignId || campaign.name || generateId(),
             name: campaign.name || campaign.campaignName || 'Unknown Campaign',
             status: campaign.status || 'ACTIVE',
@@ -121,69 +124,27 @@ export default async function handler(req, res) {
             conversions: parseInt(campaign.conversions || 0),
             revenue: parseFloat(campaign.revenue || 0),
             cost: parseFloat(campaign.cost || campaign.spend || 0),
-            // Calculated metrics
+            // Calculated metrics that your dashboard expects
             roas: calculateROAS(campaign.revenue || 0, campaign.cost || campaign.spend || 0),
             cpa: calculateCPA(campaign.cost || campaign.spend || 0, campaign.conversions || 0),
             cvr: calculateCVR(campaign.conversions || 0, campaign.visits || campaign.clicks || 0),
             aov: calculateAOV(campaign.revenue || 0, campaign.conversions || 0)
         }));
 
-        // Filter out inactive campaigns (0 spend, 0 traffic)
-        const activeCampaigns = normalizedCampaigns.filter(campaign => {
-            const hasSpend = campaign.cost > 0;
-            const hasTraffic = campaign.visits > 0;
-            const hasRevenue = campaign.revenue > 0;
-            return hasSpend || hasTraffic || hasRevenue;
-        });
+        console.log(`🎯 Returning ${normalizedCampaigns.length} campaigns to dashboard`);
 
-        console.log(`🎯 FINAL RESULT: ${activeCampaigns.length} active campaigns from Voluum`);
-
-        return res.json({
-            success: true,
-            campaigns: activeCampaigns,
-            debug_info: {
-                total_found: campaigns.length,
-                active_campaigns: activeCampaigns.length,
-                data_source: 'voluum_only',
-                timestamp: new Date().toISOString()
-            }
-        });
+        // Return the campaigns as a direct array (not wrapped in an object)
+        // This matches what your dashboard expects
+        return res.json(normalizedCampaigns);
 
     } catch (error) {
         console.error('❌ Voluum API error:', error);
-        return res.status(500).json({
-            success: false,
-            error: error.message,
-            debug_info: {
-                timestamp: new Date().toISOString(),
-                error_type: error.name
-            }
-        });
+        // Return empty array on error to prevent dashboard crash
+        return res.json([]);
     }
 }
 
 // Helper functions
-function parseCsvToJson(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    if (lines.length < 2) return [];
-    
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-    const campaigns = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-        if (values.length >= headers.length) {
-            const campaign = {};
-            headers.forEach((header, index) => {
-                campaign[header] = values[index] || '';
-            });
-            campaigns.push(campaign);
-        }
-    }
-    
-    return campaigns;
-}
-
 function determineTrafficSource(campaignName) {
     const name = campaignName.toLowerCase();
     if (name.includes('newsbreak')) return 'NewsBreak';
