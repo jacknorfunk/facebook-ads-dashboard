@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voluum Endpoint Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .console {
+            background: #1a202c;
+            color: #e2e8f0;
+            font-family: 'Courier New', monospace;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 11px;
+        }
+        .btn { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer; margin: 0.25rem; }
+        .btn:hover { background: #2563eb; }
+        .btn-green { background: #10b981; } .btn-green:hover { background: #059669; }
+        .btn-red { background: #ef4444; } .btn-red:hover { background: #dc2626; }
+        .btn-yellow { background: #f59e0b; } .btn-yellow:hover { background: #d97706; }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Voluum Endpoint Finder</h1>
+        <p class="text-gray-600 mb-6">Let's test different Voluum API endpoints to find what works</p>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Test 1: Campaign List Endpoint -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">1. Campaign List Endpoint</h2>
+                <button class="btn btn-green" onclick="testCampaignList()">Test /campaign</button>
+                <div id="campaignListResult" class="console mt-2">Click to test campaign list...</div>
+            </div>
+
+            <!-- Test 2: Report with Basic Params -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">2. Basic Report</h2>
+                <button class="btn" onclick="testBasicReport()">Test /report (basic)</button>
+                <div id="basicReportResult" class="console mt-2">Click to test basic report...</div>
+            </div>
+
+            <!-- Test 3: Report with Campaign Grouping -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">3. Grouped Report</h2>
+                <button class="btn btn-yellow" onclick="testGroupedReport()">Test /report (grouped)</button>
+                <div id="groupedReportResult" class="console mt-2">Click to test grouped report...</div>
+            </div>
+
+            <!-- Test 4: Report with Minimal Params -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">4. Minimal Report</h2>
+                <button class="btn btn-red" onclick="testMinimalReport()">Test /report (minimal)</button>
+                <div id="minimalReportResult" class="console mt-2">Click to test minimal report...</div>
+            </div>
+
+            <!-- Test 5: Different Date Formats -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">5. Date Format Test</h2>
+                <button class="btn" onclic
