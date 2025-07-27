@@ -1,4 +1,4 @@
-// /api/voluum/campaigns-simple.js - FIXED implementation based on workspace discovery
+// /api/voluum/campaigns-simple.js - VOLUUM ONLY - Fixed implementation
 export default async function handler(req, res) {
     try {
         const volumeKeyId = process.env.VOLUME_KEY_ID;
@@ -7,11 +7,7 @@ export default async function handler(req, res) {
         if (!volumeKeyId || !volumeKey) {
             return res.status(500).json({
                 success: false,
-                error: 'Missing Voluum API credentials',
-                debug_info: { 
-                    volume_key_id_exists: !!volumeKeyId,
-                    volume_key_exists: !!volumeKey
-                }
+                error: 'Missing Voluum API credentials'
             });
         }
 
@@ -32,16 +28,14 @@ export default async function handler(req, res) {
         const authData = await authResponse.json();
         const token = authData.token;
 
-        console.log('✅ Authentication successful');
+        console.log('✅ Voluum authentication successful');
 
-        // Step 2: Try multiple approaches to get campaign data
-        // Based on your breakthrough, these are the methods that work:
+        // Step 2: Use the methods that worked in your breakthrough
+        let campaigns = [];
 
-        let allCampaigns = [];
-
-        // Approach 1: Bulk Campaign CSV (bypasses workspace restrictions)
+        // Method 1: Try bulk campaign CSV (this bypassed workspace restrictions in your test)
         try {
-            console.log('🔄 Trying bulk campaign CSV method...');
+            console.log('🔄 Trying bulk campaign method...');
             const bulkResponse = await fetch('https://api.voluum.com/bulk/campaign', {
                 headers: {
                     'cwauth-token': token,
@@ -51,30 +45,27 @@ export default async function handler(req, res) {
             
             if (bulkResponse.ok) {
                 const csvData = await bulkResponse.text();
-                console.log('✅ Bulk CSV response length:', csvData.length);
+                console.log('📊 Bulk CSV response length:', csvData.length);
                 
-                if (csvData.length > 100) { // Has actual data, not just headers
-                    const campaigns = parseCsvToJson(csvData);
-                    if (campaigns.length > 0) {
-                        allCampaigns = campaigns;
-                        console.log('✅ Found campaigns via bulk CSV:', campaigns.length);
-                    }
+                if (csvData.length > 100) { // Has actual data beyond headers
+                    campaigns = parseCsvToJson(csvData);
+                    console.log('✅ SUCCESS: Found', campaigns.length, 'campaigns via bulk CSV');
                 }
             }
         } catch (err) {
-            console.log('❌ Bulk CSV method failed:', err.message);
+            console.log('❌ Bulk CSV failed:', err.message);
         }
 
-        // Approach 2: Direct campaign endpoint for each workspace
-        if (allCampaigns.length === 0) {
-            const workspaces = [
+        // Method 2: Try specific workspaces that contain your campaigns
+        if (campaigns.length === 0) {
+            const knownWorkspaces = [
                 '9345f0cf-ffb4-43b6-8548-3f71c346bcea', // MG+J workspace
                 'ff231fd9-7055-4caa-97f0-ec6e18d26083'  // Tim - B1A1 workspace
             ];
 
-            for (const workspaceId of workspaces) {
+            for (const workspaceId of knownWorkspaces) {
                 try {
-                    console.log(`🔄 Trying workspace ${workspaceId}...`);
+                    console.log(`🔄 Checking workspace: ${workspaceId}`);
                     
                     const wsResponse = await fetch('https://api.voluum.com/campaign', {
                         headers: {
@@ -87,7 +78,7 @@ export default async function handler(req, res) {
                     if (wsResponse.ok) {
                         const wsData = await wsResponse.json();
                         if (wsData && Array.isArray(wsData) && wsData.length > 0) {
-                            allCampaigns = allCampaigns.concat(wsData);
+                            campaigns = campaigns.concat(wsData);
                             console.log(`✅ Found ${wsData.length} campaigns in workspace ${workspaceId}`);
                         }
                     }
@@ -97,10 +88,10 @@ export default async function handler(req, res) {
             }
         }
 
-        // Approach 3: Report endpoint without date filters (global scope)
-        if (allCampaigns.length === 0) {
+        // Method 3: Try report endpoint without date restrictions
+        if (campaigns.length === 0) {
             try {
-                console.log('🔄 Trying report endpoint without dates...');
+                console.log('🔄 Trying report endpoint...');
                 const reportResponse = await fetch('https://api.voluum.com/report?groupBy=campaign&columns=campaignId,campaignName,visits,conversions,revenue,cost', {
                     headers: {
                         'cwauth-token': token,
@@ -111,36 +102,49 @@ export default async function handler(req, res) {
                 if (reportResponse.ok) {
                     const reportData = await reportResponse.json();
                     if (reportData.rows && reportData.rows.length > 0) {
-                        allCampaigns = reportData.rows;
-                        console.log('✅ Found campaigns via report:', reportData.rows.length);
+                        campaigns = reportData.rows;
+                        console.log('✅ Found campaigns via report endpoint:', reportData.rows.length);
                     }
                 }
             } catch (err) {
-                console.log('❌ Report method failed:', err.message);
+                console.log('❌ Report endpoint failed:', err.message);
             }
         }
 
-        // Step 3: Process and normalize the data
-        const normalizedCampaigns = allCampaigns.map(campaign => normalizeCampaignData(campaign));
+        // Step 3: Process and normalize the campaign data
+        const normalizedCampaigns = campaigns.map(campaign => ({
+            id: campaign.id || campaign.campaignId || campaign.name || generateId(),
+            name: campaign.name || campaign.campaignName || 'Unknown Campaign',
+            status: campaign.status || 'ACTIVE',
+            trafficSource: determineTrafficSource(campaign.name || ''),
+            visits: parseInt(campaign.visits || campaign.clicks || 0),
+            conversions: parseInt(campaign.conversions || 0),
+            revenue: parseFloat(campaign.revenue || 0),
+            cost: parseFloat(campaign.cost || campaign.spend || 0),
+            // Calculated metrics
+            roas: calculateROAS(campaign.revenue || 0, campaign.cost || campaign.spend || 0),
+            cpa: calculateCPA(campaign.cost || campaign.spend || 0, campaign.conversions || 0),
+            cvr: calculateCVR(campaign.conversions || 0, campaign.visits || campaign.clicks || 0),
+            aov: calculateAOV(campaign.revenue || 0, campaign.conversions || 0)
+        }));
 
-        // Filter out campaigns with no meaningful data
+        // Filter out inactive campaigns (0 spend, 0 traffic)
         const activeCampaigns = normalizedCampaigns.filter(campaign => {
-            const hasSpend = (campaign.cost || 0) > 0;
-            const hasTraffic = (campaign.visits || 0) > 0;
-            const hasRevenue = (campaign.revenue || 0) > 0;
+            const hasSpend = campaign.cost > 0;
+            const hasTraffic = campaign.visits > 0;
+            const hasRevenue = campaign.revenue > 0;
             return hasSpend || hasTraffic || hasRevenue;
         });
 
-        console.log(`✅ Final result: ${activeCampaigns.length} active campaigns`);
+        console.log(`🎯 FINAL RESULT: ${activeCampaigns.length} active campaigns from Voluum`);
 
         return res.json({
             success: true,
             campaigns: activeCampaigns,
             debug_info: {
-                total_campaigns_found: allCampaigns.length,
+                total_found: campaigns.length,
                 active_campaigns: activeCampaigns.length,
-                data_source: 'voluum_multi_method',
-                auth_token_length: token ? token.length : 0,
+                data_source: 'voluum_only',
                 timestamp: new Date().toISOString()
             }
         });
@@ -151,14 +155,14 @@ export default async function handler(req, res) {
             success: false,
             error: error.message,
             debug_info: {
-                error_type: error.name,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                error_type: error.name
             }
         });
     }
 }
 
-// Helper function to parse CSV to JSON
+// Helper functions
 function parseCsvToJson(csvText) {
     const lines = csvText.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
@@ -180,26 +184,6 @@ function parseCsvToJson(csvText) {
     return campaigns;
 }
 
-// Helper function to normalize campaign data
-function normalizeCampaignData(campaign) {
-    return {
-        id: campaign.id || campaign.campaignId || campaign.name || `campaign_${Date.now()}`,
-        name: campaign.name || campaign.campaignName || 'Unknown Campaign',
-        status: campaign.status || 'ACTIVE',
-        trafficSource: determineTrafficSource(campaign.name || ''),
-        visits: parseInt(campaign.visits || 0),
-        conversions: parseInt(campaign.conversions || 0),
-        revenue: parseFloat(campaign.revenue || 0),
-        cost: parseFloat(campaign.cost || campaign.spend || 0),
-        // Add calculated metrics
-        roas: calculateROAS(campaign.revenue, campaign.cost),
-        cpa: calculateCPA(campaign.cost, campaign.conversions),
-        cvr: calculateCVR(campaign.conversions, campaign.visits),
-        aov: calculateAOV(campaign.revenue, campaign.conversions)
-    };
-}
-
-// Helper functions for calculations
 function determineTrafficSource(campaignName) {
     const name = campaignName.toLowerCase();
     if (name.includes('newsbreak')) return 'NewsBreak';
@@ -224,4 +208,8 @@ function calculateCVR(conversions, visits) {
 
 function calculateAOV(revenue, conversions) {
     return conversions > 0 ? (revenue / conversions) : 0;
+}
+
+function generateId() {
+    return `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
