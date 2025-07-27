@@ -51,10 +51,10 @@ export default async function handler(req, res) {
             throw new Error('No token received from Voluum auth');
         }
 
-        console.log('✅ Authentication successful, fetching campaigns...');
+        console.log('✅ Authentication successful, fetching campaigns from all workspaces...');
 
-        // Step 2: Get campaigns using simple GET /campaign endpoint (NO PARAMETERS)
-        const campaignResponse = await fetch('https://api.voluum.com/campaign', {
+        // Step 2: Get all workspaces first
+        const workspaceResponse = await fetch('https://api.voluum.com/multiuser/workspace', {
             method: 'GET',
             headers: {
                 'cwauth-token': token,
@@ -62,26 +62,61 @@ export default async function handler(req, res) {
             }
         });
 
-        if (!campaignResponse.ok) {
-            const campaignError = await campaignResponse.text();
-            console.error('Voluum campaign fetch failed:', campaignError);
-            throw new Error(`Campaign fetch failed: ${campaignResponse.status} ${campaignResponse.statusText}`);
+        if (!workspaceResponse.ok) {
+            throw new Error(`Workspace fetch failed: ${workspaceResponse.status}`);
         }
 
-        const campaignData = await campaignResponse.json();
-        console.log(`📊 Received ${campaignData.length || 0} campaigns from Voluum`);
-
-        // Step 3: Process campaigns and add performance data
-        const campaigns = Array.isArray(campaignData) ? campaignData : [];
+        const workspaceData = await workspaceResponse.json();
+        const workspaces = workspaceData.workspaces || [];
         
-        // For each campaign, try to get performance data from reports
+        console.log(`📁 Found ${workspaces.length} workspaces`);
+
+        // Step 3: Get campaigns from ALL workspaces
+        const allCampaigns = [];
+        
+        for (const workspace of workspaces) {
+            try {
+                console.log(`🔍 Checking workspace: ${workspace.name} (${workspace.id})`);
+                
+                // Try to get campaigns from this specific workspace
+                const campaignResponse = await fetch(`https://api.voluum.com/campaign`, {
+                    method: 'GET',
+                    headers: {
+                        'cwauth-token': token,
+                        'Content-Type': 'application/json',
+                        'X-Workspace-Id': workspace.id  // Try workspace header
+                    }
+                });
+
+                if (campaignResponse.ok) {
+                    const campaignData = await campaignResponse.json();
+                    const campaigns = Array.isArray(campaignData) ? campaignData : [];
+                    
+                    console.log(`📊 Workspace "${workspace.name}": ${campaigns.length} campaigns`);
+                    
+                    // Add workspace info to each campaign
+                    campaigns.forEach(campaign => {
+                        campaign.workspace_name = workspace.name;
+                        campaign.workspace_id = workspace.id;
+                    });
+                    
+                    allCampaigns.push(...campaigns);
+                }
+            } catch (error) {
+                console.warn(`⚠️ Could not fetch campaigns from workspace ${workspace.name}:`, error.message);
+            }
+        }
+
+        console.log(`✅ Total campaigns found across all workspaces: ${allCampaigns.length}`);
+
+        // Step 4: Enhance campaigns with performance data
         const enhancedCampaigns = [];
         const dateRange = req.query.range || 'yesterday';
         
-        for (const campaign of campaigns) {
+        for (const campaign of allCampaigns) {
             try {
                 // Try to get performance data for each campaign
-                const performanceData = await getCampaignPerformance(token, campaign.id, dateRange);
+                const performanceData = await getCampaignPerformance(token, campaign.id, dateRange, campaign.workspace_id);
                 
                 // Combine campaign info with performance data
                 const enhancedCampaign = {
@@ -118,8 +153,10 @@ export default async function handler(req, res) {
             total: enhancedCampaigns.length,
             debug_info: {
                 campaigns_count: enhancedCampaigns.length,
+                workspaces_checked: workspaces.length,
+                workspace_names: workspaces.map(w => w.name),
                 date_range: dateRange,
-                endpoint_used: 'GET /campaign',
+                endpoint_used: 'GET /campaign (all workspaces)',
                 auth_working: true
             }
         });
@@ -141,7 +178,7 @@ export default async function handler(req, res) {
 }
 
 // Helper function to get performance data for a campaign
-async function getCampaignPerformance(token, campaignId, dateRange) {
+async function getCampaignPerformance(token, campaignId, dateRange, workspaceId) {
     try {
         // Calculate date range
         const { from, to } = getDateRange(dateRange);
@@ -153,7 +190,8 @@ async function getCampaignPerformance(token, campaignId, dateRange) {
             method: 'GET',
             headers: {
                 'cwauth-token': token,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-Workspace-Id': workspaceId  // Include workspace context
             }
         });
 
