@@ -75,12 +75,12 @@ export default async function handler(req, res) {
         const volumeDateRange = convertDateRange(dateRange);
         console.log('Converted date range:', volumeDateRange);
 
-        // Step 3: Get campaigns list
+        // Step 3: Get campaigns list using correct Voluum API format
         console.log('Fetching campaigns list...');
         const campaignsResponse = await fetch('https://api.voluum.com/campaign', {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                'cwauth-token': token,
                 'Content-Type': 'application/json'
             }
         });
@@ -124,7 +124,7 @@ export default async function handler(req, res) {
                 const reportResponse = await fetch(`https://api.voluum.com/report?${reportParams}`, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'cwauth-token': token,
                         'Content-Type': 'application/json'
                     }
                 });
