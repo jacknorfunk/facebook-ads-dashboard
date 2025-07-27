@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voluum Dashboard - Working Version</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .status-indicator { transition: all 0.3s ease; }
+        .status-success { color: #10b981; }
+        .status-error { color: #ef4444; }
+        .status-loading { color: #f59e0b; }
+        .campaign-row:hover { background-color: #f9fafb; cursor: pointer; }
+        .campaign-table { font-size: 14px; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <div class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-line text-blue-600 text-2xl mr-3"></i>
+                    <h1 class="text-xl font-semibold text-gray-900">Voluum Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="connectionStatus" class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-yellow-400 rounded-full status-indicator"></div>
+                        <span class="text-sm text-gray-600">Connecting...</span>
+                    </div>
+                    <button id="refreshBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-refresh mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div class="bg-white rounded-lg shadow-sm border p-4 mb-6">
+            <div class="flex flex-wrap items-center gap-4">
+                <div>
+                    <label class="text-sm font-medium text-gray-700 mr-2">Date Range:</label>
+                    <select id="dateRange" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="yesterday">Yesterday</option>
+                        <option value="last7days">Last 7 Days</option>
+                        <option value="last30days">Last 30 Days</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700 mr-2">Status:</label>
+                    <select id="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="paused">Paused</option>
+                    </select>
+                </div>
+                <button onclick="exportData()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm">
+                    <i class="fas fa-download mr-2"></i>Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Connection Status Info -->
+        <div id="statusInfo" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div class="flex items-center">
+                <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+                <span class="text-blue-800 text-sm" id="statusMessage">Testing Voluum API connection...</span>
+            </div>
+        </div>
+
+        <!-- Campaign Table -->
+        <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">Campaign Performance</h2>
+                <p class="text-sm text-gray-600 mt-1" id="campaignCount">Loading campaigns...</p>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 campaign-table">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clicks</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROI</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CTR</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CR</th>
+                        </tr>
+                    </thead>
+                    <tbody id="campaignTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="9" class="px-6 py-12 text-center text-gray-500">
+                                <i class="fas fa-spinner fa-spin text-2xl mb-4"></i>
+                                <div>Loading campaign data...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Debug Console -->
+        <div class="mt-6 bg-gray-900 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-white font-medium">Debug Console</h3>
+                <button onclick="clearDebug()" class="text-gray-400 hover:text-white text-sm">Clear</button>
+            </div>
+            <div id="debugConsole" class="text-green-400 font-mono text-xs max-h-48 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        let allCampaigns = [];
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            loadData();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('dateRange').addEventListener('change', loadData);
+            document.getElementById('statusFilter').addEventListener('change', applyFilters);
+            document.getElementById('refreshBtn').addEventListener('click', loadData);
+        }
+
+        function log(message) {
+            const console = document.getElementById('debugConsole');
+            const timestamp = new Date().toLocaleTimeString();
+            console.innerHTML += `[${timestamp}] ${message}\n`;
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function clearDebug() {
+            document.getElementById('debugConsole').innerHTML = '';
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('connectionStatus');
+            const messageEl = document.getElementById('statusMessage');
+            const indicator = statusEl.querySelector('.status-indicator');
+            
+            messageEl.textContent = message;
+            
+            // Update indicator
+            indicator.className = 'w-3 h-3 rounded-full status-indicator';
+            if (type === 'success') {
+                indicator.classList.add('bg-green-500');
+            } else if (type === 'error') {
+                indicator.classList.add('bg-red-500');
+            } else {
+                indicator.classList.add('bg-yellow-400');
+            }
+        }
+
+        async function loadData() {
+            log('🚀 Starting data load...');
+            updateStatus('Loading...', 'loading');
+            
+            try {
+                // Step 1: Test environment
+                log('🔧 Testing environment...');
+                const envResponse = await fetch('/api/test-env');
+                const envData = await envResponse.json();
+                
+                if (!envData.success) {
+                    throw new Error(`Environment test failed: ${envData.error}`);
+                }
+                
+                log('✅ Environment test passed');
+                
+                // Step 2: Test authentication
+                log('🔐 Testing authentication...');
+                const authResponse = await fetch('/api/voluum/auth', { method: 'POST' });
+                const authData = await authResponse.json();
+                
+                if (!authData.success) {
+                    throw new Error(`Authentication failed: ${authData.error}`);
+                }
+                
+                log('✅ Authentication successful');
+                
+                // Step 3: Try to load campaigns
+                log('📊 Loading campaigns...');
+                const dateRange = document.getElementById('dateRange').value;
+                
+                try {
+                    const campaignsResponse = await fetch(`/api/voluum/campaigns?range=${dateRange}`);
+                    
+                    if (campaignsResponse.status === 403) {
+                        log('⚠️ 403 Authorization error - checking account permissions');
+                        updateStatus('Connected but limited API access', 'warning');
+                        showLimitedAccess();
+                        return;
+                    }
+                    
+                    const campaignsData = await campaignsResponse.json();
+                    
+                    if (campaignsData.success) {
+                        log(`✅ Campaigns loaded: ${campaignsData.campaigns?.length || 0} campaigns`);
+                        displayCampaigns(campaignsData.campaigns || []);
+                        updateStatus(`Connected - ${campaignsData.campaigns?.length || 0} campaigns loaded`, 'success');
+                    } else {
+                        throw new Error(campaignsData.error || 'Failed to load campaigns');
+                    }
+                    
+                } catch (campaignError) {
+                    log(`❌ Campaign loading failed: ${campaignError.message}`);
+                    updateStatus('API connected but campaign access limited', 'warning');
+                    showLimitedAccess();
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+                updateStatus(`Error: ${error.message}`, 'error');
+                showError(error.message);
+            }
+        }
+
+        function displayCampaigns(campaigns) {
+            allCampaigns = campaigns;
+            const tbody = document.getElementById('campaignTableBody');
+            const countEl = document.getElementById('campaignCount');
+            
+            countEl.textContent = `Showing ${campaigns.length} campaigns`;
+            
+            if (campaigns.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="px-6 py-12 text-center text-gray-500">
+                            <i class="fas fa-info-circle text-3xl mb-4"></i>
+                            <div>No campaigns found for the selected date range.</div>
+                            <div class="text-sm mt-2">Try selecting a different date range.</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = campaigns.map(campaign => `
+                <tr class="campaign-row" onclick="viewCampaignDetails('${campaign.id}')">
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-gray-900">${campaign.name || 'Unnamed Campaign'}</div>
+                        <div class="text-sm text-gray-500">ID: ${campaign.id}</div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${(campaign.visits || 0).toLocaleString()}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${(campaign.clicks || 0).toLocaleString()}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${(campaign.conversions || 0).toLocaleString()}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">$${(campaign.revenue || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">$${(campaign.cost || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 text-sm ${campaign.roi >= 0 ? 'text-green-600' : 'text-red-600'}">${(campaign.roi || 0).toFixed(1)}%</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${(campaign.ctr || 0).toFixed(2)}%</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${(campaign.cr || 0).toFixed(2)}%</td>
+                </tr>
+            `).join('');
+        }
+
+        function showLimitedAccess() {
+            const tbody = document.getElementById('campaignTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="px-6 py-12 text-center">
+                        <i class="fas fa-lock text-yellow-500 text-3xl mb-4"></i>
+                        <div class="text-gray-900 font-medium">Limited API Access</div>
+                        <div class="text-sm text-gray-600 mt-2">
+                            Voluum API authentication is working, but your account may need additional permissions for campaign data.
+                        </div>
+                        <div class="text-sm text-gray-500 mt-2">
+                            Check your Voluum account settings or contact support for API access.
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function showError(message) {
+            const tbody = document.getElementById('campaignTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="px-6 py-12 text-center">
+                        <i class="fas fa-exclamation-triangle text-red-500 text-3xl mb-4"></i>
+                        <div class="text-gray-900 font-medium">Connection Error</div>
+                        <div class="text-sm text-gray-600 mt-2">${message}</div>
+                        <button onclick="loadData()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            Try Again
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function viewCampaignDetails(campaignId) {
+            log(`📊 Viewing details for campaign: ${campaignId}`);
+            alert(`Campaign details for ${campaignId} - Feature coming soon!`);
+        }
+
+        function applyFilters() {
+            // Filter logic here
+            displayCampaigns(allCampaigns);
+        }
+
+        function exportData() {
+            if (allCampaigns.length === 0) {
+                alert('No data to export');
+                return;
+            }
+            
+            const csvContent = [
+                ['Campaign', 'Visits', 'Clicks', 'Conversions', 'Revenue', 'Cost', 'ROI', 'CTR', 'CR'].join(','),
+                ...allCampaigns.map(c => [
+                    `"${c.name || 'Unnamed'}"`,
+                    c.visits || 0,
+                    c.clicks || 0,
+                    c.conversions || 0,
+                    c.revenue || 0,
+                    c.cost || 0,
+                    c.roi || 0,
+                    c.ctr || 0,
+                    c.cr || 0
+                ].join(','))
+            ].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `voluum_campaigns_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
