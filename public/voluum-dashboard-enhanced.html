@@ -263,14 +263,19 @@
                 console.log(`📡 Response status: ${response.status}`);
                 
                 if (!response.ok) {
-                    throw new Error(`Voluum API failed: ${response.status} ${response.statusText}`);
+                    const errorText = await response.text();
+                    console.error('❌ API Error Response:', errorText);
+                    throw new Error(`Voluum API failed: ${response.status} ${response.statusText} - ${errorText}`);
                 }
                 
                 const data = await response.json();
                 console.log('📊 Raw API Data received:', data);
+                console.log('📊 API Success:', data.success);
+                console.log('📊 API Campaigns Length:', data.campaigns?.length);
                 
                 if (!data.success) {
-                    throw new Error(`API error: ${data.error}`);
+                    console.error('❌ API returned success=false:', data.error);
+                    throw new Error(`API error: ${data.error || 'Unknown API error'}`);
                 }
                 
                 // API already filters to campaigns with visits > 0
