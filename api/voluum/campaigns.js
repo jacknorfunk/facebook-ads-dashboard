@@ -31,19 +31,44 @@ export default async function handler(req, res) {
         const authData = await authResponse.json();
         const token = authData.token;
 
-        // Step 2: Calculate date range
+        // Step 2: Calculate date range - FIXED to properly handle all options
         const range = req.query.range || 'last7days';
         let startDate, endDate;
         
         const now = new Date();
         endDate = now.toISOString().split('T')[0];
         
-        if (range === 'last7days') {
-            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        } else if (range === 'last30days') {
-            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        } else {
-            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        switch(range) {
+            case 'today':
+                startDate = endDate;
+                break;
+            case 'yesterday':
+                const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                startDate = yesterday.toISOString().split('T')[0];
+                endDate = startDate;
+                break;
+            case 'last7days':
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                break;
+            case 'last30days':
+                startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                break;
+            case 'last90days':
+                startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                break;
+            case 'thismonth':
+                const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                startDate = thisMonth.toISOString().split('T')[0];
+                break;
+            case 'lastmonth':
+                const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+                startDate = lastMonth.toISOString().split('T')[0];
+                endDate = lastMonthEnd.toISOString().split('T')[0];
+                break;
+            default:
+                // Default to last 7 days
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         }
 
         // Step 3: Try multiple approaches to get CAMPAIGN data (not offers)
@@ -67,13 +92,14 @@ export default async function handler(req, res) {
         let reportData;
         let reportUrl;
 
-        // Use a wider date range to capture more data
-        const widerStartDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        // FIXED: Use the ACTUAL selected date range, not a fixed 90-day range
+        console.log(`📅 Using selected date range: ${startDate} to ${endDate} (${range})`);
         
         // Method 1: Try campaign-level reporting (this should give us campaigns, not offers)
-        reportUrl = `https://api.voluum.com/report?from=${widerStartDate}&to=${endDate}&groupBy=campaign&columns=${campaignColumns}&tz=UTC&limit=1000`;
+        reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=${campaignColumns}&tz=UTC&limit=1000`;
         
         console.log('🎯 Requesting CAMPAIGN-level data (not offers):', reportUrl);
+        console.log(`📊 Date filter: ${range} (${startDate} to ${endDate})`);
         
         const reportResponse = await fetch(reportUrl, {
             headers: {
@@ -103,7 +129,9 @@ export default async function handler(req, res) {
                     error: `Both report and campaign endpoints failed. Report: ${reportResponse.status}, Campaign list: ${campaignListResponse.status}`,
                     debug_info: {
                         report_error: errorText,
-                        attempted_urls: [reportUrl, campaignListUrl]
+                        attempted_urls: [reportUrl, campaignListUrl],
+                        date_range_used: `${startDate} to ${endDate}`,
+                        selected_range: range
                     }
                 });
             }
@@ -137,6 +165,8 @@ export default async function handler(req, res) {
                 debug_info: {
                     data_source: 'campaign_list_endpoint',
                     total_found: campaigns.length,
+                    date_range_used: `${startDate} to ${endDate}`,
+                    selected_range: range,
                     note: 'Campaign list endpoint used - metrics will be 0 unless we fetch separate reports',
                     raw_response: campaignListData,
                     timestamp: new Date().toISOString()
@@ -245,7 +275,8 @@ export default async function handler(req, res) {
                 data_source: 'campaign_report_endpoint',
                 total_found: campaigns.length,
                 active_campaigns: activeCampaigns.length,
-                date_range_used: `${widerStartDate} to ${endDate} (90 days)`,
+                date_range_used: `${startDate} to ${endDate}`,
+                selected_range: range,
                 api_endpoint: 'report with groupBy=campaign',
                 columns_requested: campaignColumns,
                 sample_raw_data: rows.slice(0, 3),
@@ -253,7 +284,8 @@ export default async function handler(req, res) {
                 verification: {
                     data_type: 'campaigns',
                     grouped_by: 'campaign',
-                    not_offers: true
+                    not_offers: true,
+                    date_filter_applied: true
                 },
                 timestamp: new Date().toISOString()
             }
