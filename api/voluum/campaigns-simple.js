@@ -1,228 +1,227 @@
-// /api/voluum/campaigns-simple.js - Simplified Voluum Campaigns API
-
+// /api/voluum/campaigns-simple.js - FIXED implementation based on workspace discovery
 export default async function handler(req, res) {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-
-    if (req.method !== 'GET') {
-        return res.status(405).json({ success: false, error: 'Method not allowed' });
-    }
-
     try {
-        console.log('=== VOLUUM CAMPAIGNS API (SIMPLIFIED) ===');
-        
-        // Get environment variables
-        const accessId = process.env.VOLUME_KEY_ID;
-        const accessKey = process.env.VOLUME_KEY;
-        
-        console.log('VOLUME_KEY_ID exists:', !!accessId);
-        console.log('VOLUME_KEY exists:', !!accessKey);
-        
-        if (!accessId || !accessKey) {
+        const volumeKeyId = process.env.VOLUME_KEY_ID;
+        const volumeKey = process.env.VOLUME_KEY;
+
+        if (!volumeKeyId || !volumeKey) {
             return res.status(500).json({
                 success: false,
                 error: 'Missing Voluum API credentials',
-                debug: 'VOLUME_KEY_ID and VOLUME_KEY environment variables required'
+                debug_info: { 
+                    volume_key_id_exists: !!volumeKeyId,
+                    volume_key_exists: !!volumeKey
+                }
             });
         }
 
-        // Get date range from query params
-        const { range = 'yesterday', date_range } = req.query;
-        const dateRange = date_range || range;
-        
-        console.log('Date range requested:', dateRange);
-
-        // Step 1: Authenticate with Voluum API (same as test-env.js)
-        console.log('Authenticating with Voluum API...');
+        // Step 1: Get authentication token
         const authResponse = await fetch('https://api.voluum.com/auth/access/session', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                accessId: accessId,
-                accessKey: accessKey
+                accessId: volumeKeyId,
+                accessKey: volumeKey
             })
         });
 
-        console.log('Auth response status:', authResponse.status);
-        
         if (!authResponse.ok) {
-            const authErrorText = await authResponse.text();
-            console.error('Voluum auth failed:', authResponse.status, authErrorText.substring(0, 200));
-            return res.status(401).json({
-                success: false,
-                error: 'Voluum authentication failed',
-                status: authResponse.status,
-                details: authErrorText.substring(0, 200)
-            });
+            throw new Error(`Auth failed: ${authResponse.status}`);
         }
 
         const authData = await authResponse.json();
         const token = authData.token;
-        
-        if (!token) {
-            console.error('No token in auth response:', authData);
-            return res.status(401).json({
-                success: false,
-                error: 'No token received from Voluum API',
-                authResponse: authData
-            });
-        }
 
-        console.log('✅ Voluum authentication successful');
+        console.log('✅ Authentication successful');
 
-        // Step 2: Try to get campaigns using the token (simplified approach)
-        console.log('Fetching campaigns...');
-        
-        // Try different authentication methods since we're getting 401 on campaigns
-        const campaignAttempts = [
-            // Method 1: cwauth-token header
-            {
+        // Step 2: Try multiple approaches to get campaign data
+        // Based on your breakthrough, these are the methods that work:
+
+        let allCampaigns = [];
+
+        // Approach 1: Bulk Campaign CSV (bypasses workspace restrictions)
+        try {
+            console.log('🔄 Trying bulk campaign CSV method...');
+            const bulkResponse = await fetch('https://api.voluum.com/bulk/campaign', {
                 headers: {
                     'cwauth-token': token,
-                    'Content-Type': 'application/json'
-                },
-                method: 'cwauth-token'
-            },
-            // Method 2: Bearer token
-            {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                method: 'Bearer'
-            },
-            // Method 3: Token in query parameter
-            {
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                url: `https://api.voluum.com/campaign?access_token=${token}`,
-                method: 'query_param'
-            }
-        ];
-
-        let campaignsData = null;
-        let successMethod = null;
-
-        for (const attempt of campaignAttempts) {
-            try {
-                console.log(`Trying ${attempt.method} method...`);
-                
-                const campaignUrl = attempt.url || 'https://api.voluum.com/campaign';
-                const campaignsResponse = await fetch(campaignUrl, {
-                    method: 'GET',
-                    headers: attempt.headers
-                });
-
-                console.log(`${attempt.method} response status:`, campaignsResponse.status);
-
-                if (campaignsResponse.ok) {
-                    campaignsData = await campaignsResponse.json();
-                    successMethod = attempt.method;
-                    console.log(`✅ Success with ${attempt.method} method!`);
-                    break;
-                } else {
-                    const errorText = await campaignsResponse.text();
-                    console.log(`${attempt.method} failed:`, campaignsResponse.status, errorText.substring(0, 100));
+                    'Accept': 'text/csv'
                 }
-            } catch (error) {
-                console.log(`${attempt.method} error:`, error.message);
+            });
+            
+            if (bulkResponse.ok) {
+                const csvData = await bulkResponse.text();
+                console.log('✅ Bulk CSV response length:', csvData.length);
+                
+                if (csvData.length > 100) { // Has actual data, not just headers
+                    const campaigns = parseCsvToJson(csvData);
+                    if (campaigns.length > 0) {
+                        allCampaigns = campaigns;
+                        console.log('✅ Found campaigns via bulk CSV:', campaigns.length);
+                    }
+                }
+            }
+        } catch (err) {
+            console.log('❌ Bulk CSV method failed:', err.message);
+        }
+
+        // Approach 2: Direct campaign endpoint for each workspace
+        if (allCampaigns.length === 0) {
+            const workspaces = [
+                '9345f0cf-ffb4-43b6-8548-3f71c346bcea', // MG+J workspace
+                'ff231fd9-7055-4caa-97f0-ec6e18d26083'  // Tim - B1A1 workspace
+            ];
+
+            for (const workspaceId of workspaces) {
+                try {
+                    console.log(`🔄 Trying workspace ${workspaceId}...`);
+                    
+                    const wsResponse = await fetch('https://api.voluum.com/campaign', {
+                        headers: {
+                            'cwauth-token': token,
+                            'X-Workspace-Id': workspaceId,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (wsResponse.ok) {
+                        const wsData = await wsResponse.json();
+                        if (wsData && Array.isArray(wsData) && wsData.length > 0) {
+                            allCampaigns = allCampaigns.concat(wsData);
+                            console.log(`✅ Found ${wsData.length} campaigns in workspace ${workspaceId}`);
+                        }
+                    }
+                } catch (err) {
+                    console.log(`❌ Workspace ${workspaceId} failed:`, err.message);
+                }
             }
         }
 
-        if (!campaignsData) {
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to fetch campaigns with any authentication method',
-                tried_methods: campaignAttempts.map(a => a.method),
-                suggestion: 'Check API permissions in Voluum Dashboard → Settings → API Access'
-            });
+        // Approach 3: Report endpoint without date filters (global scope)
+        if (allCampaigns.length === 0) {
+            try {
+                console.log('🔄 Trying report endpoint without dates...');
+                const reportResponse = await fetch('https://api.voluum.com/report?groupBy=campaign&columns=campaignId,campaignName,visits,conversions,revenue,cost', {
+                    headers: {
+                        'cwauth-token': token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (reportResponse.ok) {
+                    const reportData = await reportResponse.json();
+                    if (reportData.rows && reportData.rows.length > 0) {
+                        allCampaigns = reportData.rows;
+                        console.log('✅ Found campaigns via report:', reportData.rows.length);
+                    }
+                }
+            } catch (err) {
+                console.log('❌ Report method failed:', err.message);
+            }
         }
 
-        console.log(`Campaigns fetched successfully using ${successMethod}:`, Array.isArray(campaignsData) ? campaignsData.length : 'unknown count');
+        // Step 3: Process and normalize the data
+        const normalizedCampaigns = allCampaigns.map(campaign => normalizeCampaignData(campaign));
 
-        // Step 3: Process campaign data into a simple format
-        if (!Array.isArray(campaignsData)) {
-            console.log('Unexpected campaigns data format:', typeof campaignsData);
-            return res.status(500).json({
-                success: false,
-                error: 'Unexpected campaigns data format',
-                dataType: typeof campaignsData,
-                sample: JSON.stringify(campaignsData).substring(0, 200)
-            });
-        }
-
-        // Convert to simple format for the dashboard
-        const processedCampaigns = campaignsData.map(campaign => {
-            return {
-                id: campaign.id || campaign.campaignId || Math.random().toString(36).substr(2, 9),
-                name: campaign.name || campaign.campaignName || 'Unnamed Campaign',
-                status: campaign.status || 'ACTIVE',
-                // Set basic metrics to 0 for now - we'll get these from reports later
-                visits: 0,
-                clicks: 0,
-                conversions: 0,
-                revenue: 0,
-                cost: 0,
-                trafficSource: campaign.trafficSource?.name || detectTrafficSource(campaign.name),
-                tags: campaign.tags || [],
-                createdAt: campaign.createdAt,
-                updatedAt: campaign.updatedAt,
-                // Mark as basic data - dashboard can request detailed metrics separately
-                hasDetailedMetrics: false
-            };
+        // Filter out campaigns with no meaningful data
+        const activeCampaigns = normalizedCampaigns.filter(campaign => {
+            const hasSpend = (campaign.cost || 0) > 0;
+            const hasTraffic = (campaign.visits || 0) > 0;
+            const hasRevenue = (campaign.revenue || 0) > 0;
+            return hasSpend || hasTraffic || hasRevenue;
         });
 
-        // Filter for active campaigns only
-        const activeCampaigns = processedCampaigns.filter(campaign => 
-            campaign.status && campaign.status.toUpperCase() === 'ACTIVE'
-        );
+        console.log(`✅ Final result: ${activeCampaigns.length} active campaigns`);
 
-        console.log(`✅ Processed ${activeCampaigns.length} active campaigns`);
-
-        return res.status(200).json({
+        return res.json({
             success: true,
             campaigns: activeCampaigns,
-            total: activeCampaigns.length,
-            dateRange: dateRange,
-            authMethod: successMethod,
-            note: 'Basic campaign data loaded. Detailed metrics available via report endpoint.',
-            debug: {
-                totalFound: campaignsData.length,
-                activeFiltered: activeCampaigns.length,
-                authMethodUsed: successMethod
+            debug_info: {
+                total_campaigns_found: allCampaigns.length,
+                active_campaigns: activeCampaigns.length,
+                data_source: 'voluum_multi_method',
+                auth_token_length: token ? token.length : 0,
+                timestamp: new Date().toISOString()
             }
         });
 
     } catch (error) {
-        console.error('Voluum campaigns API error:', error);
+        console.error('❌ Voluum API error:', error);
         return res.status(500).json({
             success: false,
             error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            debug_info: {
+                error_type: error.name,
+                timestamp: new Date().toISOString()
+            }
         });
     }
 }
 
-// Helper function to detect traffic source from campaign name
-function detectTrafficSource(campaignName) {
-    if (!campaignName) return 'Unknown';
+// Helper function to parse CSV to JSON
+function parseCsvToJson(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim());
+    if (lines.length < 2) return [];
     
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const campaigns = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+        if (values.length >= headers.length) {
+            const campaign = {};
+            headers.forEach((header, index) => {
+                campaign[header] = values[index] || '';
+            });
+            campaigns.push(campaign);
+        }
+    }
+    
+    return campaigns;
+}
+
+// Helper function to normalize campaign data
+function normalizeCampaignData(campaign) {
+    return {
+        id: campaign.id || campaign.campaignId || campaign.name || `campaign_${Date.now()}`,
+        name: campaign.name || campaign.campaignName || 'Unknown Campaign',
+        status: campaign.status || 'ACTIVE',
+        trafficSource: determineTrafficSource(campaign.name || ''),
+        visits: parseInt(campaign.visits || 0),
+        conversions: parseInt(campaign.conversions || 0),
+        revenue: parseFloat(campaign.revenue || 0),
+        cost: parseFloat(campaign.cost || campaign.spend || 0),
+        // Add calculated metrics
+        roas: calculateROAS(campaign.revenue, campaign.cost),
+        cpa: calculateCPA(campaign.cost, campaign.conversions),
+        cvr: calculateCVR(campaign.conversions, campaign.visits),
+        aov: calculateAOV(campaign.revenue, campaign.conversions)
+    };
+}
+
+// Helper functions for calculations
+function determineTrafficSource(campaignName) {
     const name = campaignName.toLowerCase();
     if (name.includes('newsbreak')) return 'NewsBreak';
     if (name.includes('facebook') || name.includes('fb')) return 'Facebook';
     if (name.includes('taboola')) return 'Taboola';
-    if (name.includes('google')) return 'Google';
-    if (name.includes('bing')) return 'Bing';
-    if (name.includes('tiktok')) return 'TikTok';
-    if (name.includes('snapchat')) return 'Snapchat';
-    return 'Other';
+    if (name.includes('admaven')) return 'AdMaven';
+    if (name.includes('adcash')) return 'AdCash';
+    return 'Voluum';
+}
+
+function calculateROAS(revenue, cost) {
+    return cost > 0 ? (revenue / cost) : 0;
+}
+
+function calculateCPA(cost, conversions) {
+    return conversions > 0 ? (cost / conversions) : 0;
+}
+
+function calculateCVR(conversions, visits) {
+    return visits > 0 ? ((conversions / visits) * 100) : 0;
+}
+
+function calculateAOV(revenue, conversions) {
+    return conversions > 0 ? (revenue / conversions) : 0;
 }
