@@ -213,6 +213,7 @@ export default async function handler(req, res) {
                 cost: parseFloat(row?.cost || row?.totalCost || 0),
                 clicks: parseInt(row?.clicks || row?.totalClicks || 0),
                 status: row?.status || 'ACTIVE',
+                deleted: row?.deleted || false, // Track deleted status
                 trafficSource: determineTrafficSource(row?.campaignName || row?.name || '')
             };
 
@@ -237,10 +238,17 @@ export default async function handler(req, res) {
             return campaign;
         });
 
-        // Step 5: Filter for campaigns with meaningful data
+        // Step 5: Filter for ACTIVE campaigns (exclude deleted ones)
+        // CRITICAL FIX: Exclude deleted campaigns that have no current activity
         const activeCampaigns = campaigns
             .filter(campaign => {
-                // Keep campaigns that have either activity OR a proper name
+                // First, exclude deleted campaigns
+                if (campaign.deleted === true) {
+                    console.log(`🗑️ Excluding deleted campaign: ${campaign.name}`);
+                    return false;
+                }
+                
+                // Then filter for campaigns with activity OR valid names
                 const hasActivity = campaign.visits > 0 || campaign.clicks > 0 || 
                                    campaign.conversions > 0 || campaign.revenue > 0 || 
                                    campaign.cost > 0;
@@ -258,14 +266,20 @@ export default async function handler(req, res) {
             })
             .slice(0, 100); // Take top 100 most active campaigns
 
-        console.log(`🎯 Final result: ${activeCampaigns.length} campaigns (from ${campaigns.length} total)`);
+        console.log(`🎯 Final result: ${activeCampaigns.length} active campaigns (from ${campaigns.length} total, excluding deleted ones)`);
+
+        // Log filtering summary
+        const deletedCount = campaigns.filter(c => c.deleted === true).length;
+        const activeCount = campaigns.filter(c => c.deleted !== true).length;
+        console.log(`📊 Campaign breakdown: ${deletedCount} deleted, ${activeCount} active, ${activeCampaigns.length} with data`);
 
         // Log data type verification
         const sampleCampaign = activeCampaigns[0];
         if (sampleCampaign) {
-            console.log('✅ Sample campaign structure:', {
+            console.log('✅ Sample active campaign:', {
                 id: sampleCampaign.id,
                 name: sampleCampaign.name,
+                deleted: sampleCampaign.deleted,
                 hasMetrics: sampleCampaign.visits > 0 || sampleCampaign.conversions > 0
             });
         }
