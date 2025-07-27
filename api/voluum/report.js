@@ -118,7 +118,7 @@ export default async function handler(req, res) {
         const reportResponse = await fetch(`https://api.voluum.com/report?${reportParams}`, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                'cwauth-token': token,
                 'Content-Type': 'application/json'
             }
         });
