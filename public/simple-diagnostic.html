@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Voluum API Diagnostic</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .console {
+            background: #1a202c;
+            color: #e2e8f0;
+            font-family: 'Courier New', monospace;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            margin: 0.25rem;
+        }
+        .btn:hover { background: #2563eb; }
+        .btn-green { background: #10b981; }
+        .btn-green:hover { background: #059669; }
+        .btn-red { background: #ef4444; }
+        .btn-red:hover { background: #dc2626; }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Simple Voluum API Diagnostic</h1>
+        
+        <!-- Test 1: Environment -->
+        <div class="bg-white rounded-lg p-4 mb-4">
+            <h2 class="font-semibold mb-2">1. Environment Test</h2>
+            <button class="btn" onclick="testEnvironment()">Test Environment</button>
+            <div id="envResult" class="console mt-2">Click button to test...</div>
+        </div>
+
+        <!-- Test 2: Authentication -->
+        <div class="bg-white rounded-lg p-4 mb-4">
+            <h2 class="font-semibold mb-2">2. Authentication Test</h2>
+            <button class="btn btn-green" onclick="testAuth()">Test Authentication</button>
+            <div id="authResult" class="console mt-2">Click button to test...</div>
+        </div>
+
+        <!-- Test 3: Direct Voluum -->
+        <div class="bg-white rounded-lg p-4 mb-4">
+            <h2 class="font-semibold mb-2">3. Direct Voluum Test</h2>
+            <button class="btn btn-red" onclick="testDirectVoluum()">Test Direct Voluum</button>
+            <div id="directResult" class="console mt-2">Click button to test...</div>
+        </div>
+
+        <!-- Test 4: Campaigns -->
+        <div class="bg-white rounded-lg p-4 mb-4">
+            <h2 class="font-semibold mb-2">4. Campaigns Test</h2>
+            <button class="btn" onclick="testCampaigns()">Test Campaigns</button>
+            <div id="campaignsResult" class="console mt-2">Click button to test...</div>
+        </div>
+
+        <!-- Summary -->
+        <div class="bg-white rounded-lg p-4">
+            <h2 class="font-semibold mb-2">Summary</h2>
+            <div id="summary" class="text-gray-600">Run tests above to see summary...</div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+
+        function log(elementId, message) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.textContent += `[${timestamp}] ${message}\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clear(elementId) {
+            document.getElementById(elementId).textContent = '';
+        }
+
+        async function testEnvironment() {
+            clear('envResult');
+            log('envResult', 'Testing environment...');
+            
+            try {
+                const response = await fetch('/api/test-env');
+                log('envResult', `Status: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('envResult', `Environment keys present: ${data.environment_check?.volume_key_id_present && data.environment_check?.volume_key_present}`);
+                    log('envResult', `Voluum auth test: ${data.api_test?.auth_success}`);
+                    log('envResult', data.success ? 'SUCCESS: Environment OK' : 'FAILED: Environment issues');
+                } else {
+                    log('envResult', 'FAILED: Environment test failed');
+                }
+            } catch (error) {
+                log('envResult', `ERROR: ${error.message}`);
+            }
+            updateSummary();
+        }
+
+        async function testAuth() {
+            clear('authResult');
+            log('authResult', 'Testing authentication...');
+            
+            try {
+                const response = await fetch('/api/voluum/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                log('authResult', `Status: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.token) {
+                        authToken = data.token;
+                        log('authResult', 'SUCCESS: Got auth token');
+                        log('authResult', `Token: ${data.token.substring(0, 20)}...`);
+                    } else {
+                        log('authResult', `FAILED: ${data.error}`);
+                    }
+                } else {
+                    log('authResult', 'FAILED: Auth request failed');
+                }
+            } catch (error) {
+                log('authResult', `ERROR: ${error.message}`);
+            }
+            updateSummary();
+        }
+
+        async function testDirectVoluum() {
+            clear('directResult');
+            log('directResult', 'Testing direct Voluum API...');
+            
+            if (!authToken) {
+                log('directResult', 'No auth token. Run authentication test first.');
+                return;
+            }
+
+            // Test profile access
+            try {
+                log('directResult', 'Testing profile access...');
+                const profileResponse = await fetch('https://api.voluum.com/profile', {
+                    headers: {
+                        'cwauth-token': authToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('directResult', `Profile status: ${profileResponse.status}`);
+                
+                if (profileResponse.ok) {
+                    log('directResult', 'SUCCESS: Profile accessible');
+                } else {
+                    log('directResult', `FAILED: Profile not accessible (${profileResponse.status})`);
+                }
+            } catch (error) {
+                log('directResult', `Profile ERROR: ${error.message}`);
+            }
+
+            // Test campaigns list
+            try {
+                log('directResult', 'Testing campaigns list...');
+                const campaignsResponse = await fetch('https://api.voluum.com/campaign', {
+                    headers: {
+                        'cwauth-token': authToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('directResult', `Campaigns status: ${campaignsResponse.status}`);
+                
+                if (campaignsResponse.ok) {
+                    const campaigns = await campaignsResponse.json();
+                    log('directResult', `SUCCESS: Found ${campaigns.length} campaigns`);
+                } else {
+                    log('directResult', `FAILED: Campaigns not accessible (${campaignsResponse.status})`);
+                }
+            } catch (error) {
+                log('directResult', `Campaigns ERROR: ${error.message}`);
+            }
+
+            // Test reports
+            try {
+                log('directResult', 'Testing reports...');
+                const today = new Date().toISOString().split('T')[0];
+                const reportsResponse = await fetch(`https://api.voluum.com/report?from=${today}&to=${today}`, {
+                    headers: {
+                        'cwauth-token': authToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('directResult', `Reports status: ${reportsResponse.status}`);
+                
+                if (reportsResponse.ok) {
+                    log('directResult', 'SUCCESS: Reports accessible');
+                } else {
+                    const errorText = await reportsResponse.text();
+                    log('directResult', `FAILED: Reports not accessible (${reportsResponse.status})`);
+                    log('directResult', `Error: ${errorText.substring(0, 100)}...`);
+                }
+            } catch (error) {
+                log('directResult', `Reports ERROR: ${error.message}`);
+            }
+
+            updateSummary();
+        }
+
+        async function testCampaigns() {
+            clear('campaignsResult');
+            log('campaignsResult', 'Testing our campaigns API...');
+            
+            try {
+                const response = await fetch('/api/voluum/campaigns?range=yesterday');
+                log('campaignsResult', `Status: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        log('campaignsResult', `SUCCESS: Found ${data.campaigns?.length || 0} campaigns`);
+                    } else {
+                        log('campaignsResult', `FAILED: ${data.error}`);
+                    }
+                } else {
+                    log('campaignsResult', 'FAILED: Campaigns API failed');
+                }
+            } catch (error) {
+                log('campaignsResult', `ERROR: ${error.message}`);
+            }
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const summary = document.getElementById('summary');
+            summary.innerHTML = `
+                <div class="text-sm">
+                    <p><strong>Diagnosis:</strong></p>
+                    <p>• Environment: ${document.getElementById('envResult').textContent.includes('SUCCESS') ? '✅ Working' : '❌ Issues'}</p>
+                    <p>• Authentication: ${document.getElementById('authResult').textContent.includes('SUCCESS') ? '✅ Working' : '❌ Issues'}</p>
+                    <p>• Direct Voluum: ${document.getElementById('directResult').textContent.includes('Profile accessible') ? '✅ Working' : '❌ Issues'}</p>
+                    <p>• Our API: ${document.getElementById('campaignsResult').textContent.includes('SUCCESS') ? '✅ Working' : '❌ Issues'}</p>
+                </div>
+            `;
+        }
+
+        // Test on load
+        setTimeout(() => {
+            testEnvironment();
+        }, 1000);
+    </script>
+</body>
+</html>
