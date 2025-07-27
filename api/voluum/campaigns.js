@@ -95,11 +95,13 @@ export default async function handler(req, res) {
         // FIXED: Use the ACTUAL selected date range, not a fixed 90-day range
         console.log(`📅 Using selected date range: ${startDate} to ${endDate} (${range})`);
         
-        // Method 1: Try campaign-level reporting (this should give us campaigns, not offers)
-        reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=${campaignColumns}&tz=UTC&limit=1000`;
+        // Method 1: Try campaign-level reporting with CORRECT TIMEZONE
+        // FIXED: Use Eastern Time to match Voluum account settings
+        reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=${campaignColumns}&tz=America/New_York&limit=1000`;
         
         console.log('🎯 Requesting CAMPAIGN-level data (not offers):', reportUrl);
         console.log(`📊 Date filter: ${range} (${startDate} to ${endDate})`);
+        console.log('🕐 Using Eastern Time timezone to match Voluum account');
         
         const reportResponse = await fetch(reportUrl, {
             headers: {
@@ -285,7 +287,9 @@ export default async function handler(req, res) {
                     data_type: 'campaigns',
                     grouped_by: 'campaign',
                     not_offers: true,
-                    date_filter_applied: true
+                    date_filter_applied: true,
+                    timezone_used: 'America/New_York (Eastern Time)',
+                    timezone_note: 'Matches Voluum account timezone UTC-04:00'
                 },
                 timestamp: new Date().toISOString()
             }
