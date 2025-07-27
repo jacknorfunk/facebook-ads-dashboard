@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Voluum API Diagnostic</title>
+    <title>Voluum Endpoint Finder</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .console {
@@ -15,65 +15,73 @@
             white-space: pre-wrap;
             max-height: 300px;
             overflow-y: auto;
-            font-size: 12px;
+            font-size: 11px;
         }
-        .btn {
-            background: #3b82f6;
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            border: none;
-            cursor: pointer;
-            margin: 0.25rem;
-        }
+        .btn { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer; margin: 0.25rem; }
         .btn:hover { background: #2563eb; }
-        .btn-green { background: #10b981; }
-        .btn-green:hover { background: #059669; }
-        .btn-red { background: #ef4444; }
-        .btn-red:hover { background: #dc2626; }
+        .btn-green { background: #10b981; } .btn-green:hover { background: #059669; }
+        .btn-red { background: #ef4444; } .btn-red:hover { background: #dc2626; }
+        .btn-yellow { background: #f59e0b; } .btn-yellow:hover { background: #d97706; }
     </style>
 </head>
 <body class="bg-gray-100 p-4">
-    <div class="max-w-6xl mx-auto">
-        <h1 class="text-2xl font-bold mb-4">Simple Voluum API Diagnostic</h1>
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Voluum Endpoint Finder</h1>
+        <p class="text-gray-600 mb-6">Let's test different Voluum API endpoints to find what works</p>
         
-        <!-- Test 1: Environment -->
-        <div class="bg-white rounded-lg p-4 mb-4">
-            <h2 class="font-semibold mb-2">1. Environment Test</h2>
-            <button class="btn" onclick="testEnvironment()">Test Environment</button>
-            <div id="envResult" class="console mt-2">Click button to test...</div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Test 1: Campaign List Endpoint -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">1. Campaign List Endpoint</h2>
+                <button class="btn btn-green" onclick="testCampaignList()">Test /campaign</button>
+                <div id="campaignListResult" class="console mt-2">Click to test campaign list...</div>
+            </div>
+
+            <!-- Test 2: Report with Basic Params -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">2. Basic Report</h2>
+                <button class="btn" onclick="testBasicReport()">Test /report (basic)</button>
+                <div id="basicReportResult" class="console mt-2">Click to test basic report...</div>
+            </div>
+
+            <!-- Test 3: Report with Campaign Grouping -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">3. Grouped Report</h2>
+                <button class="btn btn-yellow" onclick="testGroupedReport()">Test /report (grouped)</button>
+                <div id="groupedReportResult" class="console mt-2">Click to test grouped report...</div>
+            </div>
+
+            <!-- Test 4: Report with Minimal Params -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">4. Minimal Report</h2>
+                <button class="btn btn-red" onclick="testMinimalReport()">Test /report (minimal)</button>
+                <div id="minimalReportResult" class="console mt-2">Click to test minimal report...</div>
+            </div>
+
+            <!-- Test 5: Different Date Formats -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">5. Date Format Test</h2>
+                <button class="btn" onclick="testDateFormats()">Test Date Formats</button>
+                <div id="dateFormatResult" class="console mt-2">Click to test date formats...</div>
+            </div>
+
+            <!-- Test 6: Profile/Account Info -->
+            <div class="bg-white rounded-lg p-4">
+                <h2 class="font-semibold mb-2">6. Account Info</h2>
+                <button class="btn btn-green" onclick="testAccountInfo()">Test /profile</button>
+                <div id="accountInfoResult" class="console mt-2">Click to test account info...</div>
+            </div>
         </div>
 
-        <!-- Test 2: Authentication -->
-        <div class="bg-white rounded-lg p-4 mb-4">
-            <h2 class="font-semibold mb-2">2. Authentication Test</h2>
-            <button class="btn btn-green" onclick="testAuth()">Test Authentication</button>
-            <div id="authResult" class="console mt-2">Click button to test...</div>
-        </div>
-
-        <!-- Test 3: Direct Voluum -->
-        <div class="bg-white rounded-lg p-4 mb-4">
-            <h2 class="font-semibold mb-2">3. Direct Voluum Test</h2>
-            <button class="btn btn-red" onclick="testDirectVoluum()">Test Direct Voluum</button>
-            <div id="directResult" class="console mt-2">Click button to test...</div>
-        </div>
-
-        <!-- Test 4: Campaigns -->
-        <div class="bg-white rounded-lg p-4 mb-4">
-            <h2 class="font-semibold mb-2">4. Campaigns Test</h2>
-            <button class="btn" onclick="testCampaigns()">Test Campaigns</button>
-            <div id="campaignsResult" class="console mt-2">Click button to test...</div>
-        </div>
-
-        <!-- Summary -->
-        <div class="bg-white rounded-lg p-4">
-            <h2 class="font-semibold mb-2">Summary</h2>
-            <div id="summary" class="text-gray-600">Run tests above to see summary...</div>
+        <!-- Results Summary -->
+        <div class="mt-6 bg-white rounded-lg p-4">
+            <h2 class="font-semibold mb-2">Working Endpoints Summary</h2>
+            <div id="summary" class="text-gray-600">Run tests above to see which endpoints work...</div>
         </div>
     </div>
 
     <script>
-        let authToken = null;
+        let workingEndpoints = [];
 
         function log(elementId, message) {
             const element = document.getElementById(elementId);
@@ -86,177 +94,128 @@
             document.getElementById(elementId).textContent = '';
         }
 
-        async function testEnvironment() {
-            clear('envResult');
-            log('envResult', 'Testing environment...');
+        // Test different endpoints through our API
+        async function makeAPICall(endpoint, description, resultId) {
+            log(resultId, `Testing: ${description}`);
+            log(resultId, `Endpoint: ${endpoint}`);
             
             try {
-                const response = await fetch('/api/test-env');
-                log('envResult', `Status: ${response.status}`);
+                const response = await fetch(endpoint);
+                log(resultId, `Status: ${response.status}`);
                 
                 if (response.ok) {
                     const data = await response.json();
-                    log('envResult', `Environment keys present: ${data.environment_check?.volume_key_id_present && data.environment_check?.volume_key_present}`);
-                    log('envResult', `Voluum auth test: ${data.api_test?.auth_success}`);
-                    log('envResult', data.success ? 'SUCCESS: Environment OK' : 'FAILED: Environment issues');
+                    log(resultId, `✅ SUCCESS!`);
+                    log(resultId, `Response: ${JSON.stringify(data, null, 2).substring(0, 500)}...`);
+                    
+                    if (data.success && data.campaigns && data.campaigns.length > 0) {
+                        log(resultId, `🎉 FOUND ${data.campaigns.length} CAMPAIGNS!`);
+                        workingEndpoints.push({ endpoint, description, campaigns: data.campaigns.length });
+                    } else if (data.success) {
+                        log(resultId, `✅ Endpoint works but 0 campaigns returned`);
+                        workingEndpoints.push({ endpoint, description, campaigns: 0 });
+                    }
                 } else {
-                    log('envResult', 'FAILED: Environment test failed');
+                    const errorData = await response.json();
+                    log(resultId, `❌ FAILED: ${response.status}`);
+                    log(resultId, `Error: ${JSON.stringify(errorData, null, 2).substring(0, 300)}...`);
                 }
             } catch (error) {
-                log('envResult', `ERROR: ${error.message}`);
+                log(resultId, `❌ ERROR: ${error.message}`);
             }
+            
             updateSummary();
         }
 
-        async function testAuth() {
-            clear('authResult');
-            log('authResult', 'Testing authentication...');
-            
-            try {
-                const response = await fetch('/api/voluum/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
-                log('authResult', `Status: ${response.status}`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.token) {
-                        authToken = data.token;
-                        log('authResult', 'SUCCESS: Got auth token');
-                        log('authResult', `Token: ${data.token.substring(0, 20)}...`);
-                    } else {
-                        log('authResult', `FAILED: ${data.error}`);
-                    }
-                } else {
-                    log('authResult', 'FAILED: Auth request failed');
-                }
-            } catch (error) {
-                log('authResult', `ERROR: ${error.message}`);
-            }
-            updateSummary();
+        // 1. Test campaign list endpoint
+        async function testCampaignList() {
+            clear('campaignListResult');
+            await makeAPICall('/api/voluum/test-campaign-list', 'Direct campaign list (/campaign)', 'campaignListResult');
         }
 
-        async function testDirectVoluum() {
-            clear('directResult');
-            log('directResult', 'Testing direct Voluum API...');
-            
-            if (!authToken) {
-                log('directResult', 'No auth token. Run authentication test first.');
-                return;
-            }
-
-            // Test profile access
-            try {
-                log('directResult', 'Testing profile access...');
-                const profileResponse = await fetch('https://api.voluum.com/profile', {
-                    headers: {
-                        'cwauth-token': authToken,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                log('directResult', `Profile status: ${profileResponse.status}`);
-                
-                if (profileResponse.ok) {
-                    log('directResult', 'SUCCESS: Profile accessible');
-                } else {
-                    log('directResult', `FAILED: Profile not accessible (${profileResponse.status})`);
-                }
-            } catch (error) {
-                log('directResult', `Profile ERROR: ${error.message}`);
-            }
-
-            // Test campaigns list
-            try {
-                log('directResult', 'Testing campaigns list...');
-                const campaignsResponse = await fetch('https://api.voluum.com/campaign', {
-                    headers: {
-                        'cwauth-token': authToken,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                log('directResult', `Campaigns status: ${campaignsResponse.status}`);
-                
-                if (campaignsResponse.ok) {
-                    const campaigns = await campaignsResponse.json();
-                    log('directResult', `SUCCESS: Found ${campaigns.length} campaigns`);
-                } else {
-                    log('directResult', `FAILED: Campaigns not accessible (${campaignsResponse.status})`);
-                }
-            } catch (error) {
-                log('directResult', `Campaigns ERROR: ${error.message}`);
-            }
-
-            // Test reports
-            try {
-                log('directResult', 'Testing reports...');
-                const today = new Date().toISOString().split('T')[0];
-                const reportsResponse = await fetch(`https://api.voluum.com/report?from=${today}&to=${today}`, {
-                    headers: {
-                        'cwauth-token': authToken,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                log('directResult', `Reports status: ${reportsResponse.status}`);
-                
-                if (reportsResponse.ok) {
-                    log('directResult', 'SUCCESS: Reports accessible');
-                } else {
-                    const errorText = await reportsResponse.text();
-                    log('directResult', `FAILED: Reports not accessible (${reportsResponse.status})`);
-                    log('directResult', `Error: ${errorText.substring(0, 100)}...`);
-                }
-            } catch (error) {
-                log('directResult', `Reports ERROR: ${error.message}`);
-            }
-
-            updateSummary();
+        // 2. Test basic report
+        async function testBasicReport() {
+            clear('basicReportResult');
+            const today = new Date().toISOString().split('T')[0];
+            const lastWeek = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
+            await makeAPICall(`/api/voluum/campaigns?range=last7days`, 'Current campaigns API (last 7 days)', 'basicReportResult');
         }
 
-        async function testCampaigns() {
-            clear('campaignsResult');
-            log('campaignsResult', 'Testing our campaigns API...');
+        // 3. Test grouped report
+        async function testGroupedReport() {
+            clear('groupedReportResult');
+            await makeAPICall('/api/voluum/campaigns?range=last30days', 'Current campaigns API (last 30 days)', 'groupedReportResult');
+        }
+
+        // 4. Test minimal report
+        async function testMinimalReport() {
+            clear('minimalReportResult');
+            await makeAPICall('/api/voluum/test-minimal-report', 'Minimal report endpoint', 'minimalReportResult');
+        }
+
+        // 5. Test different date formats
+        async function testDateFormats() {
+            clear('dateFormatResult');
             
-            try {
-                const response = await fetch('/api/voluum/campaigns?range=yesterday');
-                log('campaignsResult', `Status: ${response.status}`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        log('campaignsResult', `SUCCESS: Found ${data.campaigns?.length || 0} campaigns`);
-                    } else {
-                        log('campaignsResult', `FAILED: ${data.error}`);
-                    }
-                } else {
-                    log('campaignsResult', 'FAILED: Campaigns API failed');
-                }
-            } catch (error) {
-                log('campaignsResult', `ERROR: ${error.message}`);
+            const tests = [
+                '/api/voluum/campaigns?range=yesterday',
+                '/api/voluum/campaigns?range=last7days', 
+                '/api/voluum/campaigns?range=last30days',
+                '/api/voluum/campaigns?range=last90days'
+            ];
+            
+            for (const endpoint of tests) {
+                await makeAPICall(endpoint, `Date range test: ${endpoint.split('=')[1]}`, 'dateFormatResult');
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait between calls
             }
-            updateSummary();
+        }
+
+        // 6. Test account info
+        async function testAccountInfo() {
+            clear('accountInfoResult');
+            await makeAPICall('/api/voluum/test-profile', 'Profile/account info', 'accountInfoResult');
         }
 
         function updateSummary() {
             const summary = document.getElementById('summary');
-            summary.innerHTML = `
-                <div class="text-sm">
-                    <p><strong>Diagnosis:</strong></p>
-                    <p>• Environment: ${document.getElementById('envResult').textContent.includes('SUCCESS') ? '✅ Working' : '❌ Issues'}</p>
-                    <p>• Authentication: ${document.getElementById('authResult').textContent.includes('SUCCESS') ? '✅ Working' : '❌ Issues'}</p>
-                    <p>• Direct Voluum: ${document.getElementById('directResult').textContent.includes('Profile accessible') ? '✅ Working' : '❌ Issues'}</p>
-                    <p>• Our API: ${document.getElementById('campaignsResult').textContent.includes('SUCCESS') ? '✅ Working' : '❌ Issues'}</p>
-                </div>
-            `;
+            
+            if (workingEndpoints.length === 0) {
+                summary.innerHTML = '<p class="text-gray-500">No working endpoints found yet...</p>';
+                return;
+            }
+            
+            let html = '<div class="space-y-2">';
+            workingEndpoints.forEach(endpoint => {
+                const icon = endpoint.campaigns > 0 ? '🎉' : '✅';
+                const campaignText = endpoint.campaigns > 0 ? ` (${endpoint.campaigns} campaigns!)` : ' (0 campaigns)';
+                html += `<div class="p-2 bg-green-50 border border-green-200 rounded">
+                    ${icon} <strong>${endpoint.description}</strong>${campaignText}
+                    <br><code class="text-xs text-gray-600">${endpoint.endpoint}</code>
+                </div>`;
+            });
+            html += '</div>';
+            
+            // Add recommendation
+            const withData = workingEndpoints.filter(e => e.campaigns > 0);
+            if (withData.length > 0) {
+                html += `<div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                    <strong>🎯 SOLUTION FOUND!</strong><br>
+                    Use this endpoint: <code>${withData[0].endpoint}</code><br>
+                    It returned ${withData[0].campaigns} campaigns with data!
+                </div>`;
+            } else if (workingEndpoints.length > 0) {
+                html += `<div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                    <strong>⚠️ Endpoints work but no campaign data found</strong><br>
+                    This suggests your Voluum account may not have campaigns with data in the tested date ranges.
+                </div>`;
+            }
+            
+            summary.innerHTML = html;
         }
 
-        // Test on load
+        // Auto-run basic test
         setTimeout(() => {
-            testEnvironment();
+            testBasicReport();
         }, 1000);
     </script>
 </body>
