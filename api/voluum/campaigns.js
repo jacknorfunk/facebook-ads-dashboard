@@ -213,9 +213,17 @@ export default async function handler(req, res) {
                 cost: parseFloat(row?.cost || row?.totalCost || 0),
                 clicks: parseInt(row?.clicks || row?.totalClicks || 0),
                 status: row?.status || 'ACTIVE',
-                deleted: row?.deleted || false, // Track deleted status
+                deleted: row?.deleted === true, // FIXED: Properly check boolean value
                 trafficSource: determineTrafficSource(row?.campaignName || row?.name || '')
             };
+
+            // Debug logging for first few campaigns
+            if (index < 3) {
+                console.log(`🔍 Campaign ${index} deletion check:`);
+                console.log(`  - Raw deleted field: ${row?.deleted} (type: ${typeof row?.deleted})`);
+                console.log(`  - Processed deleted: ${campaign.deleted}`);
+                console.log(`  - Campaign name: ${campaign.name}`);
+            }
 
             // Calculate metrics
             campaign.roas = campaign.cost > 0 ? (campaign.revenue / campaign.cost) : 0;
@@ -239,24 +247,28 @@ export default async function handler(req, res) {
         });
 
         // Step 5: Filter for ACTIVE campaigns (exclude deleted ones)
-        // CRITICAL FIX: Exclude deleted campaigns that have no current activity
+        // CRITICAL FIX: Properly check deleted status from API response
+        console.log('🔍 Checking campaign deletion status...');
+        
         const activeCampaigns = campaigns
             .filter(campaign => {
+                // Debug: Log the first few campaigns' deleted status
+                if (campaigns.indexOf(campaign) < 5) {
+                    console.log(`Campaign ${campaigns.indexOf(campaign)}: ${campaign.name}`);
+                    console.log(`  - deleted field: ${campaign.deleted}`);
+                    console.log(`  - revenue: ${campaign.revenue}`);
+                    console.log(`  - visits: ${campaign.visits}`);
+                }
+                
                 // First, exclude deleted campaigns
                 if (campaign.deleted === true) {
                     console.log(`🗑️ Excluding deleted campaign: ${campaign.name}`);
                     return false;
                 }
                 
-                // Then filter for campaigns with activity OR valid names
-                const hasActivity = campaign.visits > 0 || campaign.clicks > 0 || 
-                                   campaign.conversions > 0 || campaign.revenue > 0 || 
-                                   campaign.cost > 0;
-                const hasValidName = campaign.name && 
-                                    campaign.name !== 'Unknown Campaign' && 
-                                    campaign.name !== `Campaign ${campaigns.indexOf(campaign)}`;
-                
-                return hasActivity || hasValidName;
+                // For now, let's see what we get if we include ALL non-deleted campaigns
+                // We can add activity filtering later
+                return true;
             })
             .sort((a, b) => {
                 // Sort by total activity (visits + clicks + conversions)
