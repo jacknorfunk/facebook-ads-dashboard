@@ -1,4 +1,4 @@
-// /api/voluum/campaigns-simple.js - Voluum Campaigns API Endpoint
+// /api/voluum/campaigns-simple.js - Simplified Voluum Campaigns API
 
 export default async function handler(req, res) {
     // Set CORS headers
@@ -15,11 +15,14 @@ export default async function handler(req, res) {
     }
 
     try {
-        console.log('=== VOLUUM CAMPAIGNS API ===');
+        console.log('=== VOLUUM CAMPAIGNS API (SIMPLIFIED) ===');
         
         // Get environment variables
         const accessId = process.env.VOLUME_KEY_ID;
         const accessKey = process.env.VOLUME_KEY;
+        
+        console.log('VOLUME_KEY_ID exists:', !!accessId);
+        console.log('VOLUME_KEY exists:', !!accessKey);
         
         if (!accessId || !accessKey) {
             return res.status(500).json({
@@ -35,7 +38,7 @@ export default async function handler(req, res) {
         
         console.log('Date range requested:', dateRange);
 
-        // Step 1: Authenticate with Voluum API
+        // Step 1: Authenticate with Voluum API (same as test-env.js)
         console.log('Authenticating with Voluum API...');
         const authResponse = await fetch('https://api.voluum.com/auth/access/session', {
             method: 'POST',
@@ -48,13 +51,16 @@ export default async function handler(req, res) {
             })
         });
 
+        console.log('Auth response status:', authResponse.status);
+        
         if (!authResponse.ok) {
-            const authError = await authResponse.text();
-            console.error('Voluum auth failed:', authResponse.status, authError);
+            const authErrorText = await authResponse.text();
+            console.error('Voluum auth failed:', authResponse.status, authErrorText.substring(0, 200));
             return res.status(401).json({
                 success: false,
                 error: 'Voluum authentication failed',
-                debug: `Status: ${authResponse.status}, Response: ${authError.substring(0, 200)}`
+                status: authResponse.status,
+                details: authErrorText.substring(0, 200)
             });
         }
 
@@ -62,125 +68,137 @@ export default async function handler(req, res) {
         const token = authData.token;
         
         if (!token) {
+            console.error('No token in auth response:', authData);
             return res.status(401).json({
                 success: false,
                 error: 'No token received from Voluum API',
-                debug: authData
+                authResponse: authData
             });
         }
 
         console.log('✅ Voluum authentication successful');
 
-        // Step 2: Convert date range to Voluum format
-        const volumeDateRange = convertDateRange(dateRange);
-        console.log('Converted date range:', volumeDateRange);
-
-        // Step 3: Get campaigns list using correct Voluum API format
-        console.log('Fetching campaigns list...');
-        const campaignsResponse = await fetch('https://api.voluum.com/campaign', {
-            method: 'GET',
-            headers: {
-                'cwauth-token': token,
-                'Content-Type': 'application/json'
+        // Step 2: Try to get campaigns using the token (simplified approach)
+        console.log('Fetching campaigns...');
+        
+        // Try different authentication methods since we're getting 401 on campaigns
+        const campaignAttempts = [
+            // Method 1: cwauth-token header
+            {
+                headers: {
+                    'cwauth-token': token,
+                    'Content-Type': 'application/json'
+                },
+                method: 'cwauth-token'
+            },
+            // Method 2: Bearer token
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                method: 'Bearer'
+            },
+            // Method 3: Token in query parameter
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                url: `https://api.voluum.com/campaign?access_token=${token}`,
+                method: 'query_param'
             }
-        });
+        ];
 
-        if (!campaignsResponse.ok) {
-            const campaignsError = await campaignsResponse.text();
-            console.error('Campaigns fetch failed:', campaignsResponse.status, campaignsError);
+        let campaignsData = null;
+        let successMethod = null;
+
+        for (const attempt of campaignAttempts) {
+            try {
+                console.log(`Trying ${attempt.method} method...`);
+                
+                const campaignUrl = attempt.url || 'https://api.voluum.com/campaign';
+                const campaignsResponse = await fetch(campaignUrl, {
+                    method: 'GET',
+                    headers: attempt.headers
+                });
+
+                console.log(`${attempt.method} response status:`, campaignsResponse.status);
+
+                if (campaignsResponse.ok) {
+                    campaignsData = await campaignsResponse.json();
+                    successMethod = attempt.method;
+                    console.log(`✅ Success with ${attempt.method} method!`);
+                    break;
+                } else {
+                    const errorText = await campaignsResponse.text();
+                    console.log(`${attempt.method} failed:`, campaignsResponse.status, errorText.substring(0, 100));
+                }
+            } catch (error) {
+                console.log(`${attempt.method} error:`, error.message);
+            }
+        }
+
+        if (!campaignsData) {
             return res.status(500).json({
                 success: false,
-                error: 'Failed to fetch campaigns from Voluum',
-                debug: `Status: ${campaignsResponse.status}, Response: ${campaignsError.substring(0, 200)}`
+                error: 'Failed to fetch campaigns with any authentication method',
+                tried_methods: campaignAttempts.map(a => a.method),
+                suggestion: 'Check API permissions in Voluum Dashboard → Settings → API Access'
             });
         }
 
-        const campaignsData = await campaignsResponse.json();
-        console.log(`Found ${campaignsData.length || 0} campaigns`);
+        console.log(`Campaigns fetched successfully using ${successMethod}:`, Array.isArray(campaignsData) ? campaignsData.length : 'unknown count');
 
-        if (!Array.isArray(campaignsData) || campaignsData.length === 0) {
-            return res.status(200).json({
-                success: true,
-                campaigns: [],
-                message: 'No campaigns found in Voluum account'
+        // Step 3: Process campaign data into a simple format
+        if (!Array.isArray(campaignsData)) {
+            console.log('Unexpected campaigns data format:', typeof campaignsData);
+            return res.status(500).json({
+                success: false,
+                error: 'Unexpected campaigns data format',
+                dataType: typeof campaignsData,
+                sample: JSON.stringify(campaignsData).substring(0, 200)
             });
         }
 
-        // Step 4: Get performance data for each campaign
-        console.log('Fetching campaign performance data...');
-        const campaignPromises = campaignsData.slice(0, 50).map(async (campaign) => {
-            try {
-                // Build report query parameters
-                const reportParams = new URLSearchParams({
-                    from: volumeDateRange.from,
-                    to: volumeDateRange.to,
-                    tz: 'UTC',
-                    groupBy: 'campaign',
-                    include: 'ACTIVE',
-                    filter1: `campaign:${campaign.id}`,
-                    columns: 'visits,clicks,conversions,revenue,cost,campaignId,campaignName'
-                });
-
-                const reportResponse = await fetch(`https://api.voluum.com/report?${reportParams}`, {
-                    method: 'GET',
-                    headers: {
-                        'cwauth-token': token,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (!reportResponse.ok) {
-                    console.warn(`Report failed for campaign ${campaign.id}:`, reportResponse.status);
-                    return null;
-                }
-
-                const reportData = await reportResponse.json();
-                
-                // Extract metrics from report
-                const metrics = reportData.rows && reportData.rows.length > 0 ? reportData.rows[0] : {};
-                
-                return {
-                    id: campaign.id,
-                    name: campaign.name || 'Unnamed Campaign',
-                    status: campaign.status || 'ACTIVE',
-                    visits: parseInt(metrics.visits) || 0,
-                    clicks: parseInt(metrics.clicks) || 0,
-                    conversions: parseInt(metrics.conversions) || 0,
-                    revenue: parseFloat(metrics.revenue) || 0,
-                    cost: parseFloat(metrics.cost) || 0,
-                    trafficSource: campaign.trafficSource?.name || detectTrafficSource(campaign.name),
-                    tags: campaign.tags || [],
-                    createdAt: campaign.createdAt,
-                    updatedAt: campaign.updatedAt
-                };
-            } catch (error) {
-                console.warn(`Error processing campaign ${campaign.id}:`, error.message);
-                return null;
-            }
+        // Convert to simple format for the dashboard
+        const processedCampaigns = campaignsData.map(campaign => {
+            return {
+                id: campaign.id || campaign.campaignId || Math.random().toString(36).substr(2, 9),
+                name: campaign.name || campaign.campaignName || 'Unnamed Campaign',
+                status: campaign.status || 'ACTIVE',
+                // Set basic metrics to 0 for now - we'll get these from reports later
+                visits: 0,
+                clicks: 0,
+                conversions: 0,
+                revenue: 0,
+                cost: 0,
+                trafficSource: campaign.trafficSource?.name || detectTrafficSource(campaign.name),
+                tags: campaign.tags || [],
+                createdAt: campaign.createdAt,
+                updatedAt: campaign.updatedAt,
+                // Mark as basic data - dashboard can request detailed metrics separately
+                hasDetailedMetrics: false
+            };
         });
 
-        // Wait for all campaign data to be fetched
-        const campaignResults = await Promise.all(campaignPromises);
-        const validCampaigns = campaignResults.filter(campaign => campaign !== null);
+        // Filter for active campaigns only
+        const activeCampaigns = processedCampaigns.filter(campaign => 
+            campaign.status && campaign.status.toUpperCase() === 'ACTIVE'
+        );
 
-        console.log(`✅ Successfully processed ${validCampaigns.length} campaigns`);
-
-        // Filter out campaigns with no activity
-        const activeCampaigns = validCampaigns.filter(campaign => {
-            return campaign.status === 'ACTIVE' && (campaign.visits > 0 || campaign.cost > 0);
-        });
-
-        console.log(`📊 Active campaigns with traffic/spend: ${activeCampaigns.length}`);
+        console.log(`✅ Processed ${activeCampaigns.length} active campaigns`);
 
         return res.status(200).json({
             success: true,
             campaigns: activeCampaigns,
             total: activeCampaigns.length,
             dateRange: dateRange,
+            authMethod: successMethod,
+            note: 'Basic campaign data loaded. Detailed metrics available via report endpoint.',
             debug: {
                 totalFound: campaignsData.length,
-                processed: validCampaigns.length,
-                activeWithTraffic: activeCampaigns.length
+                activeFiltered: activeCampaigns.length,
+                authMethodUsed: successMethod
             }
         });
 
@@ -192,65 +210,6 @@ export default async function handler(req, res) {
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
-}
-
-// Helper function to convert date range to Voluum API format
-function convertDateRange(range) {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    let from, to;
-    
-    switch (range) {
-        case 'today':
-            from = to = formatDate(today);
-            break;
-        case 'yesterday':
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            from = to = formatDate(yesterday);
-            break;
-        case 'last_7_days':
-            const week = new Date(today);
-            week.setDate(week.getDate() - 7);
-            from = formatDate(week);
-            to = formatDate(today);
-            break;
-        case 'last_14_days':
-            const twoWeeks = new Date(today);
-            twoWeeks.setDate(twoWeeks.getDate() - 14);
-            from = formatDate(twoWeeks);
-            to = formatDate(today);
-            break;
-        case 'last_30_days':
-            const month = new Date(today);
-            month.setDate(month.getDate() - 30);
-            from = formatDate(month);
-            to = formatDate(today);
-            break;
-        case 'this_month':
-            from = formatDate(new Date(today.getFullYear(), today.getMonth(), 1));
-            to = formatDate(today);
-            break;
-        case 'last_month':
-            const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-            from = formatDate(lastMonth);
-            to = formatDate(lastMonthEnd);
-            break;
-        default:
-            // Default to yesterday
-            const defaultDay = new Date(today);
-            defaultDay.setDate(defaultDay.getDate() - 1);
-            from = to = formatDate(defaultDay);
-    }
-    
-    return { from, to };
-}
-
-// Helper function to format date for Voluum API
-function formatDate(date) {
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
 }
 
 // Helper function to detect traffic source from campaign name
