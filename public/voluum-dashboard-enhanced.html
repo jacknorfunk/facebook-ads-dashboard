@@ -191,9 +191,23 @@
 
         <!-- Connection Status -->
         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
-            <h3 class="font-semibold text-gray-900 mb-2">Voluum Connection Status</h3>
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="font-semibold text-gray-900">Voluum Connection Status</h3>
+                <button onclick="testConnection()" class="text-blue-500 hover:text-blue-600 text-sm font-medium">
+                    <i class="fas fa-stethoscope mr-1"></i>Test Connection
+                </button>
+            </div>
             <div id="connectionStatus" class="text-sm text-gray-600">
                 Ready to connect to Voluum API...
+            </div>
+            <div id="connectionHelp" class="hidden mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 class="font-semibold text-blue-800 mb-2">Troubleshooting Tips:</h4>
+                <ul class="text-sm text-blue-700 space-y-1">
+                    <li>• Check that VOLUME_KEY_ID and VOLUME_KEY are set in environment variables</li>
+                    <li>• Verify credentials in Voluum Dashboard → Settings → API Access</li>
+                    <li>• Try "Last 7 Days" or "Last 30 Days" for more data</li>
+                    <li>• <a href="/voluum-diagnostic.html" target="_blank" class="underline">Use the diagnostic tool</a> for detailed testing</li>
+                </ul>
             </div>
         </div>
 
@@ -553,11 +567,36 @@
         // Update connection status display for Voluum only
         function updateConnectionStatus(error = null) {
             const statusEl = document.getElementById('connectionStatus');
+            const helpEl = document.getElementById('connectionHelp');
             
             if (error) {
                 statusEl.innerHTML = `❌ Voluum: Connection Error - ${error.message}`;
+                helpEl.classList.remove('hidden');
             } else {
                 statusEl.innerHTML = `✅ Voluum: ${allCampaigns.length} campaigns loaded`;
+                helpEl.classList.add('hidden');
+            }
+        }
+
+        // Test connection function
+        async function testConnection() {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.innerHTML = `⏳ Testing Voluum connection...`;
+            
+            try {
+                const response = await fetch('/api/voluum/test-connection');
+                const data = await response.json();
+                
+                if (data.success) {
+                    statusEl.innerHTML = `✅ Connection test passed - ${data.test_results?.total_campaigns || 0} campaigns available`;
+                    document.getElementById('connectionHelp').classList.add('hidden');
+                } else {
+                    statusEl.innerHTML = `❌ Connection test failed - ${data.error}`;
+                    document.getElementById('connectionHelp').classList.remove('hidden');
+                }
+            } catch (error) {
+                statusEl.innerHTML = `❌ Test failed - ${error.message}`;
+                document.getElementById('connectionHelp').classList.remove('hidden');
             }
         }
 
