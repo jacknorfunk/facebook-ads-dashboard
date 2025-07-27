@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comprehensive Voluum API Diagnostics</title>
+    <title>Simple Voluum API Diagnostic</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .console {
@@ -13,268 +13,251 @@
             padding: 1rem;
             border-radius: 0.5rem;
             white-space: pre-wrap;
-            max-height: 400px;
+            max-height: 300px;
             overflow-y: auto;
             font-size: 12px;
         }
-        .success { border-left: 4px solid #10b981; }
-        .error { border-left: 4px solid #ef4444; }
-        .warning { border-left: 4px solid #f59e0b; }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            margin: 0.25rem;
+        }
+        .btn:hover { background: #2563eb; }
+        .btn-green { background: #10b981; }
+        .btn-green:hover { background: #059669; }
+        .btn-red { background: #ef4444; }
+        .btn-red:hover { background: #dc2626; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4">
-    <div class="max-w-7xl mx-auto">
-        <h1 class="text-3xl font-bold text-gray-900 mb-4">Comprehensive Voluum API Diagnostics</h1>
-        <p class="text-gray-600 mb-6">Deep testing of your Voluum API setup to find exactly what's wrong</p>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Simple Voluum API Diagnostic</h1>
         
-        <!-- Quick Action Buttons -->
-        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
-            <h2 class="text-lg font-semibold mb-3">Quick Actions</h2>
-            <div class="flex flex-wrap gap-3">
-                <button onclick="runAllTests()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                    Run All Tests
-                </button>
-                <button onclick="testDirectVoluum()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
-                    Test Direct Voluum
-                </button>
-                <button onclick="debugParameters()" class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700">
-                    Debug Parameters
-                </button>
-                <button onclick="clearAllLogs()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
-                    Clear All
-                </button>
-            </div>
+        <!-- Test 1: Environment -->
+        <div class="bg-white rounded-lg p-4 mb-4">
+            <h2 class="font-semibold mb-2">1. Environment Test</h2>
+            <button class="btn" onclick="testEnvironment()">Test Environment</button>
+            <div id="envResult" class="console mt-2">Click button to test...</div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Test 1: Environment Validation -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-semibold mb-4">1. Environment Validation</h2>
-                <button onclick="validateEnvironment()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 mb-4">
-                    Validate Setup
-                </button>
-                <div id="envConsole" class="console">Click to validate your environment setup...</div>
-            </div>
-
-            <!-- Test 2: Authentication Deep Test -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-semibold mb-4">2. Authentication Deep Test</h2>
-                <button onclick="deepAuthTest()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 mb-4">
-                    Deep Auth Test
-                </button>
-                <div id="authConsole" class="console">Click to test authentication thoroughly...</div>
-            </div>
-
-            <!-- Test 3: Voluum Profile Access -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-semibold mb-4">3. Voluum Profile Access</h2>
-                <button onclick="testProfile()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 mb-4">
-                    Test Profile API
-                </button>
-                <div id="profileConsole" class="console">Click to test profile access...</div>
-            </div>
-
-            <!-- Test 4: Campaign Endpoints -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-semibold mb-4">4. Campaign Endpoints</h2>
-                <button onclick="testCampaignEndpoints()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 mb-4">
-                    Test All Campaign APIs
-                </button>
-                <div id="campaignConsole" class="console">Click to test campaign endpoints...</div>
-            </div>
-
-            <!-- Test 5: Report Endpoint Analysis -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-semibold mb-4">5. Report Endpoint Analysis</h2>
-                <button onclick="analyzeReportEndpoint()" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 mb-4">
-                    Analyze Report API
-                </button>
-                <div id="reportConsole" class="console">Click to analyze report endpoints...</div>
-            </div>
-
-            <!-- Test 6: Parameter Testing -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-semibold mb-4">6. Parameter Testing</h2>
-                <button onclick="testParameters()" class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 mb-4">
-                    Test Parameters
-                </button>
-                <div id="paramConsole" class="console">Click to test different parameter combinations...</div>
-            </div>
+        <!-- Test 2: Authentication -->
+        <div class="bg-white rounded-lg p-4 mb-4">
+            <h2 class="font-semibold mb-2">2. Authentication Test</h2>
+            <button class="btn btn-green" onclick="testAuth()">Test Authentication</button>
+            <div id="authResult" class="console mt-2">Click button to test...</div>
         </div>
 
-        <!-- Summary Panel -->
-        <div class="mt-8 bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold mb-4">🎯 Diagnostic Summary</h2>
-            <div id="summary" class="text-gray-600">
-                Run tests above to get a comprehensive analysis of your Voluum API setup.
-            </div>
+        <!-- Test 3: Direct Voluum -->
+        <div class="bg-white rounded-lg p-4 mb-4">
+            <h2 class="font-semibold mb-2">3. Direct Voluum Test</h2>
+            <button class="btn btn-red" onclick="testDirectVoluum()">Test Direct Voluum</button>
+            <div id="directResult" class="console mt-2">Click button to test...</div>
         </div>
 
-        <!-- Debug Raw Data -->
-        <div class="mt-6 bg-gray-900 rounded-lg p-4">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="text-white font-medium">🔬 Raw Debug Data</h3>
-                <button onclick="clearDebug()" class="text-gray-400 hover:text-white text-sm">Clear</button>
-            </div>
-            <div id="rawDebug" class="text-green-400 font-mono text-xs max-h-48 overflow-y-auto"></div>
+        <!-- Test 4: Campaigns -->
+        <div class="bg-white rounded-lg p-4 mb-4">
+            <h2 class="font-semibold mb-2">4. Campaigns Test</h2>
+            <button class="btn" onclick="testCampaigns()">Test Campaigns</button>
+            <div id="campaignsResult" class="console mt-2">Click button to test...</div>
+        </div>
+
+        <!-- Summary -->
+        <div class="bg-white rounded-lg p-4">
+            <h2 class="font-semibold mb-2">Summary</h2>
+            <div id="summary" class="text-gray-600">Run tests above to see summary...</div>
         </div>
     </div>
 
     <script>
-        function log(consoleId, message) {
-            const console = document.getElementById(consoleId);
+        let authToken = null;
+
+        function log(elementId, message) {
+            const element = document.getElementById(elementId);
             const timestamp = new Date().toLocaleTimeString();
-            console.textContent += `[${timestamp}] ${message}\n`;
-            console.scrollTop = console.scrollHeight;
+            element.textContent += `[${timestamp}] ${message}\n`;
+            element.scrollTop = element.scrollHeight;
         }
 
-        function clear(consoleId) {
-            document.getElementById(consoleId).textContent = '';
+        function clear(elementId) {
+            document.getElementById(elementId).textContent = '';
         }
 
-        async function testNewEnvironment() {
-            clear('envConsole');
-            log('envConsole', '🧪 Testing NEW /api/test-env endpoint...');
+        async function testEnvironment() {
+            clear('envResult');
+            log('envResult', 'Testing environment...');
             
             try {
                 const response = await fetch('/api/test-env');
-                log('envConsole', `📡 Response status: ${response.status}`);
+                log('envResult', `Status: ${response.status}`);
                 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    log('envConsole', `❌ HTTP Error: ${response.status} - ${response.statusText}`);
-                    log('envConsole', `❌ Response: ${errorText.substring(0, 200)}...`);
-                    return;
-                }
-                
-                const data = await response.json();
-                log('envConsole', `📊 Environment Check:`);
-                log('envConsole', `   VOLUME_KEY_ID: ${data.environment_check?.volume_key_id_present ? '✅' : '❌'}`);
-                log('envConsole', `   VOLUME_KEY: ${data.environment_check?.volume_key_present ? '✅' : '❌'}`);
-                
-                if (data.api_test) {
-                    log('envConsole', `🔐 Voluum API Test:`);
-                    log('envConsole', `   Auth Status: ${data.api_test.auth_status || 'N/A'}`);
-                    log('envConsole', `   Auth Success: ${data.api_test.auth_success ? '✅' : '❌'}`);
-                    log('envConsole', `   Has Token: ${data.api_test.has_token ? '✅' : '❌'}`);
-                }
-                
-                if (data.success) {
-                    log('envConsole', '🎉 SUCCESS! Environment and API test passed!');
+                if (response.ok) {
+                    const data = await response.json();
+                    log('envResult', `Environment keys present: ${data.environment_check?.volume_key_id_present && data.environment_check?.volume_key_present}`);
+                    log('envResult', `Voluum auth test: ${data.api_test?.auth_success}`);
+                    log('envResult', data.success ? 'SUCCESS: Environment OK' : 'FAILED: Environment issues');
                 } else {
-                    log('envConsole', `❌ FAILED: ${data.error}`);
+                    log('envResult', 'FAILED: Environment test failed');
                 }
-                
             } catch (error) {
-                log('envConsole', `❌ Network Error: ${error.message}`);
-                log('envConsole', '💡 Check: Is /api/test-env.js uploaded correctly?');
+                log('envResult', `ERROR: ${error.message}`);
             }
+            updateSummary();
         }
 
-        async function testNewAuth() {
-            clear('authConsole');
-            log('authConsole', '🔐 Testing NEW /api/voluum/auth endpoint...');
+        async function testAuth() {
+            clear('authResult');
+            log('authResult', 'Testing authentication...');
             
             try {
                 const response = await fetch('/api/voluum/auth', {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                log('authResult', `Status: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.token) {
+                        authToken = data.token;
+                        log('authResult', 'SUCCESS: Got auth token');
+                        log('authResult', `Token: ${data.token.substring(0, 20)}...`);
+                    } else {
+                        log('authResult', `FAILED: ${data.error}`);
+                    }
+                } else {
+                    log('authResult', 'FAILED: Auth request failed');
+                }
+            } catch (error) {
+                log('authResult', `ERROR: ${error.message}`);
+            }
+            updateSummary();
+        }
+
+        async function testDirectVoluum() {
+            clear('directResult');
+            log('directResult', 'Testing direct Voluum API...');
+            
+            if (!authToken) {
+                log('directResult', 'No auth token. Run authentication test first.');
+                return;
+            }
+
+            // Test profile access
+            try {
+                log('directResult', 'Testing profile access...');
+                const profileResponse = await fetch('https://api.voluum.com/profile', {
                     headers: {
+                        'cwauth-token': authToken,
                         'Content-Type': 'application/json'
                     }
                 });
                 
-                log('authConsole', `📡 Response status: ${response.status}`);
+                log('directResult', `Profile status: ${profileResponse.status}`);
                 
-                const data = await response.json();
-                
-                if (data.success && data.token) {
-                    log('authConsole', '🎉 SUCCESS! Authentication working!');
-                    log('authConsole', `🎫 Token: ${data.token.substring(0, 20)}...`);
-                    log('authConsole', `⏰ Expires: ${data.expiresAt || 'N/A'}`);
+                if (profileResponse.ok) {
+                    log('directResult', 'SUCCESS: Profile accessible');
                 } else {
-                    log('authConsole', '❌ Authentication FAILED');
-                    log('authConsole', `❌ Error: ${data.error}`);
-                    if (data.response) {
-                        log('authConsole', `❌ Voluum Response: ${data.response.substring(0, 100)}...`);
-                    }
+                    log('directResult', `FAILED: Profile not accessible (${profileResponse.status})`);
                 }
-                
             } catch (error) {
-                log('authConsole', `❌ Network Error: ${error.message}`);
-                log('authConsole', '💡 Check: Is /api/voluum/auth.js uploaded correctly?');
+                log('directResult', `Profile ERROR: ${error.message}`);
             }
+
+            // Test campaigns list
+            try {
+                log('directResult', 'Testing campaigns list...');
+                const campaignsResponse = await fetch('https://api.voluum.com/campaign', {
+                    headers: {
+                        'cwauth-token': authToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('directResult', `Campaigns status: ${campaignsResponse.status}`);
+                
+                if (campaignsResponse.ok) {
+                    const campaigns = await campaignsResponse.json();
+                    log('directResult', `SUCCESS: Found ${campaigns.length} campaigns`);
+                } else {
+                    log('directResult', `FAILED: Campaigns not accessible (${campaignsResponse.status})`);
+                }
+            } catch (error) {
+                log('directResult', `Campaigns ERROR: ${error.message}`);
+            }
+
+            // Test reports
+            try {
+                log('directResult', 'Testing reports...');
+                const today = new Date().toISOString().split('T')[0];
+                const reportsResponse = await fetch(`https://api.voluum.com/report?from=${today}&to=${today}`, {
+                    headers: {
+                        'cwauth-token': authToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log('directResult', `Reports status: ${reportsResponse.status}`);
+                
+                if (reportsResponse.ok) {
+                    log('directResult', 'SUCCESS: Reports accessible');
+                } else {
+                    const errorText = await reportsResponse.text();
+                    log('directResult', `FAILED: Reports not accessible (${reportsResponse.status})`);
+                    log('directResult', `Error: ${errorText.substring(0, 100)}...`);
+                }
+            } catch (error) {
+                log('directResult', `Reports ERROR: ${error.message}`);
+            }
+
+            updateSummary();
         }
 
-        async function testNewCampaigns() {
-            clear('campaignsConsole');
-            log('campaignsConsole', '📊 Testing NEW /api/voluum/campaigns endpoint...');
+        async function testCampaigns() {
+            clear('campaignsResult');
+            log('campaignsResult', 'Testing our campaigns API...');
             
             try {
                 const response = await fetch('/api/voluum/campaigns?range=yesterday');
-                log('campaignsConsole', `📡 Response status: ${response.status}`);
+                log('campaignsResult', `Status: ${response.status}`);
                 
-                const data = await response.json();
-                
-                if (data.success) {
-                    log('campaignsConsole', '🎉 SUCCESS! Campaigns API working!');
-                    log('campaignsConsole', `📈 Found: ${data.campaigns?.length || 0} campaigns`);
-                    log('campaignsConsole', `📅 Date Range: ${data.dateRange?.from} to ${data.dateRange?.to}`);
-                    
-                    if (data.campaigns && data.campaigns.length > 0) {
-                        const first = data.campaigns[0];
-                        log('campaignsConsole', `🏆 First Campaign: ${first.name}`);
-                        log('campaignsConsole', `   Visits: ${first.visits}, Revenue: $${first.revenue}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        log('campaignsResult', `SUCCESS: Found ${data.campaigns?.length || 0} campaigns`);
+                    } else {
+                        log('campaignsResult', `FAILED: ${data.error}`);
                     }
                 } else {
-                    log('campaignsConsole', '❌ Campaigns FAILED');
-                    log('campaignsConsole', `❌ Error: ${data.error}`);
-                    if (data.response) {
-                        log('campaignsConsole', `❌ Voluum Response: ${data.response.substring(0, 100)}...`);
-                    }
+                    log('campaignsResult', 'FAILED: Campaigns API failed');
                 }
-                
             } catch (error) {
-                log('campaignsConsole', `❌ Network Error: ${error.message}`);
-                log('campaignsConsole', '💡 Check: Is /api/voluum/campaigns.js uploaded correctly?');
+                log('campaignsResult', `ERROR: ${error.message}`);
             }
+            updateSummary();
         }
 
-        async function testNewReports() {
-            clear('reportsConsole');
-            log('reportsConsole', '📊 Testing NEW /api/voluum/reports endpoint...');
-            
-            try {
-                const response = await fetch('/api/voluum/reports?range=yesterday&groupBy=campaign');
-                log('reportsConsole', `📡 Response status: ${response.status}`);
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    log('reportsConsole', '🎉 SUCCESS! Reports API working!');
-                    log('reportsConsole', `📊 Found: ${data.rows?.length || 0} rows`);
-                    log('reportsConsole', `📅 Date Range: ${data.dateRange?.from} to ${data.dateRange?.to}`);
-                    
-                    if (data.columns) {
-                        log('reportsConsole', `📋 Columns: ${data.columns.map(c => c.name).join(', ')}`);
-                    }
-                } else {
-                    log('reportsConsole', '❌ Reports FAILED');
-                    log('reportsConsole', `❌ Error: ${data.error}`);
-                    if (data.response) {
-                        log('reportsConsole', `❌ Voluum Response: ${data.response.substring(0, 100)}...`);
-                    }
-                }
-                
-            } catch (error) {
-                log('reportsConsole', `❌ Network Error: ${error.message}`);
-                log('reportsConsole', '💡 Check: Is /api/voluum/reports.js uploaded correctly?');
-            }
+        function updateSummary() {
+            const summary = document.getElementById('summary');
+            summary.innerHTML = `
+                <div class="text-sm">
+                    <p><strong>Diagnosis:</strong></p>
+                    <p>• Environment: ${document.getElementById('envResult').textContent.includes('SUCCESS') ? '✅ Working' : '❌ Issues'}</p>
+                    <p>• Authentication: ${document.getElementById('authResult').textContent.includes('SUCCESS') ? '✅ Working' : '❌ Issues'}</p>
+                    <p>• Direct Voluum: ${document.getElementById('directResult').textContent.includes('Profile accessible') ? '✅ Working' : '❌ Issues'}</p>
+                    <p>• Our API: ${document.getElementById('campaignsResult').textContent.includes('SUCCESS') ? '✅ Working' : '❌ Issues'}</p>
+                </div>
+            `;
         }
 
-        // Auto-run environment test
-        window.addEventListener('load', () => {
-            setTimeout(testNewEnvironment, 1000);
-        });
+        // Test on load
+        setTimeout(() => {
+            testEnvironment();
+        }, 1000);
     </script>
 </body>
 </html>
