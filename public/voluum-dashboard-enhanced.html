@@ -97,9 +97,9 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Spend Level:</label>
                 <select id="spendFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="all">All Spend</option>
-                    <option value="high">$500+</option>
-                    <option value="medium">$100-500</option>
-                    <option value="low">Under $100</option>
+                    <option value="high">High Spend ($500+)</option>
+                    <option value="medium">Medium Spend ($100-$500)</option>
+                    <option value="low">Low Spend ($0-$100)</option>
                 </select>
             </div>
             <div>
@@ -107,13 +107,13 @@
                 <select id="sortFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="revenue_desc">Revenue (High to Low)</option>
                     <option value="spend_desc">Spend (High to Low)</option>
-                    <option value="roi_desc">ROAS (High to Low)</option>
+                    <option value="roi_desc">ROI (High to Low)</option>
                     <option value="conversions_desc">Conversions (High to Low)</option>
                 </select>
             </div>
         </div>
 
-        <!-- Key Metrics -->
+        <!-- Metrics Cards - FIXED: NO HARDCODED VALUES -->
         <div class="grid grid-cols-6 gap-4 mb-6">
             <div class="metric-card">
                 <div class="flex items-center justify-between">
@@ -121,16 +121,16 @@
                         <p class="text-sm text-gray-600">Total Campaigns</p>
                         <p id="totalCampaigns" class="text-2xl font-bold text-blue-600">0</p>
                     </div>
-                    <i class="fas fa-bullhorn text-blue-500 text-xl"></i>
+                    <i class="fas fa-chart-bar text-blue-500 text-xl"></i>
                 </div>
             </div>
             <div class="metric-card">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm text-gray-600">Active Campaigns</p>
-                        <p id="activeCampaigns" class="text-2xl font-bold text-blue-600">0</p>
+                        <p id="activeCampaigns" class="text-2xl font-bold text-green-600">0</p>
                     </div>
-                    <i class="fas fa-play text-blue-500 text-xl"></i>
+                    <i class="fas fa-play text-green-500 text-xl"></i>
                 </div>
             </div>
             <div class="metric-card">
@@ -446,19 +446,19 @@
             
             filteredCampaigns = filtered;
             renderTable();
-            updateCampaignCount();
         }
 
         function renderTable() {
             const tbody = document.getElementById('campaignTableBody');
+            const countEl = document.getElementById('campaignCount');
+            
+            countEl.textContent = `Showing ${filteredCampaigns.length} of ${allCampaigns.length} active campaigns with visits`;
             
             if (filteredCampaigns.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="17" class="px-6 py-12 text-center text-gray-500">
-                            <i class="fas fa-info-circle text-4xl mb-4"></i>
-                            <div class="text-lg font-medium text-gray-700 mb-2">No Campaigns Found</div>
-                            <div class="text-sm">No campaigns match the current filters.</div>
+                        <td colspan="17" class="px-6 py-8 text-center text-gray-500">
+                            No campaigns match the current filters
                         </td>
                     </tr>
                 `;
@@ -466,65 +466,42 @@
             }
 
             tbody.innerHTML = filteredCampaigns.map(campaign => `
-                <tr class="campaign-row" onclick="viewCampaignDetails('${campaign.id}')">
+                <tr class="campaign-row hover:bg-gray-50" onclick="viewCampaignDetails('${campaign.id}')">
                     <td class="px-4 py-3">
-                        <div class="font-medium text-gray-900 truncate max-w-xs" title="${campaign.name}">
-                            ${campaign.name}
-                        </div>
+                        <div class="font-medium text-gray-900 text-sm">${campaign.name}</div>
                     </td>
+                    <td class="px-4 py-3 text-sm">${campaign.trafficSource}</td>
                     <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            ${campaign.trafficSource}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ${campaign.status}
                         </span>
                     </td>
-                    <td class="px-4 py-3">
-                        <span class="w-2 h-2 rounded-full inline-block mr-2 ${campaign.status === 'ACTIVE' ? 'status-active' : 'status-paused'}"></span>
-                        <span class="text-sm text-gray-600">${campaign.status}</span>
-                    </td>
-                    <td class="px-4 py-3 text-gray-900 font-medium">${campaign.visits.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-gray-900 font-medium">${campaign.conversions.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-green-600 font-medium">$${campaign.revenue.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-red-600 font-medium">$${campaign.spend.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-gray-900">$${campaign.cpa.toFixed(2)}</td>
-                    <td class="px-4 py-3 ${campaign.currentRoas >= 1 ? 'text-green-600' : 'text-red-600'} font-medium">
-                        ${campaign.currentRoas.toFixed(2)}x
-                    </td>
-                    <td class="px-4 py-3 ${campaign.roas7d >= 1 ? 'text-green-600' : 'text-red-600'} font-medium">
-                        ${campaign.roas7d.toFixed(2)}x
-                    </td>
-                    <td class="px-4 py-3 ${campaign.roas14d >= 1 ? 'text-green-600' : 'text-red-600'} font-medium">
-                        ${campaign.roas14d.toFixed(2)}x
-                    </td>
-                    <td class="px-4 py-3 ${campaign.roas30d >= 1 ? 'text-green-600' : 'text-red-600'} font-medium">
-                        ${campaign.roas30d.toFixed(2)}x
-                    </td>
-                    <td class="px-4 py-3 ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'} text-sm font-medium">
-                        ${campaign.trend}
-                    </td>
-                    <td class="px-4 py-3 text-gray-900">${campaign.cvr.toFixed(2)}%</td>
-                    <td class="px-4 py-3 text-gray-900">$${campaign.aov.toFixed(2)}</td>
-                    <td class="px-4 py-3 ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'} font-medium">
-                        $${campaign.profit.toLocaleString()}
-                    </td>
+                    <td class="px-4 py-3 text-sm">${(campaign.visits || 0).toLocaleString()}</td>
+                    <td class="px-4 py-3 text-sm">${(campaign.conversions || 0).toLocaleString()}</td>
+                    <td class="px-4 py-3 text-sm">$${(campaign.revenue || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm">$${(campaign.spend || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm">$${(campaign.cpa || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm ${campaign.currentRoas >= 1 ? 'text-green-600' : 'text-red-600'}">${(campaign.currentRoas || 0).toFixed(2)}x</td>
+                    <td class="px-4 py-3 text-sm">${(campaign.roas7d || 0).toFixed(2)}x</td>
+                    <td class="px-4 py-3 text-sm">${(campaign.roas14d || 0).toFixed(2)}x</td>
+                    <td class="px-4 py-3 text-sm">${(campaign.roas30d || 0).toFixed(2)}x</td>
+                    <td class="px-4 py-3 text-sm ${campaign.trend.startsWith('+') ? 'text-green-600' : 'text-red-600'}">${campaign.trend}</td>
+                    <td class="px-4 py-3 text-sm">${(campaign.cvr || 0).toFixed(2)}%</td>
+                    <td class="px-4 py-3 text-sm">$${(campaign.aov || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'}">$${(campaign.profit || 0).toFixed(2)}</td>
                     <td class="px-4 py-3">
                         <div class="flex items-center">
-                            <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
-                                <div class="quality-bar h-2 rounded-full" style="width: ${campaign.qualityScore}%"></div>
+                            <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                <div class="quality-bar h-2 rounded-full" style="width: ${campaign.qualityScore || 0}%"></div>
                             </div>
-                            <span class="text-xs text-gray-600">${campaign.qualityScore.toFixed(0)}</span>
+                            <span class="text-xs text-gray-600">${Math.round(campaign.qualityScore || 0)}</span>
                         </div>
                     </td>
                 </tr>
             `).join('');
         }
 
-        function updateCampaignCount() {
-            const count = filteredCampaigns.length;
-            const total = allCampaigns.length;
-            document.getElementById('campaignCount').textContent = 
-                `Showing ${count.toLocaleString()} of ${total.toLocaleString()} campaigns`;
-        }
-
+        // FIXED: Correct metrics calculation
         function updateMetrics() {
             const totalCampaigns = allCampaigns.length;
             const activeCampaignsCount = allCampaigns.filter(c => c.status === 'ACTIVE').length;
