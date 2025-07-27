@@ -1,4 +1,4 @@
-// /api/voluum/campaigns.js - FIXED VERSION
+// /api/voluum/campaigns.js - WORKING VERSION (REVERTED)
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     try {
         const { range = 'last7days' } = req.query;
         
-        // FIXED: Simple date calculation - let Voluum handle timezone with tz parameter
+        // Calculate date range
         const now = new Date();
         let dateFrom, dateTo;
         
@@ -34,18 +34,16 @@ export default async function handler(req, res) {
                 break;
         }
 
-        console.log(`📅 Date Range: ${dateFrom} to ${dateTo} (Voluum will use Eastern timezone)`);
+        console.log(`📅 Date Range: ${dateFrom} to ${dateTo}`);
 
-        // FIXED: Simpler Voluum API Request - let Voluum handle the timezone conversion
+        // Voluum API Request
         const volumeUrl = 'https://api.voluum.com/report';
         const volumeParams = new URLSearchParams({
-            // Let Voluum handle timezone conversion
             tz: 'America/New_York',
             dateFrom: dateFrom,
             dateTo: dateTo,
             groupBy: 'campaign',
-            // Get essential columns
-            columns: 'campaignId,campaignName,visits,conversions,revenue,cost'
+            columns: 'campaignId,campaignName,visits,conversions,revenue,cost,deleted'
         });
 
         const response = await fetch(`${volumeUrl}?${volumeParams}`, {
@@ -56,46 +54,31 @@ export default async function handler(req, res) {
             }
         });
 
-        console.log(`📡 Voluum API Request: ${volumeUrl}?${volumeParams}`);
-        console.log(`📡 Response status: ${response.status}`);
-
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`❌ Voluum API Error Response: ${errorText}`);
             throw new Error(`Voluum API error: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
-        console.log(`📊 Voluum API Response:`, data);
-        console.log(`📊 Campaigns returned: ${data.rows?.length || 0}`);
+        console.log(`📊 Voluum API Response: ${data.rows?.length || 0} campaigns returned`);
 
-        // FIXED: Process campaigns with better error handling
+        // Filter to only active campaigns with visits
         const campaigns = (data.rows || [])
-            .map(row => {
-                console.log(`Processing campaign: ${row.campaignName} - visits: ${row.visits}`);
-                return {
-                    id: row.campaignId || `campaign_${Math.random().toString(36).substr(2, 9)}`,
-                    name: row.campaignName || 'Unnamed Campaign',
-                    visits: parseInt(row.visits || 0),
-                    conversions: parseInt(row.conversions || 0),
-                    revenue: parseFloat(row.revenue || 0),
-                    cost: parseFloat(row.cost || 0),
-                    deleted: false // Since we're not requesting deleted field, assume active
-                };
-            })
+            .map(row => ({
+                id: row.campaignId || Math.random().toString(36).substr(2, 9),
+                name: row.campaignName || 'Unnamed Campaign',
+                visits: parseInt(row.visits || 0),
+                conversions: parseInt(row.conversions || 0),
+                revenue: parseFloat(row.revenue || 0),
+                cost: parseFloat(row.cost || 0),
+                deleted: row.deleted === true || row.deleted === 'true'
+            }))
             .filter(campaign => {
+                const isNotDeleted = !campaign.deleted;
                 const hasVisits = campaign.visits > 0;
-                
-                if (!hasVisits) {
-                    console.log(`🚫 Filtering out campaign with 0 visits: ${campaign.name}`);
-                }
-                
-                return hasVisits;
+                return isNotDeleted && hasVisits;
             });
 
-        console.log(`✅ Returning ${campaigns.length} campaigns with visits > 0 only`);
-        console.log(`📈 Total visits: ${campaigns.reduce((sum, c) => sum + c.visits, 0)}`);
-        console.log(`💰 Total revenue: ${campaigns.reduce((sum, c) => sum + c.revenue, 0)}`);
+        console.log(`✅ Returning ${campaigns.length} active campaigns with visits`);
 
         return res.status(200).json({
             success: true,
@@ -105,8 +88,7 @@ export default async function handler(req, res) {
                 dateFrom,
                 dateTo,
                 timezone: 'America/New_York',
-                totalCampaigns: campaigns.length,
-                filterApplied: 'visits > 0 AND not deleted'
+                totalCampaigns: campaigns.length
             }
         });
 
