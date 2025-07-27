@@ -86,25 +86,25 @@ export default async function handler(req, res) {
 
         console.log(`📊 Raw report data: ${rows.length} rows found`);
 
-        // Step 4: Transform campaigns with better error handling for empty data
+        // Step 4: Transform campaigns - Voluum returns OBJECTS, not arrays
         const campaigns = rows.map((row, index) => {
             // Log the actual raw data structure
             if (index < 3) {
                 console.log(`Raw row ${index}:`, row);
-                console.log(`Raw row ${index} type:`, typeof row);
-                console.log(`Raw row ${index} length:`, Array.isArray(row) ? row.length : 'not array');
+                console.log(`Raw row ${index} keys:`, Object.keys(row || {}));
             }
 
+            // Voluum returns objects with many fields, not arrays
             const campaign = {
-                id: (row && row[0]) ? row[0] : `campaign_${index}`,
-                name: (row && row[1]) ? row[1] : `Raw Row ${index}: ${JSON.stringify(row)}`, // Show actual data for debugging
-                visits: (row && row[2]) ? parseInt(row[2]) : 0,
-                conversions: (row && row[3]) ? parseInt(row[3]) : 0,
-                revenue: (row && row[4]) ? parseFloat(row[4]) : 0,
-                cost: (row && row[5]) ? parseFloat(row[5]) : 0,
-                clicks: (row && row[6]) ? parseInt(row[6]) : 0,
-                status: 'ACTIVE',
-                trafficSource: 'Voluum'
+                id: row?.campaignId || row?.id || `campaign_${index}`,
+                name: row?.campaignName || row?.name || `Campaign ${index}`,
+                visits: parseInt(row?.visits || row?.uniqueVisits || 0),
+                conversions: parseInt(row?.conversions || row?.allConversions || 0),
+                revenue: parseFloat(row?.revenue || row?.allConversionsRevenue || 0),
+                cost: parseFloat(row?.cost || row?.totalCost || 0),
+                clicks: parseInt(row?.clicks || row?.totalClicks || 0),
+                status: row?.status || 'ACTIVE',
+                trafficSource: determineTrafficSource(row?.campaignName || row?.name || '')
             };
 
             // Calculate metrics
