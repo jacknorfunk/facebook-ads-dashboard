@@ -46,7 +46,7 @@ export default async function handler(req, res) {
             startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         }
 
-        // Step 3: Get report data
+        // Step 3: Try multiple approaches to get ACTIVE campaigns
         const columns = [
             'campaignId',
             'campaignName', 
@@ -57,7 +57,14 @@ export default async function handler(req, res) {
             'clicks'
         ].join(',');
 
-        const reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=${columns}&tz=UTC`;
+        let reportData;
+        let reportUrl;
+
+        // Approach 1: Try with a wider date range to get more recent activity
+        const widerStartDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // Last 90 days
+        reportUrl = `https://api.voluum.com/report?from=${widerStartDate}&to=${endDate}&groupBy=campaign&columns=${columns}&tz=UTC`;
+        
+        console.log('🔄 Trying wider date range (90 days) for active campaigns:', reportUrl);
         
         const reportResponse = await fetch(reportUrl, {
             headers: {
@@ -74,12 +81,12 @@ export default async function handler(req, res) {
             });
         }
 
-        const reportData = await reportResponse.json();
+        reportData = await reportResponse.json();
         const rows = reportData.rows || [];
 
         console.log(`📊 Raw report data: ${rows.length} rows found`);
 
-        // Step 4: Transform ALL campaigns (NO FILTERING YET)
+        // Step 4: Transform campaigns and prioritize those with recent activity
         const campaigns = rows.map((row, index) => {
             const campaign = {
                 id: row[0] || `campaign_${index}`,
@@ -89,7 +96,7 @@ export default async function handler(req, res) {
                 revenue: parseFloat(row[4]) || 0,
                 cost: parseFloat(row[5]) || 0,
                 clicks: parseInt(row[6]) || 0,
-                status: 'ACTIVE',
+                status: 'ACTIVE', // Assume active if in recent data
                 trafficSource: determineTrafficSource(row[1] || '')
             };
 
@@ -114,16 +121,26 @@ export default async function handler(req, res) {
             return campaign;
         });
 
-        // Step 5: MUCH LESS AGGRESSIVE FILTERING
-        // Only filter out campaigns that are completely empty (all fields are 0 or empty)
-        const activeCampaigns = campaigns.filter(campaign => {
-            // Keep campaign if it has ANY of these:
-            const hasName = campaign.name && campaign.name !== 'Unknown Campaign';
-            const hasAnyMetric = campaign.visits > 0 || campaign.clicks > 0 || campaign.conversions > 0 || campaign.revenue > 0 || campaign.cost > 0;
-            
-            // Only exclude if it's completely empty
-            return hasName || hasAnyMetric;
-        });
+        // Step 5: Filter for campaigns with ANY activity (including very recent)
+        // Sort by total activity to get most active campaigns first
+        const campaignsWithActivity = campaigns
+            .filter(campaign => {
+                const hasActivity = campaign.visits > 0 || campaign.clicks > 0 || campaign.conversions > 0 || campaign.revenue > 0 || campaign.cost > 0;
+                const hasName = campaign.name && campaign.name !== 'Unknown Campaign';
+                return hasActivity || hasName;
+            })
+            .sort((a, b) => {
+                // Sort by total activity (visits + clicks + conversions)
+                const activityA = (a.visits || 0) + (a.clicks || 0) + (a.conversions || 0);
+                const activityB = (b.visits || 0) + (b.clicks || 0) + (b.conversions || 0);
+                return activityB - activityA;
+            })
+            .slice(0, 100); // Take top 100 most active campaigns
+
+        console.log(`🎯 Found ${campaignsWithActivity.length} campaigns with activity (from ${campaigns.length} total)`);
+
+        // If still no campaigns with activity, show ALL campaigns (even with zero metrics)
+        const activeCampaigns = campaignsWithActivity.length > 0 ? campaignsWithActivity : campaigns.slice(0, 50);
 
         console.log(`🎯 After filtering: ${activeCampaigns.length} campaigns (from ${campaigns.length} total)`);
 
@@ -145,11 +162,18 @@ export default async function handler(req, res) {
             debug_info: {
                 total_found: campaigns.length,
                 active_campaigns: activeCampaigns.length,
-                filtered_out: filteredOut,
-                date_range: `${startDate} to ${endDate}`,
+                date_range_used: `${widerStartDate} to ${endDate} (90 days)`,
+                original_date_range: `${startDate} to ${endDate}`,
                 api_endpoint: 'report',
                 columns_requested: columns,
-                sample_raw_data: campaigns.slice(0, 2), // Show first 2 campaigns for debugging
+                sample_raw_data: campaigns.slice(0, 3), // Show first 3 campaigns for debugging
+                top_campaigns_by_activity: activeCampaigns.slice(0, 5).map(c => ({
+                    name: c.name,
+                    visits: c.visits,
+                    conversions: c.conversions,
+                    revenue: c.revenue,
+                    cost: c.cost
+                })),
                 timestamp: new Date().toISOString()
             }
         });
