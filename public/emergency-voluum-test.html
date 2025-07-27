@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Voluum Data Test - NO CACHE</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: #dc2626;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .debug-section {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric {
+            background: #e5e7eb;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        .metric-label {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .campaign-list {
+            margin-top: 20px;
+        }
+        .campaign-item {
+            background: #f9fafb;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #3b82f6;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #6b7280;
+        }
+        .error {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #fecaca;
+        }
+        .api-response {
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .refresh-btn {
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .refresh-btn:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 EMERGENCY VOLUUM DATA TEST</h1>
+            <p>This page bypasses ALL caching and shows LIVE API data only</p>
+        </div>
+
+        <button class="refresh-btn" onclick="loadFreshData()">🔄 Force Refresh (No Cache)</button>
+
+        <div id="loading" class="loading">
+            🔍 Loading fresh data from Voluum API...
+        </div>
+
+        <div id="results" style="display: none;">
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value" id="totalCampaigns">0</div>
+                    <div class="metric-label">Total Campaigns</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="activeCampaigns">0</div>
+                    <div class="metric-label">Active Campaigns</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="totalRevenue">$0</div>
+                    <div class="metric-label">Total Revenue</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="totalVisits">0</div>
+                    <div class="metric-label">Total Visits</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="totalConversions">0</div>
+                    <div class="metric-label">Total Conversions</div>
+                </div>
+            </div>
+
+            <div class="debug-section">
+                <h3>🔍 Debug Information</h3>
+                <div id="debugInfo"></div>
+            </div>
+
+            <div class="debug-section">
+                <h3>📡 Raw API Response</h3>
+                <div class="api-response" id="rawResponse"></div>
+            </div>
+
+            <div class="campaign-list">
+                <h3>📋 Campaign List</h3>
+                <div id="campaignList"></div>
+            </div>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <script>
+        let isLoading = false;
+
+        async function loadFreshData() {
+            if (isLoading) return;
+            isLoading = true;
+
+            const loadingEl = document.getElementById('loading');
+            const resultsEl = document.getElementById('results');
+            const errorEl = document.getElementById('error');
+
+            // Show loading, hide others
+            loadingEl.style.display = 'block';
+            resultsEl.style.display = 'none';
+            errorEl.style.display = 'none';
+
+            try {
+                // Force fresh data with timestamp
+                const timestamp = Date.now();
+                const url = `/api/voluum/campaigns?range=last7days&_t=${timestamp}`;
+                
+                console.log('🔍 Making API call:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('📡 Raw API Response:', data);
+
+                // Update raw response display
+                document.getElementById('rawResponse').textContent = JSON.stringify(data, null, 2);
+
+                if (data.success) {
+                    const campaigns = data.campaigns || [];
+                    
+                    // Calculate totals
+                    let totalRevenue = 0;
+                    let totalVisits = 0;
+                    let totalConversions = 0;
+                    let activeCampaigns = 0;
+
+                    campaigns.forEach(campaign => {
+                        totalRevenue += campaign.revenue || 0;
+                        totalVisits += campaign.visits || 0;
+                        totalConversions += campaign.conversions || 0;
+                        if (!campaign.deleted) activeCampaigns++;
+                    });
+
+                    // Update metrics
+                    document.getElementById('totalCampaigns').textContent = campaigns.length;
+                    document.getElementById('activeCampaigns').textContent = activeCampaigns;
+                    document.getElementById('totalRevenue').textContent = `$${totalRevenue.toLocaleString()}`;
+                    document.getElementById('totalVisits').textContent = totalVisits.toLocaleString();
+                    document.getElementById('totalConversions').textContent = totalConversions.toLocaleString();
+
+                    // Update debug info
+                    const debugInfo = document.getElementById('debugInfo');
+                    debugInfo.innerHTML = `
+                        <p><strong>API Endpoint:</strong> ${url}</p>
+                        <p><strong>Response Time:</strong> ${new Date().toLocaleString()}</p>
+                        <p><strong>Data Source:</strong> ${data.debug_info?.data_source || 'Unknown'}</p>
+                        <p><strong>Date Range:</strong> ${data.debug_info?.date_range_used || 'Unknown'}</p>
+                        <p><strong>Timezone:</strong> ${data.debug_info?.timezone_used || 'Unknown'}</p>
+                        <p><strong>Total Found:</strong> ${data.debug_info?.total_found || 0}</p>
+                        <p><strong>After Filtering:</strong> ${data.debug_info?.active_campaigns || 0}</p>
+                    `;
+
+                    // Update campaign list
+                    const campaignList = document.getElementById('campaignList');
+                    if (campaigns.length === 0) {
+                        campaignList.innerHTML = '<p>No campaigns found</p>';
+                    } else {
+                        campaignList.innerHTML = campaigns.slice(0, 10).map(campaign => `
+                            <div class="campaign-item">
+                                <strong>${campaign.name}</strong><br>
+                                Revenue: $${(campaign.revenue || 0).toFixed(2)} | 
+                                Visits: ${campaign.visits || 0} | 
+                                Conversions: ${campaign.conversions || 0} | 
+                                Deleted: ${campaign.deleted ? 'Yes' : 'No'}
+                            </div>
+                        `).join('');
+                    }
+
+                    resultsEl.style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'API returned success: false');
+                }
+
+            } catch (error) {
+                console.error('❌ Error loading data:', error);
+                errorEl.innerHTML = `
+                    <h3>❌ Error Loading Data</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+                    <p>Check browser console for more details.</p>
+                `;
+                errorEl.style.display = 'block';
+            } finally {
+                loadingEl.style.display = 'none';
+                isLoading = false;
+            }
+        }
+
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', loadFreshData);
+    </script>
+</body>
+</html>
