@@ -175,69 +175,95 @@ export default async function handler(req, res) {
 
         console.log('✅ Authentication successful, token received');
 
-        // Step 4: Test campaigns endpoint
-        console.log('Testing campaigns endpoint...');
+        // Step 4: Test campaigns endpoint with multiple methods
+        console.log('Testing campaigns endpoint with multiple authentication methods...');
         let campaignsResponse;
         let campaignsError = null;
+        let successMethod = null;
 
-        try {
-            campaignsResponse = await fetch('https://api.voluum.com/campaign', {
-                method: 'GET',
+        // Try different authentication methods
+        const authMethods = [
+            {
+                name: 'cwauth-token',
                 headers: {
                     'cwauth-token': token,
                     'Content-Type': 'application/json'
-                },
-                signal: AbortSignal.timeout(10000)
-            });
-        } catch (fetchError) {
-            campaignsError = fetchError;
-            console.error('Campaigns fetch error:', fetchError.message);
-        }
-
-        if (campaignsError) {
-            return res.status(200).json({
-                success: false,
-                step: 'campaigns_fetch',
-                error: 'Failed to fetch campaigns',
-                details: campaignsError.message,
-                solution: [
-                    '1. Network connectivity issue',
-                    '2. Try again in a few minutes',
-                    '3. Check Voluum API status'
-                ],
-                debug_info: {
-                    error_type: campaignsError.name,
-                    error_message: campaignsError.message,
-                    auth_success: true
                 }
-            });
+            },
+            {
+                name: 'Bearer token',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            },
+            {
+                name: 'Query parameter',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                url: `https://api.voluum.com/campaign?access_token=${token}`
+            }
+        ];
+
+        for (const method of authMethods) {
+            try {
+                console.log(`Trying ${method.name} method...`);
+                const url = method.url || 'https://api.voluum.com/campaign';
+                
+                campaignsResponse = await fetch(url, {
+                    method: 'GET',
+                    headers: method.headers,
+                    signal: AbortSignal.timeout(10000)
+                });
+
+                console.log(`${method.name} status:`, campaignsResponse.status);
+
+                if (campaignsResponse.ok) {
+                    successMethod = method.name;
+                    console.log(`✅ Success with ${method.name}!`);
+                    break;
+                } else {
+                    const errorText = await campaignsResponse.text();
+                    console.log(`${method.name} failed:`, campaignsResponse.status, errorText.substring(0, 100));
+                }
+            } catch (fetchError) {
+                console.log(`${method.name} error:`, fetchError.message);
+                if (!campaignsError) campaignsError = fetchError;
+            }
         }
 
-        console.log('Campaigns response status:', campaignsResponse.status);
-
-        if (!campaignsResponse.ok) {
-            const campaignsErrorText = await campaignsResponse.text();
+        if (!campaignsResponse || !campaignsResponse.ok) {
+        if (!campaignsResponse || !campaignsResponse.ok) {
+            const finalError = campaignsError || new Error('All authentication methods failed');
+            
             return res.status(200).json({
                 success: false,
                 step: 'campaigns_access',
-                error: 'Failed to access campaigns',
-                status_code: campaignsResponse.status,
-                details: campaignsErrorText.substring(0, 200),
+                error: 'Failed to access campaigns with any authentication method',
+                methods_tried: authMethods.map(m => m.name),
+                last_status: campaignsResponse?.status || 'Network Error',
+                details: finalError.message,
                 solution: [
-                    '1. Check API permissions in Voluum',
-                    '2. Verify your account has access to campaigns',
-                    '3. Try regenerating API credentials',
-                    '4. Contact Voluum support'
+                    '1. Check API permissions in Voluum Dashboard → Settings → API Access',
+                    '2. Ensure "Read Campaigns" permission is enabled',
+                    '3. Try regenerating your API credentials',
+                    '4. Verify your Voluum account is active and not suspended',
+                    '5. Contact Voluum support for API access issues'
                 ],
                 debug_info: {
-                    status: campaignsResponse.status,
-                    response_preview: campaignsErrorText.substring(0, 200)
+                    auth_success: true,
+                    token_received: !!token,
+                    methods_tested: authMethods.length,
+                    final_error: finalError.message
                 }
             });
         }
 
+        console.log(`Campaigns response status: ${campaignsResponse.status} using ${successMethod}`);
+
         const campaignsData = await campaignsResponse.json();
-        console.log(`✅ Successfully fetched ${campaignsData.length || 0} campaigns`);
+        console.log(`✅ Successfully fetched ${campaignsData.length || 0} campaigns using ${successMethod}`);
 
         // Step 5: Success response
         return res.status(200).json({
@@ -246,17 +272,20 @@ export default async function handler(req, res) {
             test_results: {
                 authentication: 'PASSED',
                 campaigns_access: 'PASSED',
-                total_campaigns: Array.isArray(campaignsData) ? campaignsData.length : 0
+                total_campaigns: Array.isArray(campaignsData) ? campaignsData.length : 0,
+                auth_method_used: successMethod
             },
             env_check: envCheck,
             debug_info: {
                 auth_success: true,
                 token_received: !!token,
                 campaigns_count: Array.isArray(campaignsData) ? campaignsData.length : 0,
-                api_endpoints_working: true
+                api_endpoints_working: true,
+                successful_auth_method: successMethod
             },
             next_steps: [
                 '✅ Voluum API is working correctly',
+                `✅ Using ${successMethod} authentication method`,
                 '✅ You can now use the dashboard',
                 'If you still see errors, try refreshing the page'
             ]
