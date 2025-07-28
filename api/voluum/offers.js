@@ -74,7 +74,8 @@ export default async function handler(req, res) {
 
         // CRITICAL FIX 2: Get campaign-specific offers using official Voluum API structure
         // Following the official documentation: https://api.voluum.com/report?campaignId={campaignId}&...
-        const reportUrl = `https://api.voluum.com/report?campaignId=${campaignId}&from=${startDate}T00:00:00.000Z&to=${endDate}T23:59:59.999Z&tz=America/New_York&groupBy=offer&limit=1000`;
+        // IMPORTANT: Voluum API requires times rounded to nearest hour (no minutes/seconds)
+        const reportUrl = `https://api.voluum.com/report?campaignId=${campaignId}&from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&limit=1000`;
         
         console.log(`🎯 Fetching offers for campaign ${campaignId}:`, reportUrl);
 
