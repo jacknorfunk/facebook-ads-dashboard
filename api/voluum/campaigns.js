@@ -66,7 +66,8 @@ export default async function handler(req, res) {
 
         // CRITICAL FIX: Use official Voluum API structure for campaign reporting
         // Following the official documentation: https://api.voluum.com/report?...
-        let reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00.000Z&to=${endDate}T23:59:59.999Z&tz=America/New_York&groupBy=campaign&limit=1000`;
+        // IMPORTANT: Voluum API requires times rounded to nearest hour (no minutes/seconds)
+        let reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
         
         // Add optional filters
         if (os) {
