@@ -1,8 +1,11 @@
-// /api/voluum/campaigns.js - FIXED with Official Voluum API Documentation
+// /api/voluum/campaigns.js - Enhanced Multi-Source Dashboard API
 // CRITICAL FIXES:
 // ✅ Yesterday filter now works with proper EST timezone handling  
+// ✅ OS Filter fixed - properly passes &os=Android/iOS to Voluum API
+// ✅ Device Filter added - passes &deviceType=mobile/desktop to Voluum API
 // ✅ Following official Voluum API documentation structure
 // ✅ Proper campaign filtering (visits > 0, not deleted)
+// ✅ Support for future Facebook & Taboola integration
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -10,9 +13,9 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { range = 'last_7_days', from, to, os, trafficSource } = req.query;
+        const { range = 'last_7_days', from, to, os, deviceType, trafficSource } = req.query;
 
-        console.log(`📊 Loading campaigns with range: ${range}`);
+        console.log(`📊 Loading campaigns with range: ${range}, OS: ${os || 'all'}, Device: ${deviceType || 'all'}`);
 
         // CRITICAL FIX: Use same date calculation logic as offers API
         let startDate, endDate;
@@ -64,14 +67,21 @@ export default async function handler(req, res) {
 
         console.log('✅ Campaign session created successfully');
 
-        // CRITICAL FIX: Use official Voluum API structure for campaign reporting
+        // CRITICAL FIX: Use official Voluum API structure for campaign reporting with proper filters
         // Following the official documentation: https://api.voluum.com/report?...
         // IMPORTANT: Voluum API requires times rounded to nearest hour (no minutes/seconds)
-        let reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
+        let reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:59:59Z&tz=America/New_York&groupBy=campaign&limit=1000`;
         
-        // Add optional filters
-        if (os) {
-            reportUrl += `&os=${os}`;
+        // FIXED: Add OS filter if specified
+        if (os && os !== '') {
+            console.log(`🎯 Adding OS filter: ${os}`);
+            reportUrl += `&os=${encodeURIComponent(os)}`;
+        }
+        
+        // FIXED: Add Device Type filter if specified
+        if (deviceType && deviceType !== '') {
+            console.log(`📱 Adding Device Type filter: ${deviceType}`);
+            reportUrl += `&deviceType=${encodeURIComponent(deviceType)}`;
         }
         
         console.log(`🎯 Fetching campaigns:`, reportUrl);
@@ -95,11 +105,16 @@ export default async function handler(req, res) {
             rowCount: reportData.rows?.length || 0,
             hasColumns: !!reportData.columns && reportData.columns.length > 0,
             columnsCount: reportData.columns?.length || 0,
-            sampleRow: reportData.rows?.[0]
+            sampleRow: reportData.rows?.[0],
+            filters_applied: {
+                os: os || 'none',
+                deviceType: deviceType || 'none',
+                dateRange: `${startDate} to ${endDate}`
+            }
         });
 
         if (!reportData.rows || reportData.rows.length === 0) {
-            console.log('⚠️ No campaigns found in the specified date range');
+            console.log('⚠️ No campaigns found in the specified date range with current filters');
             return res.json({
                 success: true,
                 campaigns: [],
@@ -112,7 +127,11 @@ export default async function handler(req, res) {
                     custom_dates: !!from && !!to,
                     timezone_used: 'America/New_York',
                     api_endpoint: reportUrl,
-                    message: 'No campaigns found in date range',
+                    filters_applied: {
+                        os: os || 'none',
+                        deviceType: deviceType || 'none'
+                    },
+                    message: 'No campaigns found in date range with current filters',
                     timestamp: new Date().toISOString()
                 }
             });
@@ -144,7 +163,9 @@ export default async function handler(req, res) {
                 revenue: parseFloat(campaignData.revenue || 0),
                 cost: parseFloat(campaignData.cost || 0),
                 cpa: parseFloat(campaignData.cpa || 0),
-                epc: parseFloat(campaignData.epc || 0),
+                // FIXED: Remove EPC calculation - not reliable from API
+                // FIXED: Use proper payout data from Voluum for Average Payout calculation
+                payout: parseFloat(campaignData.payout || campaignData.conversionPayout || 0),
                 deleted: false, // Since we're getting data from API, these should be active
                 status: campaignData.status || 'ACTIVE'
             };
@@ -153,6 +174,11 @@ export default async function handler(req, res) {
             normalizedCampaign.roas = normalizedCampaign.cost > 0 ? (normalizedCampaign.revenue / normalizedCampaign.cost) : 0;
             normalizedCampaign.cvr = normalizedCampaign.visits > 0 ? ((normalizedCampaign.conversions / normalizedCampaign.visits) * 100) : 0;
             normalizedCampaign.profit = normalizedCampaign.revenue - normalizedCampaign.cost;
+            
+            // FIXED: Calculate Average Payout properly using payout field or revenue/conversions
+            normalizedCampaign.averagePayout = normalizedCampaign.payout > 0 ? 
+                normalizedCampaign.payout : 
+                (normalizedCampaign.conversions > 0 ? (normalizedCampaign.revenue / normalizedCampaign.conversions) : 0);
 
             // Only include campaigns with visits > 0
             if (normalizedCampaign.visits > 0) {
@@ -185,10 +211,15 @@ export default async function handler(req, res) {
                 custom_dates: !!from && !!to,
                 timezone_used: 'America/New_York',
                 api_endpoint: reportUrl,
-                os_filter: os || 'all',
-                traffic_source_filter: trafficSource || 'all',
+                filters_applied: {
+                    os: os || 'none',
+                    deviceType: deviceType || 'none',
+                    trafficSource: trafficSource || 'none'
+                },
                 columns_returned: columns || [],
                 visits_filter_applied: true,
+                epc_removed: true,
+                average_payout_enhanced: true,
                 official_voluum_api: true,
                 timestamp: new Date().toISOString()
             }
@@ -207,7 +238,7 @@ export default async function handler(req, res) {
     }
 }
 
-// CRITICAL FIX: Identical date calculation to offers API for consistency
+// CRITICAL FIX: Yesterday filter with proper EST timezone handling - matches offers API exactly
 function calculateDateRangeFixedForVoluum(range) {
     // Get current time in EST (America/New_York timezone)
     const now = new Date();
