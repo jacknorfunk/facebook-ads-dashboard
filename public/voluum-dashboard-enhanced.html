@@ -25,17 +25,35 @@
         .dark-mode .text-gray-500 { color: #9ca3af; }
         .dark-mode .border-gray-200 { border-color: #374151; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
-        .modal-content { background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 80vh; overflow-y: auto; }
+        .modal-content { background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 95%; max-width: 1400px; max-height: 85vh; overflow-y: auto; }
         .toast { position: fixed; top: 20px; right: 20px; z-index: 1001; padding: 12px 20px; border-radius: 6px; color: white; opacity: 0; transition: opacity 0.3s; }
         .toast.show { opacity: 1; }
         .toast.success { background-color: #10b981; }
         .toast.error { background-color: #ef4444; }
+        
+        /* Fullscreen responsive fixes */
+        .main-container { min-width: 100vw; max-width: 100vw; padding: 0 1rem; }
+        .table-container { overflow-x: auto; max-width: 100%; }
+        .campaign-table { min-width: 1600px; }
+        
+        /* Mobile responsive improvements */
+        @media (max-width: 768px) {
+            .main-container { padding: 0 0.5rem; }
+            .grid-cols-4 { grid-template-columns: repeat(2, 1fr); }
+            .campaign-table { min-width: 1200px; }
+        }
+        
+        /* Offer detail styles */
+        .offer-detail-row { background-color: #f8fafc; border-left: 4px solid #3b82f6; }
+        .offer-table { font-size: 0.9rem; }
+        .offer-table th { padding: 8px 12px; }
+        .offer-table td { padding: 6px 12px; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <!-- Header -->
     <div class="bg-gradient-to-r from-purple-600 to-blue-600 shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="main-container">
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center">
                     <h1 class="text-2xl font-bold text-white flex items-center">
@@ -63,7 +81,7 @@
     </div>
 
     <!-- Dashboard Cards -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="main-container py-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
                 <div class="flex items-center">
@@ -79,11 +97,11 @@
             <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
                 <div class="flex items-center">
                     <div class="p-3 bg-green-100 rounded-lg">
-                        <i class="fas fa-pound-sign text-green-600 text-xl"></i>
+                        <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
                     </div>
                     <div class="ml-4">
                         <h3 class="text-sm font-medium text-gray-500">Total Revenue</h3>
-                        <p id="totalRevenue" class="text-2xl font-bold text-gray-900">£0</p>
+                        <p id="totalRevenue" class="text-2xl font-bold text-gray-900">$0</p>
                     </div>
                 </div>
             </div>
@@ -153,7 +171,7 @@
                         <option value="all">All Campaigns</option>
                         <option value="profitable">Profitable Only (ROAS ≥ 1.0)</option>
                         <option value="low_roas">Low ROAS (< 1.0)</option>
-                        <option value="high_spend">High Spend (> £500)</option>
+                        <option value="high_spend">High Spend (> $500)</option>
                         <option value="declining">Declining Performance</option>
                     </select>
                 </div>
@@ -161,7 +179,7 @@
                 <!-- Min Spend -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Min Spend</label>
-                    <input type="number" id="minSpendFilter" placeholder="£0" min="0" step="10"
+                    <input type="number" id="minSpendFilter" placeholder="$0" min="0" step="10"
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                 </div>
 
@@ -223,8 +241,8 @@
                 </div>
             </div>
             
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+            <div class="table-container">
+                <table class="campaign-table min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -288,6 +306,7 @@
         let filteredCampaigns = [];
         let pinnedCampaigns = new Set();
         let isDarkMode = false;
+        let expandedCampaigns = new Set();
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -405,11 +424,11 @@
             const aov = conversions > 0 ? revenue / conversions : 0;
             const profit = revenue - spend;
             
-            // Generate performance trends (simulate historical data)
-            const roas7d = currentRoas * (0.8 + Math.random() * 0.4); // Random variation
+            // Generate performance trends (simulate historical data for now)
+            const roas7d = currentRoas * (0.8 + Math.random() * 0.4);
             const roas30d = currentRoas * (0.7 + Math.random() * 0.6);
             const roasChange7d = currentRoas > 0 ? ((currentRoas - roas7d) / roas7d) * 100 : 0;
-            const cvaChange7d = Math.random() * 40 - 20; // -20% to +20%
+            const cvrChange7d = Math.random() * 40 - 20; // -20% to +20%
             
             // Detect alerts
             const alerts = [];
@@ -436,10 +455,11 @@
                 roas7d,
                 roas30d,
                 roasChange7d,
-                cvrChange7d: cvaChange7d,
+                cvrChange7d,
                 alerts,
                 isPinned: pinnedCampaigns.has(campaign.id),
-                device: Math.random() > 0.7 ? 'desktop' : 'mobile' // Simulate device data
+                device: Math.random() > 0.7 ? 'desktop' : 'mobile',
+                offers: [] // Will be populated when expanded
             };
         }
 
@@ -463,7 +483,7 @@
             const avgRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
             
             document.getElementById('totalCampaigns').textContent = allCampaigns.length;
-            document.getElementById('totalRevenue').textContent = `£${totalRevenue.toLocaleString()}`;
+            document.getElementById('totalRevenue').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             document.getElementById('totalConversions').textContent = totalConversions.toLocaleString();
             document.getElementById('avgRoas').textContent = `${avgRoas.toFixed(1)}x`;
         }
@@ -574,7 +594,14 @@
                 return;
             }
             
-            tbody.innerHTML = filteredCampaigns.map(campaign => renderCampaignRow(campaign)).join('');
+            let html = '';
+            filteredCampaigns.forEach(campaign => {
+                html += renderCampaignRow(campaign);
+                if (expandedCampaigns.has(campaign.id) && campaign.offers && campaign.offers.length > 0) {
+                    html += renderOfferRows(campaign);
+                }
+            });
+            tbody.innerHTML = html;
         }
 
         function renderCampaignRow(campaign) {
@@ -584,20 +611,26 @@
             const cvrClass = campaign.cvr < 1.0 ? 'cvr-low' : '';
             const alertClass = campaign.alerts.length > 0 ? 'alert-flag' : '';
             const pinnedClass = campaign.isPinned ? 'pinned-campaign' : '';
+            const expandedClass = expandedCampaigns.has(campaign.id) ? 'expanded-row' : '';
             
             const roasTrend = campaign.roasChange7d >= 0 ? 
                 `<span class="text-green-600">+${campaign.roasChange7d.toFixed(1)}%</span>` :
                 `<span class="text-red-600">${campaign.roasChange7d.toFixed(1)}%</span>`;
             
+            const expandIcon = expandedCampaigns.has(campaign.id) ? 'fa-chevron-down' : 'fa-chevron-right';
+            
             return `
-                <tr class="campaign-row ${alertClass} ${pinnedClass}" data-campaign-id="${campaign.id}">
+                <tr class="campaign-row ${alertClass} ${pinnedClass} ${expandedClass}" data-campaign-id="${campaign.id}">
                     <td class="px-4 py-3">
                         <div class="flex items-center">
                             <button onclick="togglePin('${campaign.id}')" class="mr-2 text-gray-400 hover:text-yellow-500">
                                 <i class="fas fa-star ${campaign.isPinned ? 'text-yellow-500' : ''}"></i>
                             </button>
+                            <button onclick="toggleCampaignExpansion('${campaign.id}')" class="mr-2 text-gray-500 hover:text-purple-600" title="Expand to view offers">
+                                <i class="fas ${expandIcon}"></i>
+                            </button>
                             <div>
-                                <div class="font-medium text-gray-900 cursor-pointer" onclick="openOfferModal('${campaign.id}', '${campaign.name}')" title="Click to view offers">
+                                <div class="font-medium text-gray-900 cursor-pointer" onclick="toggleCampaignExpansion('${campaign.id}')" title="Click to view offers">
                                     ${campaign.name}
                                 </div>
                                 ${campaign.alerts.length > 0 ? `<div class="text-xs text-red-600 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>${campaign.alerts.length} alerts</div>` : ''}
@@ -617,9 +650,9 @@
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-900">${campaign.visits.toLocaleString()}</td>
                     <td class="px-4 py-3 text-sm text-gray-900">${campaign.conversions.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-sm font-medium text-gray-900">£${campaign.revenue.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">£${campaign.spend.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-sm ${cpaClass}">£${campaign.cpa.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">$${campaign.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">$${campaign.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td class="px-4 py-3 text-sm ${cpaClass}">$${campaign.cpa.toFixed(2)}</td>
                     <td class="px-4 py-3">
                         <div class="flex items-center">
                             <span class="text-sm font-medium ${roasClass} px-2 py-1 rounded">${campaign.currentRoas.toFixed(2)}x</span>
@@ -627,14 +660,14 @@
                         </div>
                     </td>
                     <td class="px-4 py-3 text-sm ${cvrClass}">${campaign.cvr.toFixed(2)}%</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">£${campaign.epc.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">£${campaign.aov.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">$${campaign.epc.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">$${campaign.aov.toFixed(2)}</td>
                     <td class="px-4 py-3 text-sm font-medium ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'}">
-                        £${campaign.profit.toLocaleString()}
+                        $${campaign.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td class="px-4 py-3">
                         <div class="flex items-center space-x-2">
-                            <button onclick="openOfferModal('${campaign.id}', '${campaign.name}')" class="text-blue-600 hover:text-blue-800" title="View offers">
+                            <button onclick="openOfferModal('${campaign.id}', '${campaign.name}')" class="text-blue-600 hover:text-blue-800" title="View offers in modal">
                                 <i class="fas fa-chart-pie"></i>
                             </button>
                             <button onclick="exportCampaign('${campaign.id}')" class="text-gray-600 hover:text-gray-800" title="Export campaign">
@@ -644,6 +677,110 @@
                     </td>
                 </tr>
             `;
+        }
+
+        function renderOfferRows(campaign) {
+            if (!campaign.offers || campaign.offers.length === 0) {
+                return `
+                    <tr class="offer-detail-row">
+                        <td colspan="14" class="px-8 py-4 text-center text-gray-500">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            No offer data available for this campaign
+                        </td>
+                    </tr>
+                `;
+            }
+
+            let html = `
+                <tr class="offer-detail-row">
+                    <td colspan="14" class="px-4 py-3">
+                        <div class="ml-8">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3">
+                                <i class="fas fa-chart-pie mr-2"></i>
+                                Offers Performance Breakdown
+                            </h4>
+                            <div class="overflow-x-auto">
+                                <table class="offer-table min-w-full text-sm">
+                                    <thead class="bg-gray-100">
+                                        <tr>
+                                            <th class="text-left font-medium text-gray-600">Offer Name</th>
+                                            <th class="text-left font-medium text-gray-600">Revenue</th>
+                                            <th class="text-left font-medium text-gray-600">Spend</th>
+                                            <th class="text-left font-medium text-gray-600">ROAS</th>
+                                            <th class="text-left font-medium text-gray-600">CVR</th>
+                                            <th class="text-left font-medium text-gray-600">EPC</th>
+                                            <th class="text-left font-medium text-gray-600">AOV</th>
+                                            <th class="text-left font-medium text-gray-600">Conversions</th>
+                                            <th class="text-left font-medium text-gray-600">Visits</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200">
+            `;
+
+            campaign.offers.forEach(offer => {
+                const roasColor = offer.roas >= 1.0 ? 'text-green-600' : 'text-red-600';
+                html += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="font-medium text-gray-900">${offer.name}</td>
+                        <td class="text-gray-900">$${offer.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td class="text-gray-900">$${offer.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td class="${roasColor} font-medium">${offer.roas.toFixed(2)}x</td>
+                        <td class="text-gray-900">${offer.cvr.toFixed(2)}%</td>
+                        <td class="text-gray-900">$${offer.epc.toFixed(2)}</td>
+                        <td class="text-gray-900">$${offer.aov.toFixed(2)}</td>
+                        <td class="text-gray-900">${offer.conversions}</td>
+                        <td class="text-gray-900">${offer.visits}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+
+            return html;
+        }
+
+        async function toggleCampaignExpansion(campaignId) {
+            const campaign = allCampaigns.find(c => c.id === campaignId);
+            if (!campaign) return;
+
+            if (expandedCampaigns.has(campaignId)) {
+                // Collapse
+                expandedCampaigns.delete(campaignId);
+                renderCampaigns();
+            } else {
+                // Expand and load offers
+                expandedCampaigns.add(campaignId);
+                
+                // Load offers if not already loaded
+                if (!campaign.offers || campaign.offers.length === 0) {
+                    try {
+                        showToast('Loading offer data...', 'success');
+                        const response = await fetch(`/api/voluum/offers?campaignId=${campaignId}&range=${document.getElementById('dateRange').value}`);
+                        const data = await response.json();
+                        
+                        if (data.success && data.offers) {
+                            campaign.offers = data.offers;
+                            showToast(`Loaded ${data.offers.length} offers for ${campaign.name}`, 'success');
+                        } else {
+                            campaign.offers = [];
+                            showToast('No offer data available for this campaign', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error loading offers:', error);
+                        campaign.offers = [];
+                        showToast('Failed to load offer data: ' + error.message, 'error');
+                    }
+                }
+                
+                renderCampaigns();
+            }
         }
 
         function togglePin(campaignId) {
@@ -675,14 +812,15 @@
             `;
             
             try {
-                const response = await fetch(`/api/voluum/offers?campaignId=${campaignId}`);
+                const dateRange = document.getElementById('dateRange').value;
+                const response = await fetch(`/api/voluum/offers?campaignId=${campaignId}&range=${dateRange}`);
                 const data = await response.json();
                 
                 if (!data.success) {
                     throw new Error(data.error);
                 }
                 
-                renderOfferTable(data.offers || []);
+                renderOfferModalTable(data.offers || []);
                 
             } catch (error) {
                 console.error('Error loading offers:', error);
@@ -690,17 +828,26 @@
                     <div class="text-center py-8 text-red-600">
                         <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
                         <div>Failed to load offer data: ${error.message}</div>
+                        <button onclick="closeOfferModal()" class="mt-4 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+                            Close
+                        </button>
                     </div>
                 `;
             }
         }
 
-        function renderOfferTable(offers) {
+        function renderOfferModalTable(offers) {
             if (offers.length === 0) {
                 document.getElementById('offerTableContainer').innerHTML = `
                     <div class="text-center py-8 text-gray-500">
                         <i class="fas fa-info-circle text-2xl mb-2"></i>
                         <div>No offer data available for this campaign</div>
+                        <div class="text-sm mt-2">This could be because:</div>
+                        <ul class="text-sm mt-2 text-left max-w-md mx-auto">
+                            <li>• No offers are configured for this campaign</li>
+                            <li>• Offers have no traffic in the selected date range</li>
+                            <li>• Campaign uses direct linking without offer tracking</li>
+                        </ul>
                     </div>
                 `;
                 return;
@@ -711,33 +858,40 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Offer Name</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spend</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROAS</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CVR</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AOV</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Offer Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spend</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROAS</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CVR</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AOV</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             ${offers.map(offer => `
-                                <tr>
-                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${offer.name}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">£${offer.revenue.toLocaleString()}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">£${offer.spend.toLocaleString()}</td>
-                                    <td class="px-4 py-3 text-sm ${offer.roas >= 1.0 ? 'text-green-600' : 'text-red-600'}">${offer.roas.toFixed(2)}x</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">£${offer.epc.toFixed(2)}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">${offer.cvr.toFixed(2)}%</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">£${offer.aov.toFixed(2)}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">${offer.conversions}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">${offer.visits}</td>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">${offer.name}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">$${offer.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">$${offer.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td class="px-6 py-4 text-sm font-medium ${offer.roas >= 1.0 ? 'text-green-600' : 'text-red-600'}">${offer.roas.toFixed(2)}x</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">$${offer.epc.toFixed(2)}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${offer.cvr.toFixed(2)}%</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">$${offer.aov.toFixed(2)}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${offer.conversions}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${offer.visits}</td>
+                                    <td class="px-6 py-4 text-sm font-medium ${(offer.revenue - offer.spend) >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                        $${(offer.revenue - offer.spend).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
+                </div>
+                <div class="mt-4 text-sm text-gray-500 text-center">
+                    Showing ${offers.length} offers with performance data
                 </div>
             `;
             
@@ -790,10 +944,20 @@
                         <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
                         <div class="text-lg font-medium text-gray-700 mb-2">Voluum API Connection Failed</div>
                         <div class="text-sm text-red-600 mb-2">${error}</div>
-                        <div class="text-sm text-gray-600">Check your API credentials and connection.</div>
-                        <button onclick="loadData()" class="mt-4 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                        <div class="text-sm text-gray-600 mb-4">Check your API credentials and connection.</div>
+                        <div class="text-xs text-gray-500 mb-4">
+                            <strong>Debug Steps:</strong><br>
+                            1. Verify VOLUME_KEY and VOLUME_KEY_ID environment variables<br>
+                            2. Check if Voluum API is accessible<br>
+                            3. Try different date ranges<br>
+                            4. Check browser console for detailed errors
+                        </div>
+                        <button onclick="loadData()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 mr-2">
                             Retry Connection
                         </button>
+                        <a href="/api/voluum/test" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+                            Test API
+                        </a>
                     </td>
                 </tr>
             `;
@@ -887,6 +1051,17 @@
                 closeOfferModal();
             }
         }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeOfferModal();
+            }
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                loadData();
+            }
+        });
     </script>
 </body>
 </html>
