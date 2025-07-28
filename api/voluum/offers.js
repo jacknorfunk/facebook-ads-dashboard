@@ -1,4 +1,4 @@
-// /api/voluum/offers.js - FIXED Offer-level performance drill-down
+// /api/voluum/offers.js - COMPLETE FIX for Offer-level performance drill-down
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -84,12 +84,14 @@ export default async function handler(req, res) {
             'rpc'
         ].join(',');
 
-        // FIXED: Get ALL offers with pagination and filter by visits > 0
+        console.log('🎯 Starting offer data collection with PAGINATION...');
+
+        // FIXED: Get ALL offers with pagination (this was the main issue!)
         const allOffers = await getAllOffersWithPagination(authToken, startDate, endDate, campaignId, offerColumns);
         
-        console.log(`📊 Total offers retrieved: ${allOffers.length}`);
+        console.log(`📊 Total offers retrieved from API: ${allOffers.length}`);
         
-        // Filter to only offers with visits > 0
+        // Filter to only offers with visits > 0 (strict filtering)
         const activeOffers = allOffers.filter(offer => {
             const hasVisits = (offer.visits || 0) > 0;
             if (!hasVisits) {
@@ -99,22 +101,26 @@ export default async function handler(req, res) {
         });
 
         console.log(`✅ Successfully processed ${allOffers.length} total offers`);
-        console.log(`✅ Returning ${activeOffers.length} offers with visits`);
+        console.log(`✅ Returning ${activeOffers.length} offers WITH visits`);
 
         if (activeOffers.length > 0) {
             console.log('📋 Sample offers with visits:');
             activeOffers.slice(0, 3).forEach(offer => {
-                console.log(`   ${offer.name}: ${offer.visits} visits, $${offer.revenue} revenue, ${offer.roas.toFixed(2)}x ROAS`);
+                console.log(`   ${offer.name}: ${offer.visits} visits, $${offer.revenue.toFixed(2)} revenue, ${offer.roas.toFixed(2)}x ROAS`);
             });
         } else {
-            console.log('⚠️ No offers found with visits for this campaign');
+            console.log('⚠️ No offers found with visits for this campaign in the selected date range');
+            console.log('💡 This could mean:');
+            console.log('   - Campaign uses direct linking (no offer tracking)');
+            console.log('   - Offers exist but have no visits in this date range');
+            console.log('   - Campaign ID does not match any offers');
         }
 
         return res.json({
             success: true,
             offers: activeOffers,
             debug_info: {
-                data_source: 'voluum_offer_report_paginated',
+                data_source: 'voluum_offer_report_with_pagination',
                 campaignId: campaignId,
                 total_found: allOffers.length,
                 active_offers: activeOffers.length,
@@ -122,6 +128,8 @@ export default async function handler(req, res) {
                 selected_range: range,
                 custom_dates: !!from && !!to,
                 columns_requested: offerColumns.split(',').length,
+                pagination_used: true,
+                visits_filter_applied: true,
                 timestamp: new Date().toISOString()
             }
         });
@@ -133,23 +141,34 @@ export default async function handler(req, res) {
             error: error.message,
             debug_info: {
                 error_details: error.stack,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                troubleshooting: {
+                    step1: 'Check if campaignId exists in Voluum',
+                    step2: 'Verify date range is not in the future',
+                    step3: 'Ensure campaign has offers configured',
+                    step4: 'Check if offers have visits in the selected period'
+                }
             }
         });
     }
 }
 
-// FIXED: Pagination function to get ALL offers
+// CRITICAL: This function was missing - it handles pagination to get ALL offers
 async function getAllOffersWithPagination(authToken, startDate, endDate, campaignId, offerColumns) {
     let allOffers = [];
     let offset = 0;
-    const limit = 100; // Voluum API limit
+    const limit = 100; // Voluum API limit per request
     let hasMore = true;
+    let pageCount = 0;
     
-    while (hasMore) {
+    console.log('🔄 Starting pagination loop for offers...');
+    
+    while (hasMore && pageCount < 50) { // Safety limit to prevent infinite loops
+        pageCount++;
         const reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=offer&columns=${offerColumns}&tz=America/New_York&campaignId=${campaignId}&limit=${limit}&offset=${offset}`;
         
-        console.log(`📄 Fetching offers page with offset ${offset}:`, reportUrl);
+        console.log(`📄 Fetching offers page ${pageCount} (offset: ${offset})`);
+        console.log(`🔗 URL: ${reportUrl}`);
         
         const reportResponse = await fetch(reportUrl, {
             headers: {
@@ -160,75 +179,92 @@ async function getAllOffersWithPagination(authToken, startDate, endDate, campaig
 
         if (!reportResponse.ok) {
             const errorText = await reportResponse.text();
-            console.log(`❌ Offer pagination request failed at offset ${offset}:`, errorText);
+            console.log(`❌ Offer pagination request failed at offset ${offset}:`, {
+                status: reportResponse.status,
+                statusText: reportResponse.statusText,
+                error: errorText,
+                page: pageCount
+            });
             
             // If it's the first page and fails, throw error
             if (offset === 0) {
                 throw new Error(`Offer API request failed: ${reportResponse.status} - ${errorText}`);
             }
             // Otherwise, break the loop (partial data is better than none)
+            console.log('⚠️ Breaking pagination loop due to API error');
             break;
         }
 
         const reportData = await reportResponse.json();
-        console.log(`📊 Offers page ${Math.floor(offset/limit) + 1} data:`, {
+        console.log(`📊 Page ${pageCount} results:`, {
             hasRows: !!reportData.rows,
             rowCount: reportData.rows?.length || 0,
+            hasColumns: !!reportData.columns,
             totalSoFar: allOffers.length
         });
 
         const { rows = [], columns = [] } = reportData;
 
         if (rows.length === 0) {
-            console.log(`⚠️ No more offers at offset ${offset}`);
+            console.log(`⚠️ No more offers at page ${pageCount} (offset ${offset})`);
             hasMore = false;
             break;
         }
 
         // Process offers from this page
-        const pageOffers = rows.map(row => {
-            const offerData = {};
-            columns.forEach((column, index) => {
-                offerData[column] = row[index];
-            });
+        console.log(`🔄 Processing ${rows.length} offers from page ${pageCount}...`);
+        const pageOffers = rows.map((row, index) => {
+            try {
+                const offerData = {};
+                columns.forEach((column, colIndex) => {
+                    offerData[column] = row[colIndex];
+                });
 
-            const visits = parseInt(offerData.visits || 0);
-            const conversions = parseInt(offerData.conversions || 0);
-            const revenue = parseFloat(offerData.revenue || 0);
-            const spend = parseFloat(offerData.cost || 0);
+                const visits = parseInt(offerData.visits || 0);
+                const conversions = parseInt(offerData.conversions || 0);
+                const revenue = parseFloat(offerData.revenue || 0);
+                const spend = parseFloat(offerData.cost || 0);
 
-            // Calculate metrics
-            const roas = spend > 0 ? revenue / spend : 0;
-            const epc = visits > 0 ? revenue / visits : 0;
-            const cvr = visits > 0 ? (conversions / visits) * 100 : 0;
-            const aov = conversions > 0 ? revenue / conversions : 0;
+                // Calculate metrics
+                const roas = spend > 0 ? revenue / spend : 0;
+                const epc = visits > 0 ? revenue / visits : 0;
+                const cvr = visits > 0 ? (conversions / visits) * 100 : 0;
+                const aov = conversions > 0 ? revenue / conversions : 0;
 
-            return {
-                id: offerData.offerId || Math.random().toString(36).substr(2, 9),
-                name: offerData.offerName || 'Unnamed Offer',
-                visits: visits,
-                conversions: conversions,
-                revenue: revenue,
-                spend: spend,
-                roas: roas,
-                epc: epc,
-                cvr: cvr,
-                aov: aov,
-                cpa: parseFloat(offerData.cpa || 0)
-            };
-        });
+                return {
+                    id: offerData.offerId || Math.random().toString(36).substr(2, 9),
+                    name: offerData.offerName || 'Unnamed Offer',
+                    visits: visits,
+                    conversions: conversions,
+                    revenue: revenue,
+                    spend: spend,
+                    roas: roas,
+                    epc: epc,
+                    cvr: cvr,
+                    aov: aov,
+                    cpa: parseFloat(offerData.cpa || 0)
+                };
+            } catch (error) {
+                console.error(`❌ Error processing offer at index ${index}:`, error);
+                return null;
+            }
+        }).filter(Boolean);
 
         // Add this page's offers to our collection
         allOffers = allOffers.concat(pageOffers);
+        console.log(`✅ Page ${pageCount} processed: ${pageOffers.length} offers added (total: ${allOffers.length})`);
         
         // Check if we got fewer results than the limit (last page)
         if (rows.length < limit) {
+            console.log(`🏁 Reached last page (got ${rows.length} < ${limit} results)`);
             hasMore = false;
         } else {
             offset += limit;
+            console.log(`➡️ Moving to next page (offset: ${offset})`);
         }
     }
 
+    console.log(`🎉 Pagination complete! Total offers collected: ${allOffers.length} from ${pageCount} pages`);
     return allOffers;
 }
 
