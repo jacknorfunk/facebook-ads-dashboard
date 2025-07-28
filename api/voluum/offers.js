@@ -235,7 +235,7 @@ function calculateDateRangeFixedForVoluum(range) {
             startDate = new Date(easternTime);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0); // Round to nearest hour
             break;
             
         case 'yesterday':
@@ -246,14 +246,14 @@ function calculateDateRangeFixedForVoluum(range) {
             startDate = new Date(yesterday);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(yesterday);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0); // Round to nearest hour
             
             console.log(`🕐 FIXED Yesterday calculation (EST): ${startDate.toISOString()} to ${endDate.toISOString()}`);
             break;
             
         case 'last_7_days':
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0); // Round to nearest hour
             startDate = new Date(easternTime);
             startDate.setDate(startDate.getDate() - 6);
             startDate.setHours(0, 0, 0, 0);
@@ -261,7 +261,7 @@ function calculateDateRangeFixedForVoluum(range) {
             
         case 'last_30_days':
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0); // Round to nearest hour
             startDate = new Date(easternTime);
             startDate.setDate(startDate.getDate() - 29);
             startDate.setHours(0, 0, 0, 0);
@@ -276,20 +276,20 @@ function calculateDateRangeFixedForVoluum(range) {
             startDate.setHours(0, 0, 0, 0);
             
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0); // Round to nearest hour
             break;
             
         case 'this_month':
             startDate = new Date(easternTime.getFullYear(), easternTime.getMonth(), 1);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0); // Round to nearest hour
             break;
             
         default:
             // Default to last 7 days
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0); // Round to nearest hour
             startDate = new Date(easternTime);
             startDate.setDate(startDate.getDate() - 6);
             startDate.setHours(0, 0, 0, 0);
