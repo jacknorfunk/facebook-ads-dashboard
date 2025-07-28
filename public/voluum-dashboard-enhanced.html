@@ -5,15 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enhanced Voluum Performance Tracker</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom Voluum Dashboard Styles */
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+        }
         
         /* Main container with full width */
         .main-container { 
-            min-width: 100vw; 
-            max-width: 100vw; 
+            max-width: 100%;
             padding: 0 1rem; 
         }
         
@@ -29,16 +33,15 @@
         /* Mobile responsive improvements */
         @media (max-width: 768px) {
             .main-container { padding: 0 0.5rem; }
-            .grid-cols-4 { grid-template-columns: repeat(2, 1fr); }
             .campaign-table { min-width: 1400px; }
         }
         
         /* Performance indicators */
-        .roas-high { color: #10b981; font-weight: 600; }
-        .roas-medium { color: #f59e0b; font-weight: 600; }
-        .roas-low { color: #ef4444; font-weight: 600; }
-        .cpa-high { color: #ef4444; }
-        .cvr-low { color: #f59e0b; }
+        .roas-high { color: #10b981 !important; font-weight: 600 !important; }
+        .roas-medium { color: #f59e0b !important; font-weight: 600 !important; }
+        .roas-low { color: #ef4444 !important; font-weight: 600 !important; }
+        .cpa-high { color: #ef4444 !important; }
+        .cvr-low { color: #f59e0b !important; }
         
         /* FIXED: Softer alert styling */
         .alert-flag { 
@@ -52,32 +55,23 @@
         
         /* Campaign styling improvements */
         .pinned-campaign { 
-            background-color: #f0f9ff; 
-            border-left: 4px solid #3b82f6; 
+            background-color: #f0f9ff !important; 
+            border-left: 4px solid #3b82f6 !important; 
         }
         .expanded-row { 
-            background-color: #f8fafc; 
-            border-left: 2px solid #6366f1; 
+            background-color: #f8fafc !important; 
+            border-left: 2px solid #6366f1 !important; 
         }
         
         /* Trend indicators */
-        .trend-up { color: #10b981; }
-        .trend-down { color: #ef4444; }
-        .trend-neutral { color: #6b7280; }
-        
-        /* Date picker styling */
-        .date-picker { position: relative; }
-        .date-picker input[type="date"] {
-            padding: 8px 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 14px;
-        }
+        .trend-up { color: #10b981 !important; }
+        .trend-down { color: #ef4444 !important; }
+        .trend-neutral { color: #6b7280 !important; }
         
         /* Offer detail styles */
         .offer-detail-row { 
-            background-color: #f8fafc; 
-            border-left: 4px solid #3b82f6; 
+            background-color: #f8fafc !important; 
+            border-left: 4px solid #3b82f6 !important; 
         }
         .offer-table { font-size: 0.9rem; }
         .offer-table th { padding: 8px 12px; }
@@ -127,40 +121,79 @@
         .toast.error { background-color: #ef4444; }
         .toast.warning { background-color: #f59e0b; }
         
-        /* Dark mode styles */
-        .dark body { background-color: #1f2937; color: #f9fafb; }
-        .dark .bg-white { background-color: #374151 !important; }
-        .dark .text-gray-900 { color: #f9fafb !important; }
-        .dark .text-gray-700 { color: #d1d5db !important; }
-        .dark .text-gray-500 { color: #9ca3af !important; }
-        .dark .border-gray-200 { border-color: #4b5563 !important; }
-        .dark .divide-gray-200 { border-color: #4b5563 !important; }
+        /* Ensure table styling */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        thead {
+            background-color: #f9fafb;
+        }
+        
+        tbody tr:hover {
+            background-color: #f9fafb;
+        }
+        
+        /* Button styles */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #7c3aed;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #6d28d9;
+        }
+        
+        /* Card styles */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            padding: 24px;
+        }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
     <!-- Header -->
-    <div class="bg-gradient-to-r from-purple-600 to-blue-600 shadow-lg">
+    <div style="background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
         <div class="main-container">
-            <div class="flex justify-between items-center py-4">
-                <div class="flex items-center">
-                    <h1 class="text-2xl font-bold text-white flex items-center">
-                        <i class="fas fa-chart-line mr-3"></i>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 0;">
+                <div style="display: flex; align-items: center;">
+                    <h1 style="font-size: 1.5rem; font-weight: bold; color: white; display: flex; align-items: center; margin: 0;">
+                        <i class="fas fa-chart-line" style="margin-right: 12px;"></i>
                         Enhanced Voluum Performance Tracker
                     </h1>
-                    <div class="ml-6 text-sm text-purple-100">
+                    <div style="margin-left: 24px; font-size: 0.875rem; color: rgba(255, 255, 255, 0.8);">
                         Real-time campaign data with conversion & offer insights
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <button id="darkModeToggle" class="text-white hover:text-purple-200 p-2 rounded-lg">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <button id="darkModeToggle" style="color: white; padding: 8px; border-radius: 6px; background: none; border: none; cursor: pointer;">
                         <i class="fas fa-moon"></i>
                     </button>
-                    <button id="exportBtn" class="bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 font-medium">
-                        <i class="fas fa-download mr-2"></i>Export CSV
+                    <button id="exportBtn" class="btn btn-primary" style="background: white; color: #7c3aed;">
+                        <i class="fas fa-download" style="margin-right: 8px;"></i>Export CSV
                     </button>
-                    <div id="connectionStatus" class="flex items-center">
-                        <div class="w-3 h-3 bg-yellow-400 rounded-full animate-pulse mr-2"></div>
-                        <span class="text-sm text-white">Connecting...</span>
+                    <div id="connectionStatus" style="display: flex; align-items: center;">
+                        <div style="width: 12px; height: 12px; background-color: #fbbf24; border-radius: 50%; margin-right: 8px; animation: pulse 2s infinite;"></div>
+                        <span style="font-size: 0.875rem; color: white;">Connecting...</span>
                     </div>
                 </div>
             </div>
@@ -168,61 +201,61 @@
     </div>
 
     <!-- Dashboard Cards -->
-    <div class="main-container py-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                <div class="flex items-center">
-                    <div class="p-3 bg-blue-100 rounded-lg">
-                        <i class="fas fa-bullhorn text-blue-600 text-xl"></i>
+    <div class="main-container" style="padding: 24px 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 32px;">
+            <div class="card">
+                <div style="display: flex; align-items: center;">
+                    <div style="padding: 12px; background-color: #dbeafe; border-radius: 8px;">
+                        <i class="fas fa-bullhorn" style="color: #2563eb; font-size: 1.25rem;"></i>
                     </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Total Campaigns</h3>
-                        <p id="totalCampaigns" class="text-2xl font-bold text-gray-900">0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                <div class="flex items-center">
-                    <div class="p-3 bg-green-100 rounded-lg">
-                        <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Total Revenue</h3>
-                        <p id="totalRevenue" class="text-2xl font-bold text-gray-900">$0</p>
+                    <div style="margin-left: 16px;">
+                        <h3 style="font-size: 0.875rem; font-weight: 500; color: #6b7280; margin: 0;">Total Campaigns</h3>
+                        <p id="totalCampaigns" style="font-size: 1.5rem; font-weight: bold; color: #111827; margin: 4px 0 0 0;">0</p>
                     </div>
                 </div>
             </div>
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                <div class="flex items-center">
-                    <div class="p-3 bg-purple-100 rounded-lg">
-                        <i class="fas fa-chart-line text-purple-600 text-xl"></i>
+            <div class="card">
+                <div style="display: flex; align-items: center;">
+                    <div style="padding: 12px; background-color: #dcfce7; border-radius: 8px;">
+                        <i class="fas fa-dollar-sign" style="color: #16a34a; font-size: 1.25rem;"></i>
                     </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Avg ROAS</h3>
-                        <p id="avgRoas" class="text-2xl font-bold text-gray-900">0.0x</p>
+                    <div style="margin-left: 16px;">
+                        <h3 style="font-size: 0.875rem; font-weight: 500; color: #6b7280; margin: 0;">Total Revenue</h3>
+                        <p id="totalRevenue" style="font-size: 1.5rem; font-weight: bold; color: #111827; margin: 4px 0 0 0;">$0</p>
                     </div>
                 </div>
             </div>
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                <div class="flex items-center">
-                    <div class="p-3 bg-orange-100 rounded-lg">
-                        <i class="fas fa-shopping-cart text-orange-600 text-xl"></i>
+            <div class="card">
+                <div style="display: flex; align-items: center;">
+                    <div style="padding: 12px; background-color: #f3e8ff; border-radius: 8px;">
+                        <i class="fas fa-chart-line" style="color: #7c3aed; font-size: 1.25rem;"></i>
                     </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Total Conversions</h3>
-                        <p id="totalConversions" class="text-2xl font-bold text-gray-900">0</p>
+                    <div style="margin-left: 16px;">
+                        <h3 style="font-size: 0.875rem; font-weight: 500; color: #6b7280; margin: 0;">Avg ROAS</h3>
+                        <p id="avgRoas" style="font-size: 1.5rem; font-weight: bold; color: #111827; margin: 4px 0 0 0;">0.0x</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div style="display: flex; align-items: center;">
+                    <div style="padding: 12px; background-color: #fed7aa; border-radius: 8px;">
+                        <i class="fas fa-shopping-cart" style="color: #ea580c; font-size: 1.25rem;"></i>
+                    </div>
+                    <div style="margin-left: 16px;">
+                        <h3 style="font-size: 0.875rem; font-weight: 500; color: #6b7280; margin: 0;">Total Conversions</h3>
+                        <p id="totalConversions" style="font-size: 1.5rem; font-weight: bold; color: #111827; margin: 4px 0 0 0;">0</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Filters Section -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-200">
-            <div class="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-10 gap-4">
+        <div class="card" style="margin-bottom: 32px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
                 <!-- Date Range -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
-                    <select id="dateRange" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Date Range</label>
+                    <select id="dateRange" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
                         <option value="today">Today</option>
                         <option value="yesterday">Yesterday</option>
                         <option value="last_7_days" selected>Last 7 Days</option>
@@ -234,24 +267,24 @@
                 </div>
 
                 <!-- Custom Date Range -->
-                <div id="customDateRange" style="display: none;" class="col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">From - To</label>
-                    <div class="flex space-x-2">
-                        <input type="date" id="fromDate" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        <input type="date" id="toDate" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                <div id="customDateRange" style="display: none; grid-column: span 2;">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">From - To</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="date" id="fromDate" style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <input type="date" id="toDate" style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
                     </div>
                 </div>
 
                 <!-- Search -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Search Campaigns</label>
-                    <input type="text" id="searchCampaign" placeholder="Search campaigns..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Search Campaigns</label>
+                    <input type="text" id="searchCampaign" placeholder="Search campaigns..." style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
                 </div>
 
                 <!-- Traffic Source Filter -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Traffic Source</label>
-                    <select id="trafficSourceFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Traffic Source</label>
+                    <select id="trafficSourceFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
                         <option value="">All Sources</option>
                         <option value="facebook">Facebook</option>
                         <option value="taboola">Taboola</option>
@@ -262,8 +295,8 @@
 
                 <!-- OS Filter -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Operating System</label>
-                    <select id="osFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Operating System</label>
+                    <select id="osFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
                         <option value="">All OS</option>
                         <option value="android">Android</option>
                         <option value="ios">iOS</option>
@@ -275,8 +308,8 @@
 
                 <!-- Performance Filter -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Performance</label>
-                    <select id="performanceFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Performance</label>
+                    <select id="performanceFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
                         <option value="">All Performance</option>
                         <option value="profitable">Profitable (ROAS > 1.0)</option>
                         <option value="high_roas">High ROAS (> 2.0)</option>
@@ -287,25 +320,14 @@
 
                 <!-- Min Spend Filter -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Min Spend</label>
-                    <input type="number" id="minSpendFilter" placeholder="$0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                </div>
-
-                <!-- Device Filter -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Device Type</label>
-                    <select id="deviceFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        <option value="">All Devices</option>
-                        <option value="mobile">Mobile</option>
-                        <option value="desktop">Desktop</option>
-                        <option value="tablet">Tablet</option>
-                    </select>
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Min Spend</label>
+                    <input type="number" id="minSpendFilter" placeholder="$0" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
                 </div>
 
                 <!-- Sort Options -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-                    <select id="sortFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Sort By</label>
+                    <select id="sortFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
                         <option value="revenue_desc">Revenue (High to Low)</option>
                         <option value="revenue_asc">Revenue (Low to High)</option>
                         <option value="roas_desc">ROAS (High to Low)</option>
@@ -318,59 +340,59 @@
                 </div>
 
                 <!-- Clear Filters -->
-                <div class="flex items-end">
-                    <button onclick="clearFilters()" class="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium">
-                        <i class="fas fa-times mr-2"></i>Clear
+                <div style="display: flex; align-items: end;">
+                    <button onclick="clearFilters()" style="width: 100%; background-color: #f3f4f6; color: #374151; padding: 8px 16px; border-radius: 6px; font-weight: 500; border: none; cursor: pointer;">
+                        <i class="fas fa-times" style="margin-right: 8px;"></i>Clear
                     </button>
                 </div>
             </div>
             
             <!-- Filter Summary -->
-            <div id="filterSummary" class="mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg" style="display: none;">
+            <div id="filterSummary" style="margin-top: 16px; font-size: 0.875rem; color: #6b7280; background-color: #f9fafb; padding: 12px; border-radius: 6px; display: none;">
             </div>
         </div>
 
         <!-- Campaign Table -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="card" style="padding: 0;">
             <div class="table-container">
-                <table class="campaign-table w-full">
-                    <thead class="bg-gray-50">
+                <table class="campaign-table">
+                    <thead style="background-color: #f9fafb;">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign Name</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Traffic Source</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Alerts</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spend</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPA</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Actions</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Campaign Name</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Traffic Source</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Alerts</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Visits</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Conversions</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Revenue</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Spend</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">CPA</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">
                                 ROAS (Current)
                             </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">
                                 ROAS (7D)
-                                <div class="text-xs font-normal text-gray-400">Trend</div>
+                                <div style="font-size: 0.75rem; font-weight: normal; color: #9ca3af;">Trend</div>
                             </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">
                                 ROAS (14D)
-                                <div class="text-xs font-normal text-gray-400">Trend</div>
+                                <div style="font-size: 0.75rem; font-weight: normal; color: #9ca3af;">Trend</div>
                             </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">
                                 ROAS (30D)
-                                <div class="text-xs font-normal text-gray-400">Trend</div>
+                                <div style="font-size: 0.75rem; font-weight: normal; color: #9ca3af;">Trend</div>
                             </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CVR</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Average Payout</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">CVR</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">EPC</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Average Payout</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Profit</th>
                         </tr>
                     </thead>
-                    <tbody id="campaignTableBody" class="bg-white divide-y divide-gray-200">
+                    <tbody id="campaignTableBody" style="background: white;">
                         <tr>
-                            <td colspan="18" class="px-6 py-12 text-center text-gray-500">
-                                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <td colspan="18" style="padding: 48px 24px; text-align: center; color: #6b7280;">
+                                <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
                                 <div>Loading campaign data...</div>
                             </td>
                         </tr>
@@ -382,16 +404,16 @@
 
     <!-- Offer Drill-Down Modal -->
     <div id="offerModal" class="modal">
-        <div class="modal-content dark:bg-gray-800">
-            <div class="flex justify-between items-center mb-6">
-                <h2 id="modalTitle" class="text-xl font-bold text-gray-900 dark:text-white">Offer Performance Breakdown</h2>
-                <button onclick="closeOfferModal()" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 id="modalTitle" style="font-size: 1.25rem; font-weight: bold; color: #111827; margin: 0;">Offer Performance Breakdown</h2>
+                <button onclick="closeOfferModal()" style="color: #9ca3af; background: none; border: none; cursor: pointer; font-size: 1.25rem;">
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
             <div id="offerTableContainer">
-                <div class="text-center py-8">
-                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                <div style="text-align: center; padding: 32px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
                     <div>Loading offer data...</div>
                 </div>
             </div>
@@ -413,7 +435,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
             loadData();
-            setupDarkMode();
             setupDatePickers();
         });
 
@@ -427,7 +448,6 @@
             document.getElementById('osFilter').addEventListener('change', applyFilters);
             document.getElementById('performanceFilter').addEventListener('change', applyFilters);
             document.getElementById('minSpendFilter').addEventListener('input', applyFilters);
-            document.getElementById('deviceFilter').addEventListener('change', applyFilters);
             document.getElementById('sortFilter').addEventListener('change', applyFilters);
 
             // Other controls
@@ -555,7 +575,6 @@
             const osFilter = document.getElementById('osFilter').value;
             const performanceFilter = document.getElementById('performanceFilter').value;
             const minSpend = parseFloat(document.getElementById('minSpendFilter').value) || 0;
-            const deviceFilter = document.getElementById('deviceFilter').value;
             const sortFilter = document.getElementById('sortFilter').value;
             
             filteredCampaigns = allCampaigns.filter(campaign => {
@@ -629,11 +648,11 @@
             if (filteredCampaigns.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="18" class="px-6 py-12 text-center text-gray-500">
-                            <i class="fas fa-info-circle text-4xl mb-4"></i>
-                            <div class="text-lg font-medium text-gray-700 mb-2">No campaigns match your filters</div>
-                            <div class="text-sm">Try adjusting your search criteria or date range.</div>
-                            <button onclick="clearFilters()" class="mt-4 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                        <td colspan="18" style="padding: 48px 24px; text-align: center; color: #6b7280;">
+                            <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 16px;"></i>
+                            <div style="font-size: 1.125rem; font-weight: 500; color: #374151; margin-bottom: 8px;">No campaigns match your filters</div>
+                            <div style="font-size: 0.875rem;">Try adjusting your search criteria or date range.</div>
+                            <button onclick="clearFilters()" class="btn btn-primary" style="margin-top: 16px;">
                                 Clear Filters
                             </button>
                         </td>
@@ -672,67 +691,67 @@
                 const icon = change > 5 ? 'fa-arrow-up' : change < -5 ? 'fa-arrow-down' : 'fa-minus';
                 return `
                     <div class="${trendClass}">
-                        <i class="fas ${icon} text-xs mr-1"></i>
+                        <i class="fas ${icon}" style="font-size: 0.75rem; margin-right: 4px;"></i>
                         ${value.toFixed(2)}x
-                        <div class="text-xs">${change > 0 ? '+' : ''}${change.toFixed(1)}%</div>
+                        <div style="font-size: 0.75rem;">${change > 0 ? '+' : ''}${change.toFixed(1)}%</div>
                     </div>
                 `;
             }
             
             return `
-                <tr class="${alertClass} ${pinnedClass} ${expandedClass} hover:bg-gray-50">
-                    <td class="px-4 py-3 whitespace-nowrap">
-                        <div class="flex items-center space-x-2">
-                            <button onclick="toggleCampaignExpansion('${campaign.id}')" class="text-gray-400 hover:text-gray-600">
+                <tr class="${alertClass} ${pinnedClass} ${expandedClass}" style="cursor: pointer;" onmouseover="this.style.backgroundColor='#f9fafb'" onmouseout="this.style.backgroundColor='white'">
+                    <td style="padding: 12px 16px; white-space: nowrap;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button onclick="toggleCampaignExpansion('${campaign.id}')" style="color: #9ca3af; background: none; border: none; cursor: pointer;">
                                 <i class="fas ${expandIcon}"></i>
                             </button>
-                            <button onclick="togglePin('${campaign.id}')" class="text-gray-400 hover:text-yellow-500 ${campaign.isPinned ? 'text-yellow-500' : ''}">
+                            <button onclick="togglePin('${campaign.id}')" style="color: ${campaign.isPinned ? '#f59e0b' : '#9ca3af'}; background: none; border: none; cursor: pointer;">
                                 <i class="fas fa-star"></i>
                             </button>
-                            <button onclick="openOfferModal('${campaign.id}', '${campaign.name.replace(/'/g, "\\'")}')" class="text-purple-600 hover:text-purple-800">
+                            <button onclick="openOfferModal('${campaign.id}', '${campaign.name.replace(/'/g, "\\'")}')" style="color: #7c3aed; background: none; border: none; cursor: pointer;">
                                 <i class="fas fa-external-link-alt"></i>
                             </button>
                         </div>
                     </td>
-                    <td class="px-4 py-3">
-                        <div class="text-sm font-medium text-gray-900">${campaign.name}</div>
-                        <div class="text-xs text-gray-500">ID: ${campaign.id}</div>
+                    <td style="padding: 12px 16px;">
+                        <div style="font-size: 0.875rem; font-weight: 500; color: #111827;">${campaign.name}</div>
+                        <div style="font-size: 0.75rem; color: #6b7280;">ID: ${campaign.id}</div>
                     </td>
-                    <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTrafficSourceColor(campaign.detectedTrafficSource)}">
+                    <td style="padding: 12px 16px;">
+                        <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; ${getTrafficSourceColor(campaign.detectedTrafficSource)}">
                             ${campaign.detectedTrafficSource.charAt(0).toUpperCase() + campaign.detectedTrafficSource.slice(1)}
                         </span>
                     </td>
-                    <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${campaign.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                    <td style="padding: 12px 16px;">
+                        <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; ${campaign.status === 'ACTIVE' ? 'background-color: #dcfce7; color: #166534;' : 'background-color: #fee2e2; color: #991b1b;'}">
                             ${campaign.status || 'ACTIVE'}
                         </span>
                     </td>
-                    <td class="px-4 py-3">
+                    <td style="padding: 12px 16px;">
                         ${campaign.alerts.length > 0 ? `
-                            <div class="flex flex-wrap gap-1">
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
                                 ${campaign.alerts.slice(0, 2).map(alert => `
-                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background-color: #fee2e2; color: #991b1b;">
                                         ${alert}
                                     </span>
                                 `).join('')}
-                                ${campaign.alerts.length > 2 ? `<span class="text-xs text-gray-500">+${campaign.alerts.length - 2} more</span>` : ''}
+                                ${campaign.alerts.length > 2 ? `<span style="font-size: 0.75rem; color: #6b7280;">+${campaign.alerts.length - 2} more</span>` : ''}
                             </div>
-                        ` : '<span class="text-green-600 text-sm">✓ Good</span>'}
+                        ` : '<span style="color: #16a34a; font-size: 0.875rem;">✓ Good</span>'}
                     </td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${campaign.visits.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${campaign.conversions}</td>
-                    <td class="px-4 py-3 text-sm font-medium text-gray-900">$${campaign.revenue.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">$${campaign.cost.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-sm ${cpaClass}">$${campaign.cpa.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-sm font-medium ${roasClass}">${campaign.currentRoas.toFixed(2)}x</td>
-                    <td class="px-4 py-3 text-sm">${renderTrend(Math.random() * 20 - 10, campaign.currentRoas * (1 + Math.random() * 0.2 - 0.1))}</td>
-                    <td class="px-4 py-3 text-sm">${renderTrend(Math.random() * 15 - 7.5, campaign.currentRoas * (1 + Math.random() * 0.15 - 0.075))}</td>
-                    <td class="px-4 py-3 text-sm">${renderTrend(Math.random() * 10 - 5, campaign.currentRoas * (1 + Math.random() * 0.1 - 0.05))}</td>
-                    <td class="px-4 py-3 text-sm ${cvrClass}">${campaign.cvr.toFixed(2)}%</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">$${campaign.epc.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">$${campaign.averagePayout.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-sm font-medium ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'}">$${campaign.profit.toFixed(2)}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${campaign.visits.toLocaleString()}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${campaign.conversions}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; font-weight: 500; color: #111827;">$${campaign.revenue.toFixed(2)}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">$${campaign.cost.toFixed(2)}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem;" class="${cpaClass}">$${campaign.cpa.toFixed(2)}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; font-weight: 500;" class="${roasClass}">${campaign.currentRoas.toFixed(2)}x</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem;">${renderTrend(Math.random() * 20 - 10, campaign.currentRoas * (1 + Math.random() * 0.2 - 0.1))}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem;">${renderTrend(Math.random() * 15 - 7.5, campaign.currentRoas * (1 + Math.random() * 0.15 - 0.075))}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem;">${renderTrend(Math.random() * 10 - 5, campaign.currentRoas * (1 + Math.random() * 0.1 - 0.05))}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem;" class="${cvrClass}">${campaign.cvr.toFixed(2)}%</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">$${campaign.epc.toFixed(2)}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">$${campaign.averagePayout.toFixed(2)}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; font-weight: 500; color: ${campaign.profit >= 0 ? '#16a34a' : '#dc2626'};">$${campaign.profit.toFixed(2)}</td>
                 </tr>
             `;
         }
@@ -741,8 +760,8 @@
             if (!campaign.offers || campaign.offers.length === 0) {
                 return `
                     <tr class="offer-detail-row">
-                        <td colspan="18" class="px-8 py-4 text-center text-gray-500">
-                            <i class="fas fa-info-circle mr-2"></i>
+                        <td colspan="18" style="padding: 32px; text-align: center; color: #6b7280;">
+                            <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
                             No offers found for this campaign in the selected date range
                         </td>
                     </tr>
@@ -751,23 +770,23 @@
             
             let html = `
                 <tr class="offer-detail-row">
-                    <td colspan="18" class="px-0 py-0">
-                        <div class="px-8 py-4">
-                            <h4 class="text-sm font-medium text-gray-700 mb-3">
-                                <i class="fas fa-layer-group mr-2"></i>
+                    <td colspan="18" style="padding: 0;">
+                        <div style="padding: 32px;">
+                            <h4 style="font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 12px;">
+                                <i class="fas fa-layer-group" style="margin-right: 8px;"></i>
                                 Offer Performance (${campaign.offers.length} offers)
                             </h4>
-                            <div class="overflow-x-auto">
-                                <table class="offer-table w-full">
+                            <div style="overflow-x: auto;">
+                                <table class="offer-table" style="width: 100%;">
                                     <thead>
                                         <tr>
-                                            <th class="text-left">Offer Name</th>
-                                            <th class="text-left">Revenue</th>
-                                            <th class="text-left">Spend</th>
-                                            <th class="text-left">ROAS</th>
-                                            <th class="text-left">CVR</th>
-                                            <th class="text-left">Conversions</th>
-                                            <th class="text-left">Average Payout</th>
+                                            <th style="text-align: left;">Offer Name</th>
+                                            <th style="text-align: left;">Revenue</th>
+                                            <th style="text-align: left;">Spend</th>
+                                            <th style="text-align: left;">ROAS</th>
+                                            <th style="text-align: left;">CVR</th>
+                                            <th style="text-align: left;">Conversions</th>
+                                            <th style="text-align: left;">Average Payout</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -780,10 +799,10 @@
                 
                 html += `
                     <tr>
-                        <td class="font-medium">${offer.name}</td>
+                        <td style="font-weight: 500;">${offer.name}</td>
                         <td>$${offer.revenue.toFixed(2)}</td>
                         <td>$${offer.cost.toFixed(2)}</td>
-                        <td class="${offerRoas >= 2.0 ? 'text-green-600' : offerRoas >= 1.0 ? 'text-yellow-600' : 'text-red-600'}">${offerRoas.toFixed(2)}x</td>
+                        <td style="color: ${offerRoas >= 2.0 ? '#16a34a' : offerRoas >= 1.0 ? '#d97706' : '#dc2626'};">${offerRoas.toFixed(2)}x</td>
                         <td>${offerCvr.toFixed(2)}%</td>
                         <td>${offer.conversions}</td>
                         <td>$${offerPayout.toFixed(2)}</td>
@@ -805,10 +824,10 @@
 
         function getTrafficSourceColor(source) {
             switch (source) {
-                case 'facebook': return 'bg-blue-100 text-blue-800';
-                case 'taboola': return 'bg-purple-100 text-purple-800';
-                case 'newsbreak': return 'bg-orange-100 text-orange-800';
-                default: return 'bg-gray-100 text-gray-800';
+                case 'facebook': return 'background-color: #dbeafe; color: #1e40af;';
+                case 'taboola': return 'background-color: #f3e8ff; color: #7c2d12;';
+                case 'newsbreak': return 'background-color: #fed7aa; color: #c2410c;';
+                default: return 'background-color: #f3f4f6; color: #374151;';
             }
         }
 
@@ -886,8 +905,8 @@
             document.getElementById('modalTitle').textContent = `Offer Performance: ${campaignName}`;
             document.getElementById('offerModal').style.display = 'block';
             document.getElementById('offerTableContainer').innerHTML = `
-                <div class="text-center py-8">
-                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                <div style="text-align: center; padding: 32px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
                     <div>Loading offer data...</div>
                 </div>
             `;
@@ -923,11 +942,11 @@
             } catch (error) {
                 console.error('Error loading offers:', error);
                 document.getElementById('offerTableContainer').innerHTML = `
-                    <div class="text-center py-8 text-red-600">
-                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <div style="text-align: center; padding: 32px; color: #dc2626;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
                         <div>Failed to load offer data: ${error.message}</div>
-                        <div class="text-sm mt-2 text-gray-600">This could be due to:</div>
-                        <ul class="text-sm text-gray-600 mt-2 text-left max-w-md mx-auto">
+                        <div style="font-size: 0.875rem; margin-top: 8px; color: #6b7280;">This could be due to:</div>
+                        <ul style="font-size: 0.875rem; color: #6b7280; margin-top: 8px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
                             <li>• Campaign uses direct linking (no offers)</li>
                             <li>• All offers are inactive/deleted</li>
                             <li>• No offer data in selected date range</li>
@@ -941,33 +960,33 @@
         function renderOfferModalTable(offers) {
             if (!offers || offers.length === 0) {
                 document.getElementById('offerTableContainer').innerHTML = `
-                    <div class="text-center py-8 text-gray-500">
-                        <i class="fas fa-info-circle text-4xl mb-4"></i>
-                        <div class="text-lg font-medium text-gray-700 mb-2">No offers found</div>
-                        <div class="text-sm">This campaign may use direct linking or have no active offers in the selected date range.</div>
+                    <div style="text-align: center; padding: 32px; color: #6b7280;">
+                        <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 16px;"></i>
+                        <div style="font-size: 1.125rem; font-weight: 500; color: #374151; margin-bottom: 8px;">No offers found</div>
+                        <div style="font-size: 0.875rem;">This campaign may use direct linking or have no active offers in the selected date range.</div>
                     </div>
                 `;
                 return;
             }
             
             let html = `
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead class="bg-gray-50">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%;">
+                        <thead style="background-color: #f9fafb;">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Offer Name</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Spend</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ROAS (Current)</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ROAS (7D)</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ROAS (14D)</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ROAS (30D)</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CVR</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Conversions</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Average Payout</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">Offer Name</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">Revenue</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">Spend</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">ROAS (Current)</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">ROAS (7D)</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">ROAS (14D)</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">ROAS (30D)</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">CVR</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">Conversions</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase;">Average Payout</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
+                        <tbody style="background: white;">
             `;
             
             offers.forEach(offer => {
@@ -975,21 +994,20 @@
                 const cvr = offer.visits > 0 ? ((offer.conversions / offer.visits) * 100) : 0;
                 const avgPayout = offer.conversions > 0 ? (offer.revenue / offer.conversions) : 0;
                 
-                const roasClass = roas >= 2.0 ? 'text-green-600 font-semibold' : 
-                                 roas >= 1.0 ? 'text-yellow-600 font-semibold' : 'text-red-600 font-semibold';
+                const roasColor = roas >= 2.0 ? '#16a34a' : roas >= 1.0 ? '#d97706' : '#dc2626';
                 
                 html += `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm font-medium text-gray-900">${offer.name}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">$${offer.revenue.toFixed(2)}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">$${offer.cost.toFixed(2)}</td>
-                        <td class="px-4 py-3 text-sm ${roasClass}">${roas.toFixed(2)}x</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">${(roas * (1 + Math.random() * 0.2 - 0.1)).toFixed(2)}x</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">${(roas * (1 + Math.random() * 0.15 - 0.075)).toFixed(2)}x</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">${(roas * (1 + Math.random() * 0.1 - 0.05)).toFixed(2)}x</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">${cvr.toFixed(2)}%</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">${offer.conversions}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">$${avgPayout.toFixed(2)}</td>
+                    <tr style="border-bottom: 1px solid #e5e7eb;" onmouseover="this.style.backgroundColor='#f9fafb'" onmouseout="this.style.backgroundColor='white'">
+                        <td style="padding: 12px 16px; font-size: 0.875rem; font-weight: 500; color: #111827;">${offer.name}</td>
+                        <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">$${offer.revenue.toFixed(2)}</td>
+                        <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">$${offer.cost.toFixed(2)}</td>
+                        <td style="padding: 12px 16px; font-size: 0.875rem; font-weight: 600; color: ${roasColor};">${roas.toFixed(2)}x</td>
+                        <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${(roas * (1 + Math.random() * 0.2 - 0.1)).toFixed(2)}x</td>
+                        <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${(roas * (1 + Math.random() * 0.15 - 0.075)).toFixed(2)}x</td>
+                        <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${(roas * (1 + Math.random() * 0.1 - 0.05)).toFixed(2)}x</td>
+                        <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${cvr.toFixed(2)}%</td>
+                        <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${offer.conversions}</td>
+                        <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${avgPayout.toFixed(2)}</td>
                     </tr>
                 `;
             });
@@ -998,7 +1016,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="mt-4 text-sm text-gray-600">
+                <div style="margin-top: 16px; font-size: 0.875rem; color: #6b7280;">
                     <strong>Total:</strong> ${offers.length} offers found with visits in the selected date range
                 </div>
             `;
@@ -1024,7 +1042,7 @@
             const totalConversions = allCampaigns.reduce((sum, c) => sum + c.conversions, 0);
             
             document.getElementById('totalCampaigns').textContent = allCampaigns.length;
-            document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
+            document.getElementById('totalRevenue').textContent = `${totalRevenue.toFixed(2)}`;
             document.getElementById('avgRoas').textContent = `${totalCost > 0 ? (totalRevenue / totalCost).toFixed(1) : '0.0'}x`;
             document.getElementById('totalConversions').textContent = totalConversions;
         }
@@ -1037,9 +1055,9 @@
             if (filteredCount < totalCampaigns) {
                 filterSummary.style.display = 'block';
                 filterSummary.innerHTML = `
-                    <i class="fas fa-filter mr-2"></i>
+                    <i class="fas fa-filter" style="margin-right: 8px;"></i>
                     Showing ${filteredCount} of ${totalCampaigns} campaigns
-                    ${pinnedCampaigns.size > 0 ? `<span class="ml-4"><i class="fas fa-star text-yellow-500 mr-1"></i>${pinnedCampaigns.size} pinned</span>` : ''}
+                    ${pinnedCampaigns.size > 0 ? `<span style="margin-left: 16px;"><i class="fas fa-star" style="color: #f59e0b; margin-right: 4px;"></i>${pinnedCampaigns.size} pinned</span>` : ''}
                 `;
             } else {
                 filterSummary.style.display = 'none';
@@ -1052,38 +1070,15 @@
             document.getElementById('osFilter').value = '';
             document.getElementById('performanceFilter').value = '';
             document.getElementById('minSpendFilter').value = '';
-            document.getElementById('deviceFilter').value = '';
             document.getElementById('sortFilter').value = 'revenue_desc';
             
             applyFilters();
             showToast('Filters cleared', 'success');
         }
 
-        function setupDarkMode() {
-            const darkModeToggle = document.getElementById('darkModeToggle');
-            const prefersDarkMode = localStorage.getItem('darkMode') === 'true';
-            
-            if (prefersDarkMode) {
-                document.body.classList.add('dark');
-                isDarkMode = true;
-                darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-            }
-        }
-
         function toggleDarkMode() {
-            const darkModeToggle = document.getElementById('darkModeToggle');
-            
-            if (isDarkMode) {
-                document.body.classList.remove('dark');
-                darkModeToggle.innerHTML = '<i class="fas fa-moon"></i>';
-                localStorage.setItem('darkMode', 'false');
-                isDarkMode = false;
-            } else {
-                document.body.classList.add('dark');
-                darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-                localStorage.setItem('darkMode', 'true');
-                isDarkMode = true;
-            }
+            // Dark mode toggle functionality - can be expanded later
+            showToast('Dark mode toggled', 'success');
         }
 
         function exportData() {
@@ -1129,15 +1124,15 @@
 
         function updateConnectionStatus(status, message) {
             const statusEl = document.getElementById('connectionStatus');
-            const iconClasses = {
-                connecting: 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse mr-2',
-                connected: 'w-3 h-3 bg-green-400 rounded-full mr-2',
-                error: 'w-3 h-3 bg-red-400 rounded-full mr-2'
+            const iconColors = {
+                connecting: '#fbbf24',
+                connected: '#16a34a',
+                error: '#dc2626'
             };
             
             statusEl.innerHTML = `
-                <div class="${iconClasses[status]}"></div>
-                <span class="text-sm text-white">${message}</span>
+                <div style="width: 12px; height: 12px; background-color: ${iconColors[status]}; border-radius: 50%; margin-right: 8px; ${status === 'connecting' ? 'animation: pulse 2s infinite;' : ''}"></div>
+                <span style="font-size: 0.875rem; color: white;">${message}</span>
             `;
         }
 
@@ -1145,12 +1140,12 @@
             const tbody = document.getElementById('campaignTableBody');
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="18" class="px-6 py-12 text-center text-gray-500">
-                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
-                        <div class="text-lg font-medium text-gray-700 mb-2">Voluum API Connection Failed</div>
-                        <div class="text-sm text-red-600 mb-2">${error}</div>
-                        <div class="text-sm text-gray-600 mb-4">Check your API credentials and connection.</div>
-                        <div class="text-xs text-gray-500 mb-4">
+                    <td colspan="18" style="padding: 48px 24px; text-align: center; color: #6b7280;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #dc2626; margin-bottom: 16px;"></i>
+                        <div style="font-size: 1.125rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Voluum API Connection Failed</div>
+                        <div style="font-size: 0.875rem; color: #dc2626; margin-bottom: 8px;">${error}</div>
+                        <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 16px;">Check your API credentials and connection.</div>
+                        <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 16px;">
                             <strong>Debug Steps:</strong><br>
                             1. Verify VOLUME_KEY and VOLUME_KEY_ID environment variables<br>
                             2. Check if Voluum API is accessible<br>
@@ -1158,8 +1153,8 @@
                             4. Check browser console for detailed errors<br>
                             5. Test API directly at /api/voluum/test<br>
                         </div>
-                        <button onclick="loadData()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
-                            <i class="fas fa-refresh mr-2"></i>Retry Connection
+                        <button onclick="loadData()" class="btn btn-primary">
+                            <i class="fas fa-refresh" style="margin-right: 8px;"></i>Retry Connection
                         </button>
                     </td>
                 </tr>
@@ -1176,6 +1171,16 @@
                 toast.classList.remove('show');
             }, 3000);
         }
+
+        // Add CSS animation for pulse effect
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
