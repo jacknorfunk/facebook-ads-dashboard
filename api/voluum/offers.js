@@ -22,12 +22,41 @@ export default async function handler(req, res) {
         console.log(`📅 Using date range: ${startDate} to ${endDate}`);
 
         // Get Voluum API credentials from environment variables
-        const VOLUME_KEY = process.env.VOLUME_KEY;
-        const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;
+        const VOLUME_KEY = process.env.VOLUME_KEY;        // Secret Access Key
+        const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;  // Access Key ID
         
         if (!VOLUME_KEY || !VOLUME_KEY_ID) {
             throw new Error('Voluum API credentials not configured. Missing VOLUME_KEY or VOLUME_KEY_ID environment variables');
         }
+
+        // Step 1: Create a session using the access key
+        console.log('🔐 Creating Voluum API session for offers...');
+        const sessionResponse = await fetch('https://api.voluum.com/auth/access/session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                accessId: VOLUME_KEY_ID,
+                accessKey: VOLUME_KEY
+            })
+        });
+
+        if (!sessionResponse.ok) {
+            const sessionError = await sessionResponse.text();
+            console.log('❌ Offers session creation failed:', sessionError);
+            throw new Error(`Session creation failed: ${sessionResponse.status} - ${sessionError}`);
+        }
+
+        const sessionData = await sessionResponse.json();
+        const authToken = sessionData.token;
+        
+        if (!authToken) {
+            throw new Error('No auth token received from Voluum session API');
+        }
+
+        console.log('✅ Offers session created successfully');
 
         // Define columns for offer-level reporting
         const offerColumns = [
@@ -49,10 +78,10 @@ export default async function handler(req, res) {
         
         console.log('🎯 Requesting OFFER-level data:', reportUrl);
 
-        // Make API request to Voluum with proper authentication
+        // Make API request to Voluum with proper session token
         const reportResponse = await fetch(reportUrl, {
             headers: {
-                'cwauth-token': VOLUME_KEY,
+                'cwauth-token': authToken,
                 'Content-Type': 'application/json'
             }
         });
@@ -78,10 +107,7 @@ export default async function handler(req, res) {
                     campaignId: campaignId,
                     date_range: `${startDate} to ${endDate}`,
                     message: 'This could be due to no offer data available for this campaign or API limitations',
-                    auth_check: {
-                        hasVolumeKey: !!VOLUME_KEY,
-                        hasVolumeKeyId: !!VOLUME_KEY_ID
-                    }
+                    session_creation: 'successful'
                 }
             });
         }
