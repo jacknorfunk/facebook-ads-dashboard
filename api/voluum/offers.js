@@ -21,10 +21,12 @@ export default async function handler(req, res) {
         const { startDate, endDate } = calculateDateRange(range);
         console.log(`📅 Using date range: ${startDate} to ${endDate}`);
 
-        // Get Voluum API token
-        const VOLUUM_API_TOKEN = process.env.VOLUUM_API_TOKEN;
-        if (!VOLUUM_API_TOKEN) {
-            throw new Error('Voluum API token not configured');
+        // Get Voluum API credentials from environment variables
+        const VOLUME_KEY = process.env.VOLUME_KEY;
+        const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;
+        
+        if (!VOLUME_KEY || !VOLUME_KEY_ID) {
+            throw new Error('Voluum API credentials not configured. Missing VOLUME_KEY or VOLUME_KEY_ID environment variables');
         }
 
         // Define columns for offer-level reporting
@@ -47,17 +49,22 @@ export default async function handler(req, res) {
         
         console.log('🎯 Requesting OFFER-level data:', reportUrl);
 
-        // Make API request to Voluum
+        // Make API request to Voluum with proper authentication
         const reportResponse = await fetch(reportUrl, {
             headers: {
-                'cwauth-token': VOLUUM_API_TOKEN,
+                'cwauth-token': VOLUME_KEY,
                 'Content-Type': 'application/json'
             }
         });
 
         if (!reportResponse.ok) {
             const errorText = await reportResponse.text();
-            console.log('❌ Offer report failed:', errorText);
+            console.log('❌ Offer report failed:', {
+                status: reportResponse.status,
+                statusText: reportResponse.statusText,
+                errorText: errorText,
+                url: reportUrl
+            });
             
             // Return empty result with error info
             return res.status(200).json({
@@ -66,10 +73,15 @@ export default async function handler(req, res) {
                 debug_info: {
                     error: 'Offer API request failed',
                     status: reportResponse.status,
+                    statusText: reportResponse.statusText,
                     response: errorText,
                     campaignId: campaignId,
                     date_range: `${startDate} to ${endDate}`,
-                    message: 'This could be due to no offer data available for this campaign or API limitations'
+                    message: 'This could be due to no offer data available for this campaign or API limitations',
+                    auth_check: {
+                        hasVolumeKey: !!VOLUME_KEY,
+                        hasVolumeKeyId: !!VOLUME_KEY_ID
+                    }
                 }
             });
         }
