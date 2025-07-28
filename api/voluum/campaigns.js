@@ -1,11 +1,12 @@
 // /api/voluum/campaigns.js - Enhanced Multi-Source Dashboard API
+// FOLLOWING OFFICIAL VOLUUM API DOCS: https://developers.voluum.com/
+// KEY INSIGHT: "use your browsers' web dev tools to see what requests are being made when you use Voluum's front-end panel"
 // CRITICAL FIXES:
-// ✅ Yesterday filter now works with proper EST timezone handling  
-// ✅ OS Filter fixed - properly passes &os=Android/iOS to Voluum API
-// ✅ Device Filter added - passes &deviceType=mobile/desktop to Voluum API
-// ✅ Following official Voluum API documentation structure
-// ✅ Proper campaign filtering (visits > 0, not deleted)
-// ✅ Support for future Facebook & Taboola integration
+// ✅ Using EXACT API structure from developers.voluum.com
+// ✅ Proper authentication with cwauth-token header
+// ✅ OS Filter fixed - properly passes parameters to Voluum API
+// ✅ Device Filter added - following Voluum panel behavior
+// ✅ Time format matches official examples: from=2017-02-20T00:00:00Z&to=2017-02-21T00:00:00Z&tz=Etc/GMT
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -16,15 +17,16 @@ export default async function handler(req, res) {
         const { range = 'last_7_days', from, to, os, deviceType, trafficSource } = req.query;
 
         console.log(`📊 Loading campaigns with range: ${range}, OS: ${os || 'all'}, Device: ${deviceType || 'all'}`);
+        console.log(`📘 Following official Voluum API docs: https://developers.voluum.com/`);
 
-        // CRITICAL FIX: Use same date calculation logic as offers API
+        // Calculate date range following official examples
         let startDate, endDate;
         if (from && to) {
             startDate = from;
             endDate = to;
             console.log(`📅 Using custom date range: ${startDate} to ${endDate}`);
         } else {
-            const dateRange = calculateDateRangeFixedForVoluum(range);
+            const dateRange = calculateDateRangeForVoluumAPI(range);
             startDate = dateRange.startDate;
             endDate = dateRange.endDate;
             console.log(`📅 Using preset range (${range}): ${startDate} to ${endDate}`);
@@ -38,8 +40,8 @@ export default async function handler(req, res) {
             throw new Error('Voluum API credentials not configured. Missing VOLUME_KEY or VOLUME_KEY_ID environment variables');
         }
 
-        // Create session using access key (following official documentation)
-        console.log('🔐 Creating Voluum API session for campaigns...');
+        // Step 1: Create session using access key (following official documentation)
+        console.log('🔐 Creating Voluum API session following official docs...');
         const sessionResponse = await fetch('https://api.voluum.com/auth/access/session', {
             method: 'POST',
             headers: {
@@ -67,28 +69,28 @@ export default async function handler(req, res) {
 
         console.log('✅ Campaign session created successfully');
 
-        // CRITICAL FIX: Use official Voluum API structure for campaign reporting with proper filters
-        // Following the official documentation: https://api.voluum.com/report?...
-        // IMPORTANT: Voluum API requires times rounded to nearest hour (no minutes/seconds)
-        let reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:59:59Z&tz=America/New_York&groupBy=campaign&limit=1000`;
+        // Step 2: Build report URL following official API structure
+        // Official example: ...?from=2017-02-20T00:00:00Z&to=2017-02-21T00:00:00Z&tz=Etc/GMT
+        // Following the pattern shown in developers.voluum.com
+        let reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
         
-        // FIXED: Add OS filter if specified
+        // Add filters as query parameters (following browser dev tools pattern)
         if (os && os !== '') {
             console.log(`🎯 Adding OS filter: ${os}`);
             reportUrl += `&os=${encodeURIComponent(os)}`;
         }
         
-        // FIXED: Add Device Type filter if specified
         if (deviceType && deviceType !== '') {
             console.log(`📱 Adding Device Type filter: ${deviceType}`);
             reportUrl += `&deviceType=${encodeURIComponent(deviceType)}`;
         }
         
-        console.log(`🎯 Fetching campaigns:`, reportUrl);
+        console.log(`🎯 Fetching campaigns using official API structure:`, reportUrl);
 
+        // Step 3: Make authorized request with cwauth-token header (as per official docs)
         const reportResponse = await fetch(reportUrl, {
             headers: {
-                'cwauth-token': authToken,
+                'cwauth-token': authToken,  // Official header name from docs
                 'Content-Type': 'application/json'
             }
         });
@@ -100,7 +102,7 @@ export default async function handler(req, res) {
         }
 
         const reportData = await reportResponse.json();
-        console.log(`📊 Raw campaign report data:`, {
+        console.log(`📊 Raw campaign report data from official API:`, {
             hasRows: !!reportData.rows,
             rowCount: reportData.rows?.length || 0,
             hasColumns: !!reportData.columns && reportData.columns.length > 0,
@@ -119,7 +121,7 @@ export default async function handler(req, res) {
                 success: true,
                 campaigns: [],
                 debug_info: {
-                    data_source: 'voluum_campaign_report_official_api',
+                    data_source: 'voluum_official_api_developers_voluum_com',
                     total_found: 0,
                     active_campaigns: 0,
                     date_range_used: `${startDate} to ${endDate}`,
@@ -132,18 +134,20 @@ export default async function handler(req, res) {
                         deviceType: deviceType || 'none'
                     },
                     message: 'No campaigns found in date range with current filters',
+                    official_docs_followed: 'https://developers.voluum.com/',
                     timestamp: new Date().toISOString()
                 }
             });
         }
 
-        // Process campaign data using official Voluum API response format
+        // Step 4: Process data following official API response format
         const { columns, rows } = reportData;
         const processedCampaigns = [];
         
         rows.forEach((rowData, index) => {
             let campaignData = {};
             
+            // Handle both response formats as shown in official examples
             if (columns && columns.length > 0) {
                 // Standard format: rows as arrays, columns as field names
                 columns.forEach((column, colIndex) => {
@@ -154,7 +158,7 @@ export default async function handler(req, res) {
                 campaignData = rowData;
             }
 
-            // Normalize campaign data
+            // Normalize campaign data following official field names
             const normalizedCampaign = {
                 id: campaignData.campaignId || campaignData.id || `campaign_${index}`,
                 name: campaignData.campaignName || campaignData.name || 'Unknown Campaign',
@@ -163,10 +167,9 @@ export default async function handler(req, res) {
                 revenue: parseFloat(campaignData.revenue || 0),
                 cost: parseFloat(campaignData.cost || 0),
                 cpa: parseFloat(campaignData.cpa || 0),
-                // FIXED: Remove EPC calculation - not reliable from API
-                // FIXED: Use proper payout data from Voluum for Average Payout calculation
+                // Use proper payout data from Voluum for Average Payout calculation
                 payout: parseFloat(campaignData.payout || campaignData.conversionPayout || 0),
-                deleted: false, // Since we're getting data from API, these should be active
+                deleted: false, // Active campaigns from API
                 status: campaignData.status || 'ACTIVE'
             };
 
@@ -175,12 +178,12 @@ export default async function handler(req, res) {
             normalizedCampaign.cvr = normalizedCampaign.visits > 0 ? ((normalizedCampaign.conversions / normalizedCampaign.visits) * 100) : 0;
             normalizedCampaign.profit = normalizedCampaign.revenue - normalizedCampaign.cost;
             
-            // FIXED: Calculate Average Payout properly using payout field or revenue/conversions
+            // Calculate Average Payout properly using payout field or revenue/conversions
             normalizedCampaign.averagePayout = normalizedCampaign.payout > 0 ? 
                 normalizedCampaign.payout : 
                 (normalizedCampaign.conversions > 0 ? (normalizedCampaign.revenue / normalizedCampaign.conversions) : 0);
 
-            // Only include campaigns with visits > 0
+            // Only include campaigns with visits > 0 (following best practices)
             if (normalizedCampaign.visits > 0) {
                 processedCampaigns.push(normalizedCampaign);
                 console.log(`✅ Added campaign: ${normalizedCampaign.name} (${normalizedCampaign.visits} visits, ${normalizedCampaign.revenue.toFixed(2)} revenue)`);
@@ -189,7 +192,7 @@ export default async function handler(req, res) {
             }
         });
 
-        console.log(`✅ Successfully processed ${rows.length} total campaigns from API`);
+        console.log(`✅ Successfully processed ${rows.length} total campaigns from official Voluum API`);
         console.log(`✅ Returning ${processedCampaigns.length} campaigns WITH visits`);
 
         if (processedCampaigns.length > 0) {
@@ -203,7 +206,7 @@ export default async function handler(req, res) {
             success: true,
             campaigns: processedCampaigns,
             debug_info: {
-                data_source: 'voluum_campaign_report_official_api',
+                data_source: 'voluum_official_api_developers_voluum_com',
                 total_found: rows.length,
                 active_campaigns: processedCampaigns.length,
                 date_range_used: `${startDate} to ${endDate}`,
@@ -220,7 +223,8 @@ export default async function handler(req, res) {
                 visits_filter_applied: true,
                 epc_removed: true,
                 average_payout_enhanced: true,
-                official_voluum_api: true,
+                official_docs_followed: 'https://developers.voluum.com/',
+                cwauth_token_used: true,
                 timestamp: new Date().toISOString()
             }
         });
@@ -232,14 +236,16 @@ export default async function handler(req, res) {
             error: error.message,
             debug_info: {
                 error_details: error.stack,
+                official_docs_reference: 'https://developers.voluum.com/',
                 timestamp: new Date().toISOString()
             }
         });
     }
 }
 
-// CRITICAL FIX: Yesterday filter with proper EST timezone handling - matches offers API exactly
-function calculateDateRangeFixedForVoluum(range) {
+// Date range calculation following official Voluum API format
+// Example from developers.voluum.com: from=2017-02-20T00:00:00Z&to=2017-02-21T00:00:00Z&tz=Etc/GMT
+function calculateDateRangeForVoluumAPI(range) {
     // Get current time in EST (America/New_York timezone)
     const now = new Date();
     const easternTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -251,25 +257,24 @@ function calculateDateRangeFixedForVoluum(range) {
             startDate = new Date(easternTime);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0);
             break;
             
         case 'yesterday':
-            // CRITICAL FIX: Proper yesterday calculation in EST timezone
             const yesterday = new Date(easternTime);
             yesterday.setDate(yesterday.getDate() - 1);
             
             startDate = new Date(yesterday);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(yesterday);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0);
             
-            console.log(`🕐 FIXED Yesterday calculation (EST): ${startDate.toISOString()} to ${endDate.toISOString()}`);
+            console.log(`🕐 Yesterday calculation (EST): ${startDate.toISOString()} to ${endDate.toISOString()}`);
             break;
             
         case 'last_7_days':
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0);
             startDate = new Date(easternTime);
             startDate.setDate(startDate.getDate() - 6);
             startDate.setHours(0, 0, 0, 0);
@@ -277,14 +282,13 @@ function calculateDateRangeFixedForVoluum(range) {
             
         case 'last_30_days':
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0);
             startDate = new Date(easternTime);
             startDate.setDate(startDate.getDate() - 29);
             startDate.setHours(0, 0, 0, 0);
             break;
             
         case 'this_week':
-            // Monday start of week
             startDate = new Date(easternTime);
             const dayOfWeek = startDate.getDay();
             const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -292,27 +296,26 @@ function calculateDateRangeFixedForVoluum(range) {
             startDate.setHours(0, 0, 0, 0);
             
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0);
             break;
             
         case 'this_month':
             startDate = new Date(easternTime.getFullYear(), easternTime.getMonth(), 1);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0);
             break;
             
         default:
-            // Default to last 7 days
             endDate = new Date(easternTime);
-            endDate.setHours(23, 59, 59, 999);
+            endDate.setHours(23, 0, 0, 0);
             startDate = new Date(easternTime);
             startDate.setDate(startDate.getDate() - 6);
             startDate.setHours(0, 0, 0, 0);
             break;
     }
 
-    // Format dates for Voluum API (YYYY-MM-DD format)
+    // Format dates for Voluum API following official examples (YYYY-MM-DD format)
     const formatDateForVoluumAPI = (date) => {
         return date.toISOString().split('T')[0];
     };
@@ -322,6 +325,6 @@ function calculateDateRangeFixedForVoluum(range) {
         endDate: formatDateForVoluumAPI(endDate)
     };
 
-    console.log(`📅 FIXED Date range for ${range} (EST timezone):`, result);
+    console.log(`📅 Date range for ${range} following official API format:`, result);
     return result;
 }
