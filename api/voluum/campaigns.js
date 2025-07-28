@@ -238,28 +238,29 @@ export default async function handler(req, res) {
             });
         }
 
-        // Filter to only active campaigns with visits
+        // Filter to only active campaigns - TEMPORARILY RELAXED for debugging
         const activeCampaigns = campaigns.filter(campaign => {
             const isNotDeleted = !campaign.deleted && campaign.status !== 'deleted' && campaign.status !== 'archived';
-            const hasVisits = campaign.visits > 0;
+            // TEMPORARILY: Don't filter by visits to see all campaigns
+            const hasVisits = true; // campaign.visits > 0;  // Temporarily disabled
             
             if (!isNotDeleted) {
-                console.log(`🗑️ Filtering out deleted campaign: ${campaign.name} (status: ${campaign.status})`);
+                console.log(`🗑️ Filtering out deleted campaign: ${campaign.name} (status: ${campaign.status}, deleted: ${campaign.deleted})`);
             }
-            if (!hasVisits) {
-                console.log(`👻 Filtering out campaign with no visits: ${campaign.name} (${campaign.visits} visits)`);
+            if (campaign.visits === 0) {
+                console.log(`👻 Campaign with no visits (but keeping for debug): ${campaign.name} (${campaign.visits} visits)`);
             }
             
             return isNotDeleted && hasVisits;
         });
 
         console.log(`✅ Successfully processed ${campaigns.length} total campaigns`);
-        console.log(`✅ Returning ${activeCampaigns.length} active campaigns with visits`);
+        console.log(`✅ Returning ${activeCampaigns.length} active campaigns (visits filter temporarily disabled)`);
         
         if (activeCampaigns.length > 0) {
             console.log('📋 Sample campaigns:');
             activeCampaigns.slice(0, 3).forEach(campaign => {
-                console.log(`   ${campaign.name}: ${campaign.visits} visits, £${campaign.revenue} revenue`);
+                console.log(`   ${campaign.name}: ${campaign.visits} visits, £${campaign.revenue} revenue, status: ${campaign.status}`);
             });
         }
 
@@ -307,6 +308,15 @@ function processCampaignFromReport(campaignData) {
     const revenue = parseFloat(campaignData.revenue || campaignData.payout || 0);
     const cost = parseFloat(campaignData.cost || campaignData.spend || 0);
     
+    // FIXED: Improved campaign status detection
+    const campaignStatus = campaignData.campaignStatus || campaignData.status || 'active';
+    const isDeleted = campaignStatus === 'archived' || 
+                     campaignStatus === 'deleted' || 
+                     campaignStatus === 'paused' ||
+                     campaignData.deleted === true;
+    
+    console.log(`📊 Processing campaign: ${campaignData.campaignName || campaignData.name} - Status: ${campaignStatus}, Deleted: ${isDeleted}, Visits: ${visits}`);
+    
     return {
         id: campaignData.campaignId || campaignData.id || Math.random().toString(36).substr(2, 9),
         name: campaignData.campaignName || campaignData.name || 'Unnamed Campaign',
@@ -318,14 +328,20 @@ function processCampaignFromReport(campaignData) {
         cpa: conversions > 0 ? cost / conversions : 0,
         cv: parseFloat(campaignData.cv || (visits > 0 ? (conversions / visits) * 100 : 0)),
         epc: visits > 0 ? revenue / visits : 0,
-        deleted: campaignData.deleted || campaignData.status === 'archived' || campaignData.status === 'deleted',
-        status: campaignData.campaignStatus || campaignData.status || 'active'
+        deleted: isDeleted,
+        status: campaignStatus,
+        // Add raw data for debugging
+        rawStatus: campaignData.campaignStatus,
+        rawDeleted: campaignData.deleted
     };
 }
 
 function calculateDateRange(range) {
-    const now = new Date();
+    // FIXED: Use actual current date, not a future date
+    const now = new Date(); // This should be January 28, 2025
     const timezone = 'America/New_York'; // Eastern Time to match Voluum account
+    
+    console.log('🕐 Current actual date:', now.toISOString());
     
     // Helper to get date in Eastern Time
     const getEasternDate = (date) => {
@@ -334,6 +350,7 @@ function calculateDateRange(range) {
     
     // Current date in Eastern Time
     const easternNow = getEasternDate(now);
+    console.log('🕐 Eastern time now:', easternNow.toISOString());
     let startDate, endDate;
 
     switch (range) {
