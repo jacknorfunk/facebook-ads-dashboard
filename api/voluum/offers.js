@@ -1,4 +1,4 @@
-// /api/voluum/offers.js - CORRECTED Offer-level performance drill-down
+// /api/voluum/offers.js - FIXED Offer-level performance drill-down
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -75,16 +75,21 @@ export default async function handler(req, res) {
             'conversions',
             'revenue',
             'cost',
-            'cpa',
+            'profit',
+            'cpv',
+            'ctr',
+            'cr',
             'cv',
+            'roi',
+            'epv',
             'epc',
-            'rpm',
-            'rpc'
+            'ap',
+            'errors'
         ].join(',');
 
         console.log('🎯 Starting offer data collection with PAGINATION...');
 
-        // Get ALL offers with pagination
+        // Get ALL offers with pagination - CRITICAL FIX: Pass campaignId properly
         const allOffers = await getAllOffersWithPagination(authToken, startDate, endDate, campaignId, offerColumns);
         
         console.log(`📊 Total offers retrieved from API: ${allOffers.length}`);
@@ -106,13 +111,36 @@ export default async function handler(req, res) {
             return isNotDeleted && hasVisits;
         });
 
+        // Process offers to calculate additional metrics
+        const processedOffers = activeOffers.map(offer => {
+            const revenue = offer.revenue || 0;
+            const cost = offer.cost || 0;
+            const visits = offer.visits || 0;
+            const conversions = offer.conversions || 0;
+            
+            return {
+                id: offer.offerId,
+                name: offer.offerName || 'Unknown Offer',
+                revenue: revenue,
+                spend: cost,
+                profit: revenue - cost,
+                roas: cost > 0 ? revenue / cost : 0,
+                cpa: conversions > 0 ? cost / conversions : 0,
+                cvr: visits > 0 ? (conversions / visits) * 100 : 0,
+                visits: visits,
+                conversions: conversions,
+                aov: conversions > 0 ? revenue / conversions : 0,
+                epc: visits > 0 ? revenue / visits : 0
+            };
+        });
+
         console.log(`✅ Successfully processed ${allOffers.length} total offers`);
         console.log(`✅ Found ${allOffers.filter(o => !o.deleted).length} active offers`);
-        console.log(`✅ Returning ${activeOffers.length} offers WITH visits`);
+        console.log(`✅ Returning ${processedOffers.length} offers WITH visits`);
 
-        if (activeOffers.length > 0) {
+        if (processedOffers.length > 0) {
             console.log('📋 Sample offers with visits:');
-            activeOffers.slice(0, 3).forEach(offer => {
+            processedOffers.slice(0, 3).forEach(offer => {
                 console.log(`   ${offer.name}: ${offer.visits} visits, $${offer.revenue.toFixed(2)} revenue, ${offer.roas.toFixed(2)}x ROAS`);
             });
         } else {
@@ -126,12 +154,12 @@ export default async function handler(req, res) {
 
         return res.json({
             success: true,
-            offers: activeOffers,
+            offers: processedOffers,
             debug_info: {
-                data_source: 'voluum_offer_report_corrected',
+                data_source: 'voluum_offer_report_fixed',
                 campaignId: campaignId,
                 total_found: allOffers.length,
-                active_offers: activeOffers.length,
+                active_offers: processedOffers.length,
                 deleted_offers: allOffers.filter(o => o.deleted).length,
                 date_range_used: `${startDate} to ${endDate}`,
                 selected_range: range,
@@ -140,7 +168,6 @@ export default async function handler(req, res) {
                 pagination_used: true,
                 visits_filter_applied: true,
                 deleted_filter_applied: true,
-                sample_raw_offer: allOffers[0] || null,
                 timestamp: new Date().toISOString()
             }
         });
@@ -158,7 +185,7 @@ export default async function handler(req, res) {
     }
 }
 
-// CORRECTED: Pagination function that handles Voluum's response format properly
+// FIXED: Pagination function that properly filters by campaignId
 async function getAllOffersWithPagination(authToken, startDate, endDate, campaignId, offerColumns) {
     let allOffers = [];
     let offset = 0;
@@ -166,13 +193,26 @@ async function getAllOffersWithPagination(authToken, startDate, endDate, campaig
     let hasMore = true;
     let pageCount = 0;
     
-    console.log('🔄 Starting pagination loop for offers...');
+    console.log(`🔄 Starting pagination loop for offers (campaignId: ${campaignId})...`);
     
     while (hasMore && pageCount < 50) {
         pageCount++;
-        const reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=offer&columns=${offerColumns}&tz=America/New_York&campaignId=${campaignId}&limit=${limit}&offset=${offset}`;
         
-        console.log(`📄 Fetching offers page ${pageCount} (offset: ${offset})`);
+        // CRITICAL FIX: Properly filter by campaignId in the API request
+        const reportUrl = `https://api.voluum.com/report?` + new URLSearchParams({
+            from: startDate,
+            to: endDate,
+            groupBy: 'offer',
+            columns: offerColumns,
+            tz: 'America/New_York',
+            filter: JSON.stringify({
+                campaignId: campaignId  // FIXED: Proper campaign filtering
+            }),
+            limit: limit.toString(),
+            offset: offset.toString()
+        }).toString();
+        
+        console.log(`📄 Fetching offers page ${pageCount} (offset: ${offset}) for campaign ${campaignId}`);
         
         const reportResponse = await fetch(reportUrl, {
             headers: {
@@ -196,159 +236,122 @@ async function getAllOffersWithPagination(authToken, startDate, endDate, campaig
             hasRows: !!reportData.rows,
             rowCount: reportData.rows?.length || 0,
             hasColumns: !!reportData.columns,
-            columnCount: reportData.columns?.length || 0,
-            totalSoFar: allOffers.length
+            columnCount: reportData.columns?.length || 0
         });
 
-        const { rows = [], columns = [] } = reportData;
-
-        if (rows.length === 0) {
-            console.log(`⚠️ No more offers at page ${pageCount}`);
-            hasMore = false;
-            break;
-        }
-
-        // CRITICAL FIX: Process offers based on actual Voluum API response format
-        console.log(`🔄 Processing ${rows.length} offers from page ${pageCount}...`);
-        const pageOffers = rows.map((rowData, index) => {
-            try {
+        if (reportData.rows && reportData.rows.length > 0) {
+            const { columns, rows } = reportData;
+            
+            // FIXED: Handle both column-mapped and direct object formats
+            const pageOffers = rows.map(rowData => {
                 let offerData;
                 
-                // Handle different response formats from Voluum API
                 if (columns && columns.length > 0) {
-                    // Format 1: rows are arrays, columns define the structure
+                    // Format 1: rows are arrays, columns define structure
                     offerData = {};
                     columns.forEach((column, colIndex) => {
                         offerData[column] = rowData[colIndex];
                     });
                 } else {
-                    // Format 2: rows are already objects (this is what your debug shows)
+                    // Format 2: rows are already objects (Voluum's actual format)
                     offerData = rowData;
                 }
-
-                // Extract values (handling both formats)
-                const visits = parseInt(offerData.visits || 0);
-                const conversions = parseInt(offerData.conversions || 0);
-                const revenue = parseFloat(offerData.revenue || 0);
-                const spend = parseFloat(offerData.cost || 0);
-
-                // Calculate metrics
-                const roas = spend > 0 ? revenue / spend : 0;
-                const epc = visits > 0 ? revenue / visits : 0;
-                const cvr = visits > 0 ? (conversions / visits) * 100 : 0;
-                const aov = conversions > 0 ? revenue / conversions : 0;
-
-                return {
-                    id: offerData.offerId || Math.random().toString(36).substr(2, 9),
-                    name: offerData.offerName || 'Unnamed Offer',
-                    visits: visits,
-                    conversions: conversions,
-                    revenue: revenue,
-                    spend: spend,
-                    roas: roas,
-                    epc: epc,
-                    cvr: cvr,
-                    aov: aov,
-                    cpa: parseFloat(offerData.cpa || 0),
-                    deleted: offerData.deleted || false,  // Include deleted status
-                    // Keep raw data for debugging
-                    rawData: offerData
-                };
-            } catch (error) {
-                console.error(`❌ Error processing offer at index ${index}:`, error);
-                return null;
+                
+                return offerData;
+            });
+            
+            allOffers = allOffers.concat(pageOffers);
+            console.log(`✅ Added ${pageOffers.length} offers from page ${pageCount}. Total so far: ${allOffers.length}`);
+            
+            // Check if we should continue pagination
+            if (rows.length < limit) {
+                hasMore = false;
+                console.log('📋 Reached end of data (less than limit returned)');
+            } else {
+                offset += limit;
             }
-        }).filter(Boolean);
-
-        allOffers = allOffers.concat(pageOffers);
-        console.log(`✅ Page ${pageCount} processed: ${pageOffers.length} offers added (total: ${allOffers.length})`);
-        
-        if (rows.length < limit) {
-            console.log(`🏁 Reached last page (got ${rows.length} < ${limit} results)`);
-            hasMore = false;
         } else {
-            offset += limit;
+            hasMore = false;
+            console.log('📋 No more offers to fetch');
         }
     }
-
-    console.log(`🎉 Pagination complete! Total offers collected: ${allOffers.length} from ${pageCount} pages`);
+    
+    console.log(`✅ Pagination complete. Total offers retrieved: ${allOffers.length}`);
     return allOffers;
 }
 
+// FIXED: Proper date calculation for EST timezone
 function calculateDateRange(range) {
     const now = new Date();
-    const timezone = 'America/New_York';
-    
-    const getEasternDate = (date) => {
-        return new Date(date.toLocaleString("en-US", { timeZone: timezone }));
-    };
-    
-    const easternNow = getEasternDate(now);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     let startDate, endDate;
-
+    
+    // Convert to EST timezone offset
+    const estOffset = -5; // EST is UTC-5
+    const localOffset = now.getTimezoneOffset() / 60;
+    const offsetDiff = localOffset + estOffset;
+    
     switch (range) {
         case 'today':
-            startDate = new Date(easternNow);
-            startDate.setHours(0, 0, 0, 0);
-            endDate = new Date(easternNow);
+            startDate = new Date(today);
+            endDate = new Date(today);
             endDate.setHours(23, 59, 59, 999);
             break;
             
         case 'yesterday':
-            startDate = new Date(easternNow);
+            // FIXED: Proper yesterday calculation
+            startDate = new Date(today);
             startDate.setDate(startDate.getDate() - 1);
-            startDate.setHours(0, 0, 0, 0);
             endDate = new Date(startDate);
             endDate.setHours(23, 59, 59, 999);
+            console.log('📅 Yesterday calculation:', {
+                today: today.toISOString(),
+                yesterdayStart: startDate.toISOString(),
+                yesterdayEnd: endDate.toISOString()
+            });
             break;
             
         case 'last_7_days':
-            endDate = new Date(easternNow);
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 7);
+            endDate = new Date(today);
             endDate.setHours(23, 59, 59, 999);
-            startDate = new Date(easternNow);
-            startDate.setDate(startDate.getDate() - 6);
-            startDate.setHours(0, 0, 0, 0);
+            break;
+            
+        case 'last_14_days':
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 14);
+            endDate = new Date(today);
+            endDate.setHours(23, 59, 59, 999);
             break;
             
         case 'last_30_days':
-            endDate = new Date(easternNow);
-            endDate.setHours(23, 59, 59, 999);
-            startDate = new Date(easternNow);
-            startDate.setDate(startDate.getDate() - 29);
-            startDate.setHours(0, 0, 0, 0);
-            break;
-            
-        case 'this_week':
-            startDate = new Date(easternNow);
-            const dayOfWeek = startDate.getDay();
-            const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-            startDate.setDate(startDate.getDate() - daysToMonday);
-            startDate.setHours(0, 0, 0, 0);
-            
-            endDate = new Date(easternNow);
-            endDate.setHours(23, 59, 59, 999);
-            break;
-            
-        case 'this_month':
-            startDate = new Date(easternNow.getFullYear(), easternNow.getMonth(), 1);
-            startDate.setHours(0, 0, 0, 0);
-            endDate = new Date(easternNow);
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 30);
+            endDate = new Date(today);
             endDate.setHours(23, 59, 59, 999);
             break;
             
         default:
-            endDate = new Date(easternNow);
+            // Default to last 7 days
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 7);
+            endDate = new Date(today);
             endDate.setHours(23, 59, 59, 999);
-            startDate = new Date(easternNow);
-            startDate.setDate(startDate.getDate() - 6);
-            startDate.setHours(0, 0, 0, 0);
-            break;
     }
-
+    
+    // Apply timezone offset adjustment
+    startDate.setHours(startDate.getHours() + offsetDiff);
+    endDate.setHours(endDate.getHours() + offsetDiff);
+    
+    // Format dates as YYYY-MM-DD
     const formatDate = (date) => {
-        return date.toISOString().split('T')[0];
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     };
-
+    
     return {
         startDate: formatDate(startDate),
         endDate: formatDate(endDate)
