@@ -884,12 +884,11 @@
             if (!campaign) return;
             
             try {
-                let url;
-                const dateRange = document.getElementById('dateRange').value;
-                
-                // CRITICAL FIX: Use same date range logic as campaigns
+                // CRITICAL FIX: Use same date range logic as campaigns with hour-rounded times
                 const params = new URLSearchParams();
                 params.append('campaignId', campaignId);
+                
+                const dateRange = document.getElementById('dateRange').value;
                 
                 if (dateRange === 'custom') {
                     const fromDate = document.getElementById('fromDate').value;
@@ -904,7 +903,7 @@
                     params.append('range', dateRange);
                 }
                 
-                url = `/api/voluum/offers?${params.toString()}`;
+                const url = `/api/voluum/offers?${params.toString()}`;
                 
                 console.log('🎯 Loading offers for campaign with URL:', url);
                 
@@ -962,12 +961,11 @@
             `;
             
             try {
-                let url;
-                const dateRange = document.getElementById('dateRange').value;
-                
-                // CRITICAL FIX: Use same date range logic as campaigns and inline expansion
+                // CRITICAL FIX: Use same date range logic as campaigns and inline expansion with hour-rounded times
                 const params = new URLSearchParams();
                 params.append('campaignId', campaignId);
+                
+                const dateRange = document.getElementById('dateRange').value;
                 
                 if (dateRange === 'custom') {
                     const fromDate = document.getElementById('fromDate').value;
@@ -982,7 +980,7 @@
                     params.append('range', dateRange);
                 }
                 
-                url = `/api/voluum/offers?${params.toString()}`;
+                const url = `/api/voluum/offers?${params.toString()}`;
                 
                 console.log('🎯 Loading offers for modal with URL:', url);
                 
@@ -1012,6 +1010,7 @@
                             <li>• All offers are inactive/deleted</li>
                             <li>• No offer data in selected date range</li>
                             <li>• API connection issues</li>
+                            <li>• Time format issues (check console for details)</li>
                         </ul>
                     </div>
                 `;
