@@ -14,11 +14,20 @@ export default async function handler(req, res) {
         const { startDate, endDate } = calculateDateRange(range);
         console.log(`📅 Using date range: ${startDate} to ${endDate} (${range})`);
 
-        // Get Voluum API token from environment variables
-        const VOLUUM_API_TOKEN = process.env.VOLUUM_API_TOKEN;
-        if (!VOLUUM_API_TOKEN) {
-            throw new Error('Voluum API token not configured in environment variables');
+        // Get Voluum API credentials from environment variables
+        const VOLUME_KEY = process.env.VOLUME_KEY;
+        const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;
+        
+        if (!VOLUME_KEY || !VOLUME_KEY_ID) {
+            throw new Error('Voluum API credentials not configured. Missing VOLUME_KEY or VOLUME_KEY_ID environment variables');
         }
+        
+        console.log('🔑 Using Voluum API credentials:', {
+            hasVolumeKey: !!VOLUME_KEY,
+            hasVolumeKeyId: !!VOLUME_KEY_ID,
+            volumeKeyLength: VOLUME_KEY?.length,
+            volumeKeyIdLength: VOLUME_KEY_ID?.length
+        });
 
         // Define columns for campaign-level reporting
         const campaignColumns = [
@@ -38,23 +47,28 @@ export default async function handler(req, res) {
             'campaignStatus'
         ].join(',');
 
-        // Build Voluum API request URL with proper timezone
-        const reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=${campaignColumns}&tz=America/New_York&limit=1000`;
+        // Build Voluum API request URL with proper timezone - REMOVED LIMIT to get ALL campaigns
+        const reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=${campaignColumns}&tz=America/New_York`;
         
-        console.log('🎯 Requesting CAMPAIGN-level data:', reportUrl);
+        console.log('🎯 Requesting ALL CAMPAIGN data (no limit):', reportUrl);
         console.log('🕐 Using Eastern Time timezone to match Voluum account');
 
-        // Make API request to Voluum
+        // Make API request to Voluum with proper authentication
         const reportResponse = await fetch(reportUrl, {
             headers: {
-                'cwauth-token': VOLUUM_API_TOKEN,
+                'cwauth-token': VOLUME_KEY,
                 'Content-Type': 'application/json'
             }
         });
 
         if (!reportResponse.ok) {
             const errorText = await reportResponse.text();
-            console.log('❌ Campaign report failed:', errorText);
+            console.log('❌ Campaign report failed:', {
+                status: reportResponse.status,
+                statusText: reportResponse.statusText,
+                errorText: errorText,
+                url: reportUrl
+            });
             
             // Fallback: Try to get campaign list directly
             const campaignListUrl = 'https://api.voluum.com/campaign';
@@ -62,20 +76,35 @@ export default async function handler(req, res) {
             
             const campaignListResponse = await fetch(campaignListUrl, {
                 headers: {
-                    'cwauth-token': VOLUUM_API_TOKEN,
+                    'cwauth-token': VOLUME_KEY,
                     'Content-Type': 'application/json'
                 }
             });
 
             if (!campaignListResponse.ok) {
+                const campaignErrorText = await campaignListResponse.text();
                 return res.status(500).json({
                     success: false,
-                    error: 'Both report and campaign endpoints failed. Check API token and connectivity.',
+                    error: 'Both report and campaign endpoints failed. Check API credentials and connectivity.',
                     debug_info: {
-                        report_status: reportResponse.status,
-                        campaign_list_status: campaignListResponse.status,
+                        report_error: {
+                            status: reportResponse.status, 
+                            statusText: reportResponse.statusText,
+                            response: errorText
+                        },
+                        campaign_list_error: {
+                            status: campaignListResponse.status,
+                            statusText: campaignListResponse.statusText, 
+                            response: campaignErrorText
+                        },
                         date_range: `${startDate} to ${endDate}`,
-                        timezone: 'America/New_York'
+                        timezone: 'America/New_York',
+                        api_url: reportUrl,
+                        auth_check: {
+                            hasVolumeKey: !!VOLUME_KEY,
+                            hasVolumeKeyId: !!VOLUME_KEY_ID,
+                            volumeKeyLength: VOLUME_KEY?.length
+                        }
                     }
                 });
             }
