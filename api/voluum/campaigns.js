@@ -1,43 +1,4 @@
-// Parse the successful report response
-        const reportData = await reportResponse.json();
-        console.log('📊 Raw report data structure:', {
-            hasRows: !!reportData.rows,
-            rowCount: reportData.rows?.length || 0,
-            hasColumns: !!reportData.columns,
-            columnCount: reportData.columns?.length || 0,
-            dataKeys: Object.keys(reportData),
-            sampleRow: reportData.rows?.[0]
-        });
-
-        const { rows = [], columns = [] } = reportData;
-
-        if (rows.length === 0) {
-            console.log('⚠️ No data returned from Voluum API for the selected date range');
-            return res.json({
-                success: true,
-                campaigns: [],
-                debug_info: {
-                    data_source: 'voluum_report_api',
-                    message: 'No campaigns found with data for the selected date range',
-                    date_range: `${startDate} to ${endDate}`,
-                    selected_range: range,
-                    api_response_rows: 0,
-                    columns_available: columns.length,
-                    available_columns: columns,
-                    report_url: reportUrl
-                }
-            });
-        }
-
-        // Process campaigns from report data with better error handling
-        const campaigns = rows.map((row, index) => {
-            try {
-                const campaignData = {};
-                columns.forEach((column, colIndex) => {
-                    campaignData[column] = row[colIndex];
-                });
-
-                //// /api/voluum/campaigns.js - Fixed date filtering and enhanced functionality
+// /api/voluum/campaigns.js - Complete Enhanced Voluum Campaigns API with Proper Authentication
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -188,7 +149,7 @@ export default async function handler(req, res) {
 
             return res.json({
                 success: true,
-                campaigns: fallbackCampaigns.filter(c => !c.deleted && c.visits > 0),
+                campaigns: fallbackCampaigns.filter(c => !c.deleted),
                 debug_info: {
                     data_source: 'campaign_list_fallback',
                     warning: 'Using campaign list without performance data due to report API failure',
@@ -204,58 +165,86 @@ export default async function handler(req, res) {
             hasRows: !!reportData.rows,
             rowCount: reportData.rows?.length || 0,
             hasColumns: !!reportData.columns,
-            columnCount: reportData.columns?.length || 0
+            columnCount: reportData.columns?.length || 0,
+            dataKeys: Object.keys(reportData),
+            sampleRow: reportData.rows?.[0],
+            fullStructure: JSON.stringify(reportData, null, 2).substring(0, 500)
         });
 
-        const { rows = [], columns = [] } = reportData;
+        // Handle different response structures from Voluum API
+        let campaigns = [];
+        
+        if (reportData.rows && Array.isArray(reportData.rows)) {
+            // Structure 1: Standard report with rows/columns
+            const { rows = [], columns = [] } = reportData;
+            
+            if (columns && columns.length > 0) {
+                // Standard structure with separate columns array
+                campaigns = rows.map((row, index) => {
+                    try {
+                        const campaignData = {};
+                        columns.forEach((column, colIndex) => {
+                            campaignData[column] = row[colIndex];
+                        });
+                        return processCampaignFromReport(campaignData);
+                    } catch (error) {
+                        console.log(`❌ Error processing row ${index}:`, error);
+                        return null;
+                    }
+                }).filter(Boolean);
+            } else {
+                // Structure 2: Rows contain objects directly (no separate columns)
+                campaigns = rows.map((rowData, index) => {
+                    try {
+                        if (typeof rowData === 'object' && rowData !== null) {
+                            return processCampaignFromReport(rowData);
+                        }
+                        console.log(`⚠️ Unexpected row format at index ${index}:`, rowData);
+                        return null;
+                    } catch (error) {
+                        console.log(`❌ Error processing row ${index}:`, error);
+                        return null;
+                    }
+                }).filter(Boolean);
+            }
+        } else if (reportData.campaigns && Array.isArray(reportData.campaigns)) {
+            // Structure 3: Direct campaigns array
+            campaigns = reportData.campaigns.map(campaign => processCampaignFromReport(campaign)).filter(Boolean);
+        } else {
+            console.log('⚠️ Unexpected report data structure:', Object.keys(reportData));
+        }
 
-        if (rows.length === 0) {
-            console.log('⚠️ No data returned from Voluum API for the selected date range');
+        if (campaigns.length === 0) {
+            console.log('⚠️ No campaigns could be processed from the API response');
             return res.json({
                 success: true,
                 campaigns: [],
                 debug_info: {
                     data_source: 'voluum_report_api',
-                    message: 'No campaigns found with data for the selected date range',
+                    message: 'No campaigns could be processed from the API response',
                     date_range: `${startDate} to ${endDate}`,
                     selected_range: range,
-                    api_response_rows: 0,
-                    columns_available: columns.length
+                    raw_response_structure: {
+                        hasRows: !!reportData.rows,
+                        rowCount: reportData.rows?.length || 0,
+                        hasColumns: !!reportData.columns,
+                        columnCount: reportData.columns?.length || 0,
+                        hasCampaigns: !!reportData.campaigns,
+                        dataKeys: Object.keys(reportData)
+                    },
+                    sample_data: reportData.rows?.[0] || reportData.campaigns?.[0] || 'No sample data',
+                    report_url: reportUrl
                 }
             });
         }
 
-        // Process campaigns from report data
-        const campaigns = rows.map(row => {
-            const campaignData = {};
-            columns.forEach((column, index) => {
-                campaignData[column] = row[index];
-            });
-
-            // Map Voluum column names to our expected format
-            return {
-                id: campaignData.campaignId || Math.random().toString(36).substr(2, 9),
-                name: campaignData.campaignName || 'Unnamed Campaign',
-                visits: parseInt(campaignData.visits || 0),
-                conversions: parseInt(campaignData.conversions || 0),
-                revenue: parseFloat(campaignData.revenue || 0),
-                cost: parseFloat(campaignData.cost || 0),
-                spend: parseFloat(campaignData.cost || 0), // Alias for cost
-                cpa: parseFloat(campaignData.cpa || 0),
-                cv: parseFloat(campaignData.cv || 0), // Conversion rate
-                epc: parseFloat(campaignData.epc || 0),
-                deleted: campaignData.campaignStatus === 'archived' || campaignData.campaignStatus === 'deleted',
-                status: campaignData.campaignStatus || 'active'
-            };
-        });
-
         // Filter to only active campaigns with visits
         const activeCampaigns = campaigns.filter(campaign => {
-            const isNotDeleted = !campaign.deleted;
+            const isNotDeleted = !campaign.deleted && campaign.status !== 'deleted' && campaign.status !== 'archived';
             const hasVisits = campaign.visits > 0;
             
             if (!isNotDeleted) {
-                console.log(`🗑️ Filtering out deleted campaign: ${campaign.name}`);
+                console.log(`🗑️ Filtering out deleted campaign: ${campaign.name} (status: ${campaign.status})`);
             }
             if (!hasVisits) {
                 console.log(`👻 Filtering out campaign with no visits: ${campaign.name} (${campaign.visits} visits)`);
@@ -285,7 +274,7 @@ export default async function handler(req, res) {
                 selected_range: range,
                 api_endpoint: 'report with groupBy=campaign',
                 columns_requested: campaignColumns.split(',').length,
-                sample_raw_data: rows.slice(0, 2),
+                processing_method: reportData.columns ? 'rows_with_columns' : 'direct_objects',
                 verification: {
                     data_type: 'campaigns',
                     grouped_by: 'campaign',
@@ -308,6 +297,30 @@ export default async function handler(req, res) {
             }
         });
     }
+}
+
+// Helper function to process campaign data from different response formats
+function processCampaignFromReport(campaignData) {
+    // Map various possible field names from Voluum API
+    const visits = parseInt(campaignData.visits || campaignData.uniqueClicks || campaignData.clicks || 0);
+    const conversions = parseInt(campaignData.conversions || campaignData.cv || 0);
+    const revenue = parseFloat(campaignData.revenue || campaignData.payout || 0);
+    const cost = parseFloat(campaignData.cost || campaignData.spend || 0);
+    
+    return {
+        id: campaignData.campaignId || campaignData.id || Math.random().toString(36).substr(2, 9),
+        name: campaignData.campaignName || campaignData.name || 'Unnamed Campaign',
+        visits: visits,
+        conversions: conversions,
+        revenue: revenue,
+        cost: cost,
+        spend: cost, // Alias
+        cpa: conversions > 0 ? cost / conversions : 0,
+        cv: parseFloat(campaignData.cv || (visits > 0 ? (conversions / visits) * 100 : 0)),
+        epc: visits > 0 ? revenue / visits : 0,
+        deleted: campaignData.deleted || campaignData.status === 'archived' || campaignData.status === 'deleted',
+        status: campaignData.campaignStatus || campaignData.status || 'active'
+    };
 }
 
 function calculateDateRange(range) {
