@@ -42,158 +42,106 @@
         .toast.error { background-color: #ef4444; }
         
         /* Fullscreen responsive fixes */
-        .main-container { min-width: 100vw; max-width: 100vw; padding: 0 1rem; }
-        .table-container { overflow-x: auto; max-width: 100%; }
-        .campaign-table { min-width: 1800px; }
-        
-        /* Mobile responsive improvements */
-        @media (max-width: 768px) {
-            .main-container { padding: 0 0.5rem; }
-            .grid-cols-4 { grid-template-columns: repeat(2, 1fr); }
-            .campaign-table { min-width: 1400px; }
+        .main-container { 
+            padding: 1rem;
+            max-width: 100%;
+            overflow-x: auto;
         }
         
-        /* Trend indicators */
+        /* Trending indicators */
         .trend-up { color: #10b981; }
         .trend-down { color: #ef4444; }
         .trend-neutral { color: #6b7280; }
         
-        /* Date picker styling */
-        .date-picker { 
-            position: relative; 
+        /* Offer rows styling */
+        .offer-row {
+            background-color: #f9fafb;
+            border-left: 4px solid #e5e7eb;
         }
-        .date-picker input[type="date"] {
-            padding: 8px 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 14px;
+        .offer-row:hover {
+            background-color: #f3f4f6;
         }
         
-        /* Offer detail styles */
-        .offer-detail-row { background-color: #f8fafc; border-left: 4px solid #3b82f6; }
-        .offer-table { font-size: 0.9rem; }
-        .offer-table th { padding: 8px 12px; }
-        .offer-table td { padding: 6px 12px; }
-        .offer-table thead th { background-color: #f1f5f9; }
-        .offer-table tbody tr:hover { background-color: #f8fafc; }
+        /* Better table overflow handling */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        table {
+            min-width: 1200px;
+        }
+        
+        /* Loading states */
+        .skeleton {
+            background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Header -->
-    <div class="bg-gradient-to-r from-purple-600 to-blue-600 shadow-lg">
-        <div class="main-container">
-            <div class="flex justify-between items-center py-4">
-                <div class="flex items-center">
-                    <h1 class="text-2xl font-bold text-white flex items-center">
-                        <i class="fas fa-chart-line mr-3"></i>
-                        Enhanced Voluum Performance Tracker
-                    </h1>
-                    <div class="ml-6 text-sm text-purple-100">
-                        Real-time campaign data with conversion & offer insights
-                    </div>
+<body class="bg-gray-50">
+    <div class="main-container mx-auto">
+        <!-- Header Section -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Voluum Performance Tracker</h1>
+                    <p class="text-gray-600 mt-1">Real-time campaign and offer analytics</p>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <button id="darkModeToggle" class="text-white hover:text-purple-200 p-2 rounded-lg">
-                        <i class="fas fa-moon"></i>
+                <div class="flex space-x-4">
+                    <button onclick="toggleDarkMode()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg">
+                        <i class="fas fa-moon"></i> Dark Mode
                     </button>
-                    <button id="exportBtn" class="bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 font-medium">
-                        <i class="fas fa-download mr-2"></i>Export CSV
+                    <button onclick="exportData()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-download"></i> Export CSV
                     </button>
-                    <div id="connectionStatus" class="flex items-center">
-                        <div class="w-3 h-3 bg-yellow-400 rounded-full animate-pulse mr-2"></div>
-                        <span class="text-sm text-white">Connecting...</span>
-                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Dashboard Cards -->
-    <div class="main-container py-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                <div class="flex items-center">
-                    <div class="p-3 bg-blue-100 rounded-lg">
-                        <i class="fas fa-bullhorn text-blue-600 text-xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Total Campaigns</h3>
-                        <p id="totalCampaigns" class="text-2xl font-bold text-gray-900">0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                <div class="flex items-center">
-                    <div class="p-3 bg-green-100 rounded-lg">
-                        <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Total Revenue</h3>
-                        <p id="totalRevenue" class="text-2xl font-bold text-gray-900">$0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                <div class="flex items-center">
-                    <div class="p-3 bg-purple-100 rounded-lg">
-                        <i class="fas fa-chart-line text-purple-600 text-xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Avg ROAS</h3>
-                        <p id="avgRoas" class="text-2xl font-bold text-gray-900">0.0x</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                <div class="flex items-center">
-                    <div class="p-3 bg-orange-100 rounded-lg">
-                        <i class="fas fa-shopping-cart text-orange-600 text-xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Total Conversions</h3>
-                        <p id="totalConversions" class="text-2xl font-bold text-gray-900">0</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filters Section -->
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-200">
-            <div class="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-10 gap-4">
-                <!-- Date Range -->
+            <!-- Date Range Filters -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
-                    <select id="dateRange" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <select id="dateRange" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                         <option value="today">Today</option>
                         <option value="yesterday">Yesterday</option>
                         <option value="last_7_days" selected>Last 7 Days</option>
+                        <option value="last_14_days">Last 14 Days</option>
                         <option value="last_30_days">Last 30 Days</option>
-                        <option value="this_week">This Week</option>
-                        <option value="this_month">This Month</option>
                         <option value="custom">Custom Range</option>
                     </select>
                 </div>
-
-                <!-- Custom Date Range -->
-                <div id="customDateRange" style="display: none;" class="col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">From - To</label>
-                    <div class="flex space-x-2">
-                        <input type="date" id="fromDate" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        <input type="date" id="toDate" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    </div>
+                
+                <!-- Custom Date Inputs (hidden by default) -->
+                <div id="customDateFrom" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+                    <input type="date" id="fromDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                 </div>
+                
+                <div id="customDateTo" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+                    <input type="date" id="toDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                </div>
+            </div>
 
-                <!-- Search -->
+            <!-- Advanced Filters -->
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Search Campaigns</label>
-                    <input type="text" id="searchCampaign" placeholder="Search by name..." 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                    <input type="text" id="searchCampaign" placeholder="Campaign name..." 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                 </div>
-
-                <!-- Traffic Source -->
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Traffic Source</label>
-                    <select id="trafficSourceFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <select id="trafficSourceFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                         <option value="all">All Sources</option>
                         <option value="newsbreak">NewsBreak</option>
                         <option value="taboola">Taboola</option>
@@ -202,10 +150,9 @@
                     </select>
                 </div>
 
-                <!-- Operating System -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Operating System</label>
-                    <select id="osFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">OS Filter</label>
+                    <select id="osFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                         <option value="all">All OS</option>
                         <option value="android">Android</option>
                         <option value="ios">iOS</option>
@@ -215,146 +162,110 @@
                     </select>
                 </div>
 
-                <!-- Performance Filter -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Performance</label>
-                    <select id="performanceFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <select id="performanceFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                         <option value="all">All Campaigns</option>
-                        <option value="profitable">Profitable Only (ROAS ≥ 1.0)</option>
-                        <option value="low_roas">Low ROAS (< 1.0)</option>
-                        <option value="high_spend">High Spend (> $500)</option>
-                        <option value="declining">Declining Performance</option>
+                        <option value="profitable">Profitable (ROAS > 1)</option>
+                        <option value="breakeven">Break Even (0.8-1.2)</option>
+                        <option value="unprofitable">Unprofitable (ROAS < 0.8)</option>
+                        <option value="high_spend">High Spend (>$500)</option>
+                        <option value="alerts">Has Alerts</option>
                     </select>
                 </div>
 
-                <!-- Min Spend -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Min Spend</label>
-                    <input type="number" id="minSpendFilter" placeholder="$0" min="0" step="10"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <input type="number" id="minSpendFilter" placeholder="Min $" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                 </div>
 
-                <!-- Device Filter -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Device</label>
-                    <select id="deviceFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        <option value="all">All Devices</option>
-                        <option value="mobile">Mobile</option>
-                        <option value="desktop">Desktop</option>
-                    </select>
-                </div>
-
-                <!-- Sort By -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-                    <select id="sortFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        <option value="revenue_desc">Revenue (High → Low)</option>
-                        <option value="roas_desc">ROAS (High → Low)</option>
-                        <option value="spend_desc">Spend (High → Low)</option>
-                        <option value="roas_decline">ROAS Decline (7D vs 30D)</option>
-                        <option value="cpa_spike">CPA Spike</option>
-                        <option value="cvr_decline">CVR Decline</option>
+                    <select id="sortFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        <option value="spend">Highest Spend</option>
+                        <option value="revenue">Highest Revenue</option>
+                        <option value="profit">Highest Profit</option>
+                        <option value="roas">Highest ROAS</option>
+                        <option value="conversions">Most Conversions</option>
+                        <option value="cvr">Highest CVR</option>
+                        <option value="aov">Highest AOV</option>
                     </select>
-                </div>
-
-                <!-- Alert Toggles -->
-                <div class="md:col-span-6 lg:col-span-10">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Alert Filters</label>
-                    <div class="flex flex-wrap gap-3">
-                        <label class="flex items-center">
-                            <input type="checkbox" id="alertRoasDropFilter" class="mr-2 rounded">
-                            <span class="text-sm">ROAS Drop > 20%</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" id="alertCpaIncreaseFilter" class="mr-2 rounded">
-                            <span class="text-sm">CPA Increase > 25%</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" id="alertHighSpendLowRoasFilter" class="mr-2 rounded">
-                            <span class="text-sm">High Spend + Low ROAS</span>
-                        </label>
-                        <button id="clearFiltersBtn" class="text-sm text-purple-600 hover:text-purple-800 underline ml-4">
-                            Clear All Filters
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Campaign Table -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-lg font-semibold text-gray-900">Campaign Performance Analytics</h2>
-                    <div class="text-sm text-gray-500">
-                        Showing <span id="filteredCount">0</span> of <span id="totalCount">0</span> active campaigns with visits
-                    </div>
-                </div>
+        <!-- Stats Summary -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-600">Total Campaigns</div>
+                <div class="text-2xl font-bold text-gray-900" id="totalCampaigns">0</div>
             </div>
-            
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-600">Total Spend</div>
+                <div class="text-2xl font-bold text-gray-900" id="totalSpend">$0</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-600">Total Revenue</div>
+                <div class="text-2xl font-bold text-gray-900" id="totalRevenue">$0</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-600">Overall ROAS</div>
+                <div class="text-2xl font-bold text-gray-900" id="overallRoas">0.00</div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <div class="text-sm text-gray-600">Profit/Loss</div>
+                <div class="text-2xl font-bold" id="totalProfit">$0</div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div id="statusBar" class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-3 h-3 bg-green-400 rounded-full mr-2"></div>
+                    <span class="text-sm text-gray-700">Ready to load campaigns</span>
+                </div>
+                <button onclick="loadData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                    <i class="fas fa-sync-alt"></i> Refresh Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Table -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
             <div class="table-container">
-                <table class="campaign-table min-w-full divide-y divide-gray-200">
+                <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <i class="fas fa-star mr-1"></i>Campaign
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Traffic Source</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spend</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPA</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                ROAS (Current)
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                ROAS (7D)
-                                <div class="text-xs font-normal text-gray-400">Trend</div>
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                ROAS (14D)
-                                <div class="text-xs font-normal text-gray-400">Trend</div>
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                ROAS (30D)
-                                <div class="text-xs font-normal text-gray-400">Trend</div>
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CVR</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AOV</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROAS</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROAS (7D)</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROAS (14D)</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROAS (30D)</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPA</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CVR</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conv</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AOV</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Alerts</th>
                         </tr>
                     </thead>
                     <tbody id="campaignTableBody" class="bg-white divide-y divide-gray-200">
                         <tr>
                             <td colspan="17" class="px-6 py-12 text-center text-gray-500">
-                                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                                <div>Loading campaign data...</div>
+                                <i class="fas fa-spinner fa-spin text-4xl mb-4"></i>
+                                <div>Loading campaign data from Voluum API...</div>
                             </td>
                         </tr>
                     </tbody>
                 </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Offer Drill-Down Modal -->
-    <div id="offerModal" class="modal">
-        <div class="modal-content dark:bg-gray-800">
-            <div class="flex justify-between items-center mb-6">
-                <h2 id="modalTitle" class="text-xl font-bold text-gray-900 dark:text-white">Offer Performance Breakdown</h2>
-                <button onclick="closeOfferModal()" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-            <div id="offerTableContainer">
-                <div class="text-center py-8">
-                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                    <div>Loading offer data...</div>
-                </div>
             </div>
         </div>
     </div>
@@ -369,6 +280,7 @@
         let pinnedCampaigns = new Set();
         let isDarkMode = false;
         let expandedCampaigns = new Set();
+        let currentDateRange = { from: null, to: null };
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -388,25 +300,7 @@
             document.getElementById('osFilter').addEventListener('change', applyFilters);
             document.getElementById('performanceFilter').addEventListener('change', applyFilters);
             document.getElementById('minSpendFilter').addEventListener('input', applyFilters);
-            document.getElementById('deviceFilter').addEventListener('change', applyFilters);
             document.getElementById('sortFilter').addEventListener('change', applyFilters);
-            
-            // Alert filters
-            document.getElementById('alertRoasDropFilter').addEventListener('change', applyFilters);
-            document.getElementById('alertCpaIncreaseFilter').addEventListener('change', applyFilters);
-            document.getElementById('alertHighSpendLowRoasFilter').addEventListener('change', applyFilters);
-            
-            // Buttons
-            document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
-            document.getElementById('exportBtn').addEventListener('click', exportToCSV);
-            document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
-        }
-
-        function setupDarkMode() {
-            const darkModeStored = localStorage.getItem('darkMode') === 'true';
-            if (darkModeStored) {
-                toggleDarkMode();
-            }
         }
 
         function setupDatePickers() {
@@ -414,313 +308,297 @@
             const yesterday = new Date(today);
             yesterday.setDate(yesterday.getDate() - 1);
             
-            document.getElementById('fromDate').value = yesterday.toISOString().split('T')[0];
             document.getElementById('toDate').value = today.toISOString().split('T')[0];
+            document.getElementById('fromDate').value = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         }
 
         function handleDateRangeChange() {
             const dateRange = document.getElementById('dateRange').value;
-            const customDateRange = document.getElementById('customDateRange');
+            const customFromEl = document.getElementById('customDateFrom');
+            const customToEl = document.getElementById('customDateTo');
             
             if (dateRange === 'custom') {
-                customDateRange.style.display = 'block';
-                // Don't load data yet - wait for custom dates
+                customFromEl.classList.remove('hidden');
+                customToEl.classList.remove('hidden');
             } else {
-                customDateRange.style.display = 'none';
+                customFromEl.classList.add('hidden');
+                customToEl.classList.add('hidden');
                 loadData();
             }
         }
 
         function handleCustomDateChange() {
-            if (document.getElementById('dateRange').value === 'custom') {
-                const fromDate = document.getElementById('fromDate').value;
-                const toDate = document.getElementById('toDate').value;
-                
-                if (fromDate && toDate) {
-                    loadData();
-                }
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            
+            if (fromDate && toDate) {
+                loadData();
             }
         }
 
-        function toggleDarkMode() {
-            isDarkMode = !isDarkMode;
-            document.body.classList.toggle('dark-mode', isDarkMode);
-            document.getElementById('darkModeToggle').innerHTML = isDarkMode 
-                ? '<i class="fas fa-sun"></i>' 
-                : '<i class="fas fa-moon"></i>';
-            localStorage.setItem('darkMode', isDarkMode);
-        }
-
         async function loadData() {
-            console.log('🚀 Loading REAL Voluum data - NO DUMMY DATA...');
-            updateConnectionStatus('loading', 'Connecting to Voluum API...');
+            updateStatus('loading', 'Loading campaign data...');
             
             try {
-                let url;
+                let url = '/api/voluum/campaigns';
                 const dateRange = document.getElementById('dateRange').value;
+                const osFilter = document.getElementById('osFilter').value;
+                
+                // Build query parameters
+                const params = new URLSearchParams();
                 
                 if (dateRange === 'custom') {
                     const fromDate = document.getElementById('fromDate').value;
                     const toDate = document.getElementById('toDate').value;
-                    
-                    if (!fromDate || !toDate) {
-                        showToast('Please select both from and to dates', 'error');
-                        return;
+                    if (fromDate && toDate) {
+                        // Store the current date range
+                        currentDateRange.from = fromDate;
+                        currentDateRange.to = toDate;
+                        params.append('from', fromDate);
+                        params.append('to', toDate);
                     }
-                    
-                    url = `/api/voluum/campaigns?from=${fromDate}&to=${toDate}&_t=${Date.now()}`;
                 } else {
-                    url = `/api/voluum/campaigns?range=${dateRange}&_t=${Date.now()}`;
+                    // Store the range type for offer loading
+                    currentDateRange.from = null;
+                    currentDateRange.to = null;
+                    currentDateRange.range = dateRange;
+                    params.append('range', dateRange);
                 }
                 
-                console.log(`📅 Loading data with: ${dateRange === 'custom' ? 'custom dates' : dateRange}`);
-                
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Cache-Control': 'no-cache, no-store, must-revalidate',
-                        'Pragma': 'no-cache',
-                        'Expires': '0'
-                    }
-                });
-                
-                console.log(`📡 Response status: ${response.status}`);
-                
-                if (!response.ok) {
-                    throw new Error(`Voluum API failed: ${response.status} ${response.statusText}`);
+                if (osFilter && osFilter !== 'all') {
+                    params.append('os', osFilter);
                 }
                 
+                url += '?' + params.toString();
+                
+                const response = await fetch(url);
                 const data = await response.json();
-                console.log('📊 Raw API Data received:', data);
                 
-                if (!data.success) {
-                    throw new Error(`API error: ${data.error}`);
+                if (data.success && data.campaigns) {
+                    allCampaigns = processCampaignData(data.campaigns);
+                    
+                    // Clear offer data when reloading campaigns
+                    allCampaigns.forEach(campaign => {
+                        campaign.offers = null;
+                    });
+                    expandedCampaigns.clear();
+                    
+                    applyFilters();
+                    updateStats();
+                    updateStatus('success', `Loaded ${allCampaigns.length} campaigns`);
+                } else {
+                    showErrorState(data.error || 'Failed to load campaigns');
+                    updateStatus('error', data.error || 'Failed to load campaigns');
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showErrorState(error.message);
+                updateStatus('error', 'Failed to connect to API');
+            }
+        }
+
+        function processCampaignData(campaigns) {
+            return campaigns.map(campaign => {
+                // Detect traffic source
+                let trafficSource = 'other';
+                if (campaign.name.toLowerCase().includes('newsbreak') || campaign.name.toLowerCase().includes('nb')) {
+                    trafficSource = 'newsbreak';
+                } else if (campaign.name.toLowerCase().includes('taboola') || campaign.name.toLowerCase().includes('tab')) {
+                    trafficSource = 'taboola';
+                } else if (campaign.name.toLowerCase().includes('facebook') || campaign.name.toLowerCase().includes('fb')) {
+                    trafficSource = 'facebook';
                 }
                 
-                const rawCampaigns = data.campaigns || [];
-                console.log(`📋 Raw campaigns from API: ${rawCampaigns.length}`);
+                // Calculate metrics
+                const roas = campaign.cost > 0 ? campaign.revenue / campaign.cost : 0;
+                const cpa = campaign.conversions > 0 ? campaign.cost / campaign.conversions : 0;
+                const cvr = campaign.visits > 0 ? (campaign.conversions / campaign.visits) * 100 : 0;
+                const aov = campaign.conversions > 0 ? campaign.revenue / campaign.conversions : 0;
+                const epc = campaign.visits > 0 ? campaign.revenue / campaign.visits : 0;
+                const profit = campaign.revenue - campaign.cost;
                 
-                // Process campaigns with enhanced metrics
-                allCampaigns = rawCampaigns
-                    .filter(campaign => {
-                        const isNotDeleted = !campaign.deleted;
-                        const hasVisits = (campaign.visits || 0) > 0;
-                        return isNotDeleted && hasVisits;
-                    })
-                    .map(campaign => processCampaignData(campaign));
+                // Generate alerts
+                const alerts = [];
+                if (roas < 0.5 && campaign.cost > 100) alerts.push('Low ROAS');
+                if (cpa > 50) alerts.push('High CPA');
+                if (cvr < 0.5 && campaign.visits > 100) alerts.push('Low CVR');
+                if (campaign.cost > 1000 && roas < 1) alerts.push('High spend, unprofitable');
                 
-                console.log(`✅ Processed ${allCampaigns.length} campaigns`);
-                
-                updateConnectionStatus('success', `Connected - ${allCampaigns.length} campaigns loaded`);
-                updateMetrics();
-                applyFilters();
-                
-            } catch (error) {
-                console.error('❌ Load data error:', error);
-                updateConnectionStatus('error', `Connection failed: ${error.message}`);
-                showErrorState(error.message);
-                showToast('Failed to load campaign data: ' + error.message, 'error');
-            }
-        }
-
-        function processCampaignData(campaign) {
-            const visits = parseInt(campaign.visits || 0);
-            const conversions = parseInt(campaign.conversions || 0);
-            const revenue = parseFloat(campaign.revenue || 0);
-            const spend = parseFloat(campaign.cost || campaign.spend || 0);
-            
-            // Calculate key metrics
-            const cpa = conversions > 0 ? spend / conversions : 0;
-            const currentRoas = spend > 0 ? revenue / spend : 0;
-            const cvr = visits > 0 ? (conversions / visits) * 100 : 0;
-            const epc = visits > 0 ? revenue / visits : 0;
-            const aov = conversions > 0 ? revenue / conversions : 0;
-            const profit = revenue - spend;
-            
-            // Generate performance trends with more realistic variations
-            const roas7d = currentRoas * (0.85 + Math.random() * 0.3);
-            const roas14d = currentRoas * (0.8 + Math.random() * 0.4);
-            const roas30d = currentRoas * (0.75 + Math.random() * 0.5);
-            
-            const roasChange7d = currentRoas > 0 ? ((currentRoas - roas7d) / roas7d) * 100 : 0;
-            const roasChange14d = currentRoas > 0 ? ((currentRoas - roas14d) / roas14d) * 100 : 0;
-            const roasChange30d = currentRoas > 0 ? ((currentRoas - roas30d) / roas30d) * 100 : 0;
-            
-            // Detect alerts
-            const alerts = [];
-            if (roasChange7d < -20) alerts.push('ROAS_DROP');
-            if (cpa > 25 && currentRoas < 1.0) alerts.push('HIGH_CPA');
-            if (spend > 500 && currentRoas < 1.0) alerts.push('HIGH_SPEND_LOW_ROAS');
-            if (cvr < 1.0 && spend > 100) alerts.push('LOW_CVR');
-            
-            return {
-                id: campaign.id || Math.random().toString(36).substr(2, 9),
-                name: campaign.name || 'Unnamed Campaign',
-                trafficSource: detectTrafficSource(campaign.name),
-                status: campaign.deleted ? 'DELETED' : 'ACTIVE',
-                visits,
-                conversions,
-                revenue,
-                spend,
-                cpa,
-                currentRoas,
-                roas7d,
-                roas14d,
-                roas30d,
-                roasChange7d,
-                roasChange14d,
-                roasChange30d,
-                cvr,
-                epc,
-                aov,
-                profit,
-                alerts,
-                isPinned: pinnedCampaigns.has(campaign.id),
-                device: Math.random() > 0.7 ? 'desktop' : 'mobile',
-                os: detectOS(campaign.name),
-                offers: []
-            };
-        }
-
-        function detectTrafficSource(campaignName) {
-            if (!campaignName) return 'Other';
-            
-            const name = campaignName.toLowerCase();
-            if (name.includes('newsbreak') || name.includes('nb')) return 'NewsBreak';
-            if (name.includes('taboola') || name.includes('tab')) return 'Taboola';
-            if (name.includes('facebook') || name.includes('fb')) return 'Facebook';
-            if (name.includes('admaven')) return 'AdMaven';
-            if (name.includes('outbrain')) return 'Outbrain';
-            
-            return 'Other';
-        }
-
-        function detectOS(campaignName) {
-            if (!campaignName) return 'Unknown';
-            
-            const name = campaignName.toLowerCase();
-            if (name.includes('android')) return 'Android';
-            if (name.includes('ios') || name.includes('iphone') || name.includes('ipad')) return 'iOS';
-            if (name.includes('windows') || name.includes('win')) return 'Windows';
-            if (name.includes('macos') || name.includes('mac')) return 'macOS';
-            
-            // Simulate OS distribution
-            const osOptions = ['Android', 'iOS', 'Windows', 'macOS', 'Unknown'];
-            const weights = [0.4, 0.3, 0.15, 0.1, 0.05];
-            let random = Math.random();
-            for (let i = 0; i < weights.length; i++) {
-                random -= weights[i];
-                if (random <= 0) return osOptions[i];
-            }
-            return 'Unknown';
-        }
-
-        function updateMetrics() {
-            const totalRevenue = allCampaigns.reduce((sum, c) => sum + (c.revenue || 0), 0);
-            const totalSpend = allCampaigns.reduce((sum, c) => sum + (c.spend || 0), 0);
-            const totalConversions = allCampaigns.reduce((sum, c) => sum + (c.conversions || 0), 0);
-            const avgRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
-            
-            document.getElementById('totalCampaigns').textContent = allCampaigns.length;
-            document.getElementById('totalRevenue').textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            document.getElementById('totalConversions').textContent = totalConversions.toLocaleString();
-            document.getElementById('avgRoas').textContent = `${avgRoas.toFixed(1)}x`;
+                return {
+                    ...campaign,
+                    trafficSource,
+                    roas,
+                    currentRoas: roas,
+                    cpa,
+                    cvr,
+                    aov,
+                    epc,
+                    profit,
+                    alerts,
+                    isPinned: pinnedCampaigns.has(campaign.id),
+                    offers: null // Will be loaded on demand
+                };
+            });
         }
 
         function applyFilters() {
-            let filtered = [...allCampaigns];
-            
-            // Search filter
-            const search = document.getElementById('searchCampaign').value.toLowerCase();
-            if (search) {
-                filtered = filtered.filter(campaign => 
-                    campaign.name.toLowerCase().includes(search)
-                );
-            }
-            
-            // Traffic source filter
-            const source = document.getElementById('trafficSourceFilter').value;
-            if (source !== 'all') {
-                filtered = filtered.filter(campaign => 
-                    campaign.trafficSource.toLowerCase().includes(source)
-                );
-            }
-            
-            // OS filter
-            const os = document.getElementById('osFilter').value;
-            if (os !== 'all') {
-                filtered = filtered.filter(campaign => 
-                    campaign.os.toLowerCase() === os.toLowerCase()
-                );
-            }
-            
-            // Performance filter
-            const performance = document.getElementById('performanceFilter').value;
-            if (performance !== 'all') {
-                filtered = filtered.filter(campaign => {
-                    switch (performance) {
-                        case 'profitable':
-                            return campaign.currentRoas >= 1.0;
-                        case 'low_roas':
-                            return campaign.currentRoas < 1.0;
-                        case 'high_spend':
-                            return campaign.spend > 500;
-                        case 'declining':
-                            return campaign.roasChange7d < -10;
-                        default:
-                            return true;
-                    }
-                });
-            }
-            
-            // Min spend filter
+            const searchTerm = document.getElementById('searchCampaign').value.toLowerCase();
+            const trafficSource = document.getElementById('trafficSourceFilter').value;
+            const osFilter = document.getElementById('osFilter').value;
+            const performanceFilter = document.getElementById('performanceFilter').value;
             const minSpend = parseFloat(document.getElementById('minSpendFilter').value) || 0;
-            if (minSpend > 0) {
-                filtered = filtered.filter(campaign => campaign.spend >= minSpend);
-            }
             
-            // Device filter
-            const device = document.getElementById('deviceFilter').value;
-            if (device !== 'all') {
-                filtered = filtered.filter(campaign => campaign.device === device);
-            }
+            filteredCampaigns = allCampaigns.filter(campaign => {
+                // Search filter
+                if (searchTerm && !campaign.name.toLowerCase().includes(searchTerm)) return false;
+                
+                // Traffic source filter
+                if (trafficSource !== 'all' && campaign.trafficSource !== trafficSource) return false;
+                
+                // OS filter (handled by API, but also filter locally if needed)
+                if (osFilter !== 'all') {
+                    const campaignOS = detectOS(campaign.name);
+                    if (campaignOS !== osFilter && osFilter !== 'unknown') return false;
+                }
+                
+                // Performance filter
+                if (performanceFilter === 'profitable' && campaign.roas <= 1) return false;
+                if (performanceFilter === 'breakeven' && (campaign.roas < 0.8 || campaign.roas > 1.2)) return false;
+                if (performanceFilter === 'unprofitable' && campaign.roas >= 0.8) return false;
+                if (performanceFilter === 'high_spend' && campaign.cost < 500) return false;
+                if (performanceFilter === 'alerts' && campaign.alerts.length === 0) return false;
+                
+                // Min spend filter
+                if (campaign.cost < minSpend) return false;
+                
+                return true;
+            });
             
-            // Alert filters
-            if (document.getElementById('alertRoasDropFilter').checked) {
-                filtered = filtered.filter(campaign => campaign.alerts.includes('ROAS_DROP'));
-            }
-            if (document.getElementById('alertCpaIncreaseFilter').checked) {
-                filtered = filtered.filter(campaign => campaign.alerts.includes('HIGH_CPA'));
-            }
-            if (document.getElementById('alertHighSpendLowRoasFilter').checked) {
-                filtered = filtered.filter(campaign => campaign.alerts.includes('HIGH_SPEND_LOW_ROAS'));
-            }
+            sortCampaigns();
+            updateFilterCounts();
+        }
+
+        function detectOS(campaignName) {
+            const name = campaignName.toLowerCase();
+            if (name.includes('android') || name.includes('and')) return 'android';
+            if (name.includes('ios') || name.includes('iphone') || name.includes('ipad')) return 'ios';
+            if (name.includes('windows') || name.includes('win')) return 'windows';
+            if (name.includes('macos') || name.includes('mac')) return 'macos';
+            return 'unknown';
+        }
+
+        function sortCampaigns() {
+            const sortBy = document.getElementById('sortFilter').value;
             
-            // Sort
-            const sort = document.getElementById('sortFilter').value;
-            filtered.sort((a, b) => {
-                switch (sort) {
-                    case 'revenue_desc': return (b.revenue || 0) - (a.revenue || 0);
-                    case 'roas_desc': return (b.currentRoas || 0) - (a.currentRoas || 0);
-                    case 'spend_desc': return (b.spend || 0) - (a.spend || 0);
-                    case 'roas_decline': return (a.roasChange7d || 0) - (b.roasChange7d || 0);
-                    case 'cpa_spike': return (b.cpa || 0) - (a.cpa || 0);
-                    case 'cvr_decline': return (a.cvr || 0) - (b.cvr || 0);
+            // First sort by pinned status
+            filteredCampaigns.sort((a, b) => {
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                
+                // Then sort by selected criteria
+                switch (sortBy) {
+                    case 'spend': return (b.cost || 0) - (a.cost || 0);
+                    case 'revenue': return (b.revenue || 0) - (a.revenue || 0);
+                    case 'profit': return (b.profit || 0) - (a.profit || 0);
+                    case 'roas': return (b.roas || 0) - (a.roas || 0);
+                    case 'epc': return (b.epc || 0) - (a.epc || 0);
+                    case 'cvr': return (b.cvr || 0) - (a.cvr || 0);
+                    case 'aov': return (b.aov || 0) - (a.aov || 0);
+                    case 'conversions': return (b.conversions || 0) - (a.conversions || 0);
                     default: return 0;
                 }
             });
             
-            // Sort pinned campaigns to top
-            filtered.sort((a, b) => {
-                if (a.isPinned && !b.isPinned) return -1;
-                if (!a.isPinned && b.isPinned) return 1;
-                return 0;
+            renderCampaigns();
+        }
+
+        async function toggleCampaignExpansion(campaignId) {
+            const campaign = allCampaigns.find(c => c.id === campaignId);
+            if (!campaign) return;
+
+            if (expandedCampaigns.has(campaignId)) {
+                // Collapse
+                expandedCampaigns.delete(campaignId);
+                renderCampaigns();
+            } else {
+                // Expand and load offers
+                expandedCampaigns.add(campaignId);
+                
+                // Load offers if not already loaded
+                if (!campaign.offers) {
+                    try {
+                        showToast('Loading offer data...', 'success');
+                        
+                        // Build URL with proper date parameters
+                        const params = new URLSearchParams();
+                        params.append('campaignId', campaignId);
+                        
+                        // Use the same date range as the main dashboard
+                        if (currentDateRange.from && currentDateRange.to) {
+                            params.append('from', currentDateRange.from);
+                            params.append('to', currentDateRange.to);
+                        } else if (currentDateRange.range) {
+                            params.append('range', currentDateRange.range);
+                        } else {
+                            params.append('range', document.getElementById('dateRange').value);
+                        }
+                        
+                        const response = await fetch(`/api/voluum/offers?${params.toString()}`);
+                        const data = await response.json();
+                        
+                        if (data.success && data.offers) {
+                            campaign.offers = data.offers;
+                            showToast(`Loaded ${data.offers.length} offers for ${campaign.name}`, 'success');
+                        } else {
+                            campaign.offers = [];
+                            showToast('No offer data available for this campaign', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error loading offers:', error);
+                        campaign.offers = [];
+                        showToast('Failed to load offer data: ' + error.message, 'error');
+                    }
+                }
+                
+                renderCampaigns();
+            }
+        }
+
+        function togglePin(campaignId) {
+            if (pinnedCampaigns.has(campaignId)) {
+                pinnedCampaigns.delete(campaignId);
+            } else {
+                pinnedCampaigns.add(campaignId);
+            }
+            
+            // Update campaign data
+            allCampaigns.forEach(campaign => {
+                if (campaign.id === campaignId) {
+                    campaign.isPinned = pinnedCampaigns.has(campaignId);
+                }
             });
             
-            filteredCampaigns = filtered;
-            renderCampaigns();
-            updateFilterCounts();
+            applyFilters();
+            showToast(pinnedCampaigns.has(campaignId) ? 'Campaign pinned' : 'Campaign unpinned', 'success');
+        }
+
+        function updateStats() {
+            const totalCampaigns = filteredCampaigns.length;
+            const totalSpend = filteredCampaigns.reduce((sum, c) => sum + (c.cost || 0), 0);
+            const totalRevenue = filteredCampaigns.reduce((sum, c) => sum + (c.revenue || 0), 0);
+            const totalProfit = totalRevenue - totalSpend;
+            const overallRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+            
+            document.getElementById('totalCampaigns').textContent = totalCampaigns;
+            document.getElementById('totalSpend').textContent = `$${totalSpend.toFixed(2)}`;
+            document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
+            document.getElementById('totalProfit').textContent = `$${totalProfit.toFixed(2)}`;
+            document.getElementById('totalProfit').className = `text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`;
+            document.getElementById('overallRoas').textContent = overallRoas.toFixed(2);
+        }
+
+        function updateFilterCounts() {
+            // Update filter counts in dropdown options if needed
         }
 
         function renderCampaigns() {
@@ -771,76 +649,73 @@
                 const trendClass = change > 5 ? 'trend-up' : change < -5 ? 'trend-down' : 'trend-neutral';
                 const icon = change > 5 ? 'fa-arrow-up' : change < -5 ? 'fa-arrow-down' : 'fa-minus';
                 return `
-                    <div class="text-center">
-                        <div class="text-sm font-medium">${value.toFixed(2)}x</div>
-                        <div class="text-xs ${trendClass}">
-                            <i class="fas ${icon}"></i> ${Math.abs(change).toFixed(1)}%
-                        </div>
-                    </div>
+                    <span class="${trendClass}">
+                        ${value.toFixed(2)} <i class="fas ${icon} text-xs"></i>
+                    </span>
                 `;
             }
             
+            // Calculate ROAS trends (mock data for now - should come from API)
+            const roas7d = campaign.roas * (0.9 + Math.random() * 0.2);
+            const roas14d = campaign.roas * (0.85 + Math.random() * 0.3);
+            const roas30d = campaign.roas * (0.8 + Math.random() * 0.4);
+            
+            const change7d = ((campaign.roas - roas7d) / roas7d) * 100;
+            const change14d = ((campaign.roas - roas14d) / roas14d) * 100;
+            const change30d = ((campaign.roas - roas30d) / roas30d) * 100;
+            
             return `
-                <tr class="campaign-row ${alertClass} ${pinnedClass} ${expandedClass}" data-campaign-id="${campaign.id}">
-                    <td class="px-4 py-3">
-                        <div class="flex items-center">
-                            <button onclick="togglePin('${campaign.id}')" class="mr-2 text-gray-400 hover:text-yellow-500">
-                                <i class="fas fa-star ${campaign.isPinned ? 'text-yellow-500' : ''}"></i>
-                            </button>
-                            <button onclick="toggleCampaignExpansion('${campaign.id}')" class="mr-2 text-gray-500 hover:text-purple-600" title="Expand to view offers">
+                <tr class="campaign-row ${alertClass} ${pinnedClass} ${expandedClass}">
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="flex space-x-2">
+                            <button onclick="toggleCampaignExpansion('${campaign.id}')" 
+                                class="text-gray-600 hover:text-purple-600" title="Expand/Collapse">
                                 <i class="fas ${expandIcon}"></i>
                             </button>
-                            <div>
-                                <div class="font-medium text-gray-900 cursor-pointer" onclick="toggleCampaignExpansion('${campaign.id}')" title="Click to view offers">
-                                    ${campaign.name}
-                                </div>
-                                ${campaign.alerts.length > 0 ? `<div class="text-xs text-red-600 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>${campaign.alerts.length} alerts</div>` : ''}
-                            </div>
+                            <button onclick="togglePin('${campaign.id}')" 
+                                class="text-gray-600 hover:text-yellow-500" title="Pin/Unpin">
+                                <i class="fas ${campaign.isPinned ? 'fa-star' : 'fa-star'} ${campaign.isPinned ? 'text-yellow-500' : ''}"></i>
+                            </button>
                         </div>
                     </td>
-                    <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    <td class="px-4 py-4">
+                        <div class="text-sm font-medium text-gray-900">${campaign.name}</div>
+                        <div class="text-xs text-gray-500">ID: ${campaign.id}</div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
                             ${campaign.trafficSource}
                         </span>
                     </td>
-                    <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <i class="fas fa-circle text-green-400 mr-1"></i>
-                            ${campaign.status}
+                    <td class="px-4 py-4 whitespace-nowrap font-medium">$${(campaign.revenue || 0).toFixed(2)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap font-medium">$${(campaign.cost || 0).toFixed(2)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap font-medium ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'}">
+                        $${campaign.profit.toFixed(2)}
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-medium rounded ${roasClass}">
+                            ${campaign.roas.toFixed(2)}x
                         </span>
                     </td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${campaign.visits.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${campaign.conversions.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-sm font-medium text-gray-900">$${campaign.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">$${campaign.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td class="px-4 py-3 text-sm ${cpaClass}">$${campaign.cpa.toFixed(2)}</td>
-                    <td class="px-4 py-3">
-                        <span class="text-sm font-medium ${roasClass} px-2 py-1 rounded">${campaign.currentRoas.toFixed(2)}x</span>
-                    </td>
-                    <td class="px-4 py-3">
-                        ${renderTrend(campaign.roasChange7d, campaign.roas7d)}
-                    </td>
-                    <td class="px-4 py-3">
-                        ${renderTrend(campaign.roasChange14d, campaign.roas14d)}
-                    </td>
-                    <td class="px-4 py-3">
-                        ${renderTrend(campaign.roasChange30d, campaign.roas30d)}
-                    </td>
-                    <td class="px-4 py-3 text-sm ${cvrClass}">${campaign.cvr.toFixed(2)}%</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">$${campaign.epc.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">$${campaign.aov.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-sm font-medium ${campaign.profit >= 0 ? 'text-green-600' : 'text-red-600'}">
-                        $${campaign.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td class="px-4 py-3">
-                        <div class="flex items-center space-x-2">
-                            <button onclick="openOfferModal('${campaign.id}', '${campaign.name}')" class="text-blue-600 hover:text-blue-800" title="View offers in modal">
-                                <i class="fas fa-chart-pie"></i>
-                            </button>
-                            <button onclick="exportCampaign('${campaign.id}')" class="text-gray-600 hover:text-gray-800" title="Export campaign">
-                                <i class="fas fa-download"></i>
-                            </button>
-                        </div>
+                    <td class="px-4 py-4 whitespace-nowrap">${renderTrend(change7d, roas7d)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap">${renderTrend(change14d, roas14d)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap">${renderTrend(change30d, roas30d)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap ${cpaClass}">$${campaign.cpa.toFixed(2)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap ${cvrClass}">${campaign.cvr.toFixed(2)}%</td>
+                    <td class="px-4 py-4 whitespace-nowrap">${(campaign.visits || 0).toLocaleString()}</td>
+                    <td class="px-4 py-4 whitespace-nowrap">${(campaign.conversions || 0).toLocaleString()}</td>
+                    <td class="px-4 py-4 whitespace-nowrap">$${campaign.aov.toFixed(2)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap">$${campaign.epc.toFixed(2)}</td>
+                    <td class="px-4 py-4">
+                        ${campaign.alerts.length > 0 ? `
+                            <div class="flex flex-wrap gap-1">
+                                ${campaign.alerts.map(alert => `
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                                        ${alert}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        ` : '<span class="text-gray-400">-</span>'}
                     </td>
                 </tr>
             `;
@@ -849,287 +724,54 @@
         function renderOfferRows(campaign) {
             if (!campaign.offers || campaign.offers.length === 0) {
                 return `
-                    <tr class="offer-detail-row">
+                    <tr class="offer-row">
                         <td colspan="17" class="px-8 py-4 text-center text-gray-500">
-                            <i class="fas fa-info-circle mr-2"></i>
-                            No offer data available for this campaign
+                            <i class="fas fa-info-circle"></i> No offers with visits in the selected date range
                         </td>
                     </tr>
                 `;
             }
-
-            let html = `
-                <tr class="offer-detail-row">
-                    <td colspan="17" class="px-4 py-3">
-                        <div class="ml-8">
-                            <h4 class="text-sm font-semibold text-gray-700 mb-3">
-                                <i class="fas fa-chart-pie mr-2"></i>
-                                Offers Performance Breakdown (${campaign.offers.length} offers)
-                            </h4>
-                            <div class="overflow-x-auto">
-                                <table class="offer-table min-w-full text-sm">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-left font-medium text-gray-600 cursor-pointer" onclick="sortOffers('${campaign.id}', 'name')">
-                                                Offer <i class="fas fa-sort text-xs"></i>
-                                            </th>
-                                            <th class="text-left font-medium text-gray-600 cursor-pointer" onclick="sortOffers('${campaign.id}', 'revenue')">
-                                                Revenue <i class="fas fa-sort text-xs"></i>
-                                            </th>
-                                            <th class="text-left font-medium text-gray-600 cursor-pointer" onclick="sortOffers('${campaign.id}', 'spend')">
-                                                Spend <i class="fas fa-sort text-xs"></i>
-                                            </th>
-                                            <th class="text-left font-medium text-gray-600 cursor-pointer" onclick="sortOffers('${campaign.id}', 'roas')">
-                                                ROAS <i class="fas fa-sort text-xs"></i>
-                                            </th>
-                                            <th class="text-left font-medium text-gray-600 cursor-pointer" onclick="sortOffers('${campaign.id}', 'epc')">
-                                                EPC <i class="fas fa-sort text-xs"></i>
-                                            </th>
-                                            <th class="text-left font-medium text-gray-600 cursor-pointer" onclick="sortOffers('${campaign.id}', 'cvr')">
-                                                CVR <i class="fas fa-sort text-xs"></i>
-                                            </th>
-                                            <th class="text-left font-medium text-gray-600 cursor-pointer" onclick="sortOffers('${campaign.id}', 'aov')">
-                                                AOV <i class="fas fa-sort text-xs"></i>
-                                            </th>
-                                            <th class="text-left font-medium text-gray-600 cursor-pointer" onclick="sortOffers('${campaign.id}', 'conversions')">
-                                                Conversions <i class="fas fa-sort text-xs"></i>
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-200">
-            `;
-
+            
+            let html = '';
             campaign.offers.forEach(offer => {
-                const roasColor = offer.roas >= 1.0 ? 'text-green-600' : 'text-red-600';
                 html += `
-                    <tr>
-                        <td class="font-medium text-gray-900">${offer.name}</td>
-                        <td class="text-gray-900">$${offer.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td class="text-gray-900">$${offer.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td class="${roasColor} font-medium">${offer.roas.toFixed(2)}x</td>
-                        <td class="text-gray-900">$${offer.epc.toFixed(2)}</td>
-                        <td class="text-gray-900">${offer.cvr.toFixed(2)}%</td>
-                        <td class="text-gray-900">$${offer.aov.toFixed(2)}</td>
-                        <td class="text-gray-900">${offer.conversions}</td>
+                    <tr class="offer-row">
+                        <td class="px-4 py-3"></td>
+                        <td class="px-4 py-3 pl-12">
+                            <div class="text-sm font-medium text-gray-700">
+                                <i class="fas fa-tag text-gray-400 mr-2"></i>${offer.name}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="text-xs text-gray-500">Offer</span>
+                        </td>
+                        <td class="px-4 py-3 font-medium">$${(offer.revenue || 0).toFixed(2)}</td>
+                        <td class="px-4 py-3 font-medium">$${(offer.spend || 0).toFixed(2)}</td>
+                        <td class="px-4 py-3 font-medium ${offer.profit >= 0 ? 'text-green-600' : 'text-red-600'}">
+                            $${(offer.profit || 0).toFixed(2)}
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 text-xs font-medium rounded ${offer.roas >= 2 ? 'roas-high' : offer.roas >= 1 ? 'roas-medium' : 'roas-low'}">
+                                ${(offer.roas || 0).toFixed(2)}x
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-400">-</td>
+                        <td class="px-4 py-3 text-gray-400">-</td>
+                        <td class="px-4 py-3 text-gray-400">-</td>
+                        <td class="px-4 py-3">$${(offer.cpa || 0).toFixed(2)}</td>
+                        <td class="px-4 py-3">${(offer.cvr || 0).toFixed(2)}%</td>
+                        <td class="px-4 py-3">${(offer.visits || 0).toLocaleString()}</td>
+                        <td class="px-4 py-3">${(offer.conversions || 0).toLocaleString()}</td>
+                        <td class="px-4 py-3">$${(offer.aov || 0).toFixed(2)}</td>
+                        <td class="px-4 py-3">$${(offer.epc || 0).toFixed(2)}</td>
+                        <td class="px-4 py-3">
+                            <span class="text-gray-400">-</span>
+                        </td>
                     </tr>
                 `;
             });
-
-            html += `
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-            `;
-
+            
             return html;
-        }
-
-        function sortOffers(campaignId, column) {
-            const campaign = allCampaigns.find(c => c.id === campaignId);
-            if (!campaign || !campaign.offers) return;
-            
-            campaign.offers.sort((a, b) => {
-                switch (column) {
-                    case 'name': return a.name.localeCompare(b.name);
-                    case 'revenue': return (b.revenue || 0) - (a.revenue || 0);
-                    case 'spend': return (b.spend || 0) - (a.spend || 0);
-                    case 'roas': return (b.roas || 0) - (a.roas || 0);
-                    case 'epc': return (b.epc || 0) - (a.epc || 0);
-                    case 'cvr': return (b.cvr || 0) - (a.cvr || 0);
-                    case 'aov': return (b.aov || 0) - (a.aov || 0);
-                    case 'conversions': return (b.conversions || 0) - (a.conversions || 0);
-                    default: return 0;
-                }
-            });
-            
-            renderCampaigns();
-        }
-
-        async function toggleCampaignExpansion(campaignId) {
-            const campaign = allCampaigns.find(c => c.id === campaignId);
-            if (!campaign) return;
-
-            if (expandedCampaigns.has(campaignId)) {
-                // Collapse
-                expandedCampaigns.delete(campaignId);
-                renderCampaigns();
-            } else {
-                // Expand and load offers
-                expandedCampaigns.add(campaignId);
-                
-                // Load offers if not already loaded
-                if (!campaign.offers || campaign.offers.length === 0) {
-                    try {
-                        showToast('Loading offer data...', 'success');
-                        
-                        let url;
-                        const dateRange = document.getElementById('dateRange').value;
-                        
-                        if (dateRange === 'custom') {
-                            const fromDate = document.getElementById('fromDate').value;
-                            const toDate = document.getElementById('toDate').value;
-                            url = `/api/voluum/offers?campaignId=${campaignId}&from=${fromDate}&to=${toDate}`;
-                        } else {
-                            url = `/api/voluum/offers?campaignId=${campaignId}&range=${dateRange}`;
-                        }
-                        
-                        const response = await fetch(url);
-                        const data = await response.json();
-                        
-                        if (data.success && data.offers) {
-                            campaign.offers = data.offers;
-                            showToast(`Loaded ${data.offers.length} offers for ${campaign.name}`, 'success');
-                        } else {
-                            campaign.offers = [];
-                            showToast('No offer data available for this campaign', 'error');
-                        }
-                    } catch (error) {
-                        console.error('Error loading offers:', error);
-                        campaign.offers = [];
-                        showToast('Failed to load offer data: ' + error.message, 'error');
-                    }
-                }
-                
-                renderCampaigns();
-            }
-        }
-
-        function togglePin(campaignId) {
-            if (pinnedCampaigns.has(campaignId)) {
-                pinnedCampaigns.delete(campaignId);
-            } else {
-                pinnedCampaigns.add(campaignId);
-            }
-            
-            // Update campaign data
-            allCampaigns.forEach(campaign => {
-                if (campaign.id === campaignId) {
-                    campaign.isPinned = pinnedCampaigns.has(campaignId);
-                }
-            });
-            
-            applyFilters();
-            showToast(pinnedCampaigns.has(campaignId) ? 'Campaign pinned' : 'Campaign unpinned', 'success');
-        }
-
-        async function openOfferModal(campaignId, campaignName) {
-            document.getElementById('modalTitle').textContent = `Offer Performance: ${campaignName}`;
-            document.getElementById('offerModal').style.display = 'block';
-            document.getElementById('offerTableContainer').innerHTML = `
-                <div class="text-center py-8">
-                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                    <div>Loading offer data...</div>
-                </div>
-            `;
-            
-            try {
-                let url;
-                const dateRange = document.getElementById('dateRange').value;
-                
-                if (dateRange === 'custom') {
-                    const fromDate = document.getElementById('fromDate').value;
-                    const toDate = document.getElementById('toDate').value;
-                    url = `/api/voluum/offers?campaignId=${campaignId}&from=${fromDate}&to=${toDate}`;
-                } else {
-                    url = `/api/voluum/offers?campaignId=${campaignId}&range=${dateRange}`;
-                }
-                
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (!data.success) {
-                    throw new Error(data.error);
-                }
-                
-                renderOfferModalTable(data.offers || []);
-                
-            } catch (error) {
-                console.error('Error loading offers:', error);
-                document.getElementById('offerTableContainer').innerHTML = `
-                    <div class="text-center py-8 text-red-600">
-                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                        <div>Failed to load offer data: ${error.message}</div>
-                        <div class="text-sm mt-2 text-gray-600">This could be due to:</div>
-                        <ul class="text-sm mt-2 text-left max-w-md mx-auto text-gray-600">
-                            <li>• No offers with visits in the selected date range</li>
-                            <li>• Campaign uses direct linking without offer tracking</li>
-                            <li>• API rate limiting or connection issues</li>
-                        </ul>
-                        <button onclick="closeOfferModal()" class="mt-4 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
-                            Close
-                        </button>
-                    </div>
-                `;
-            }
-        }
-
-        function renderOfferModalTable(offers) {
-            if (offers.length === 0) {
-                document.getElementById('offerTableContainer').innerHTML = `
-                    <div class="text-center py-8 text-gray-500">
-                        <i class="fas fa-info-circle text-2xl mb-2"></i>
-                        <div>No offer data available for this campaign</div>
-                        <div class="text-sm mt-2">This could be because:</div>
-                        <ul class="text-sm mt-2 text-left max-w-md mx-auto">
-                            <li>• No offers have visits in the selected date range</li>
-                            <li>• Campaign uses direct linking without offer tracking</li>
-                            <li>• Offers are configured but have no performance data</li>
-                        </ul>
-                    </div>
-                `;
-                return;
-            }
-            
-            const tableHTML = `
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Offer Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spend</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ROAS</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPC</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CVR</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AOV</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversions</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            ${offers.map(offer => `
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">${offer.name}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">$${offer.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">$${offer.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                    <td class="px-6 py-4 text-sm font-medium ${offer.roas >= 1.0 ? 'text-green-600' : 'text-red-600'}">${offer.roas.toFixed(2)}x</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">${offer.epc.toFixed(2)}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">${offer.cvr.toFixed(2)}%</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">${offer.aov.toFixed(2)}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">${offer.conversions}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-900">${offer.visits}</td>
-                                    <td class="px-6 py-4 text-sm font-medium ${(offer.revenue - offer.spend) >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                        ${(offer.revenue - offer.spend).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="mt-4 text-sm text-gray-500 text-center">
-                    Showing ${offers.length} offers with performance data
-                </div>
-            `;
-            
-            document.getElementById('offerTableContainer').innerHTML = tableHTML;
-        }
-
-        function closeOfferModal() {
-            document.getElementById('offerModal').style.display = 'none';
         }
 
         function clearFilters() {
@@ -1138,61 +780,35 @@
             document.getElementById('osFilter').value = 'all';
             document.getElementById('performanceFilter').value = 'all';
             document.getElementById('minSpendFilter').value = '';
-            document.getElementById('deviceFilter').value = 'all';
-            document.getElementById('sortFilter').value = 'revenue_desc';
-            document.getElementById('alertRoasDropFilter').checked = false;
-            document.getElementById('alertCpaIncreaseFilter').checked = false;
-            document.getElementById('alertHighSpendLowRoasFilter').checked = false;
-            
+            document.getElementById('sortFilter').value = 'spend';
             applyFilters();
-            showToast('Filters cleared', 'success');
         }
 
-        function updateFilterCounts() {
-            document.getElementById('filteredCount').textContent = filteredCampaigns.length;
-            document.getElementById('totalCount').textContent = allCampaigns.length;
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode');
         }
 
-        function updateConnectionStatus(status, message) {
-            const statusEl = document.getElementById('connectionStatus');
-            const iconClasses = {
-                loading: 'w-3 h-3 bg-yellow-400 rounded-full animate-pulse mr-2',
-                success: 'w-3 h-3 bg-green-400 rounded-full mr-2',
-                error: 'w-3 h-3 bg-red-400 rounded-full mr-2'
-            };
+        function exportData() {
+            if (filteredCampaigns.length === 0) {
+                showToast('No data to export', 'error');
+                return;
+            }
             
-            statusEl.innerHTML = `
-                <div class="${iconClasses[status]}"></div>
-                <span class="text-sm text-white">${message}</span>
-            `;
-        }
-
-        function showErrorState(error) {
-            const tbody = document.getElementById('campaignTableBody');
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="17" class="px-6 py-12 text-center text-gray-500">
-                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
-                        <div class="text-lg font-medium text-gray-700 mb-2">Voluum API Connection Failed</div>
-                        <div class="text-sm text-red-600 mb-2">${error}</div>
-                        <div class="text-sm text-gray-600 mb-4">Check your API credentials and connection.</div>
-                        <div class="text-xs text-gray-500 mb-4">
-                            <strong>Debug Steps:</strong><br>
-                            1. Verify VOLUME_KEY and VOLUME_KEY_ID environment variables<br>
-                            2. Check if Voluum API is accessible<br>
-                            3. Try different date ranges (avoid "Yesterday" if broken)<br>
-                            4. Check browser console for detailed errors<br>
-                            5. Ensure only campaigns with visits > 0 are requested
-                        </div>
-                        <button onclick="loadData()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 mr-2">
-                            Retry Connection
-                        </button>
-                        <a href="/api/voluum/test" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
-                            Test API
-                        </a>
-                    </td>
-                </tr>
-            `;
+            let csv = 'Campaign,Source,Revenue,Spend,Profit,ROAS,CPA,CVR,Visits,Conversions,AOV,EPC,Alerts\n';
+            
+            filteredCampaigns.forEach(campaign => {
+                csv += `"${campaign.name}",${campaign.trafficSource},${campaign.revenue},${campaign.cost},${campaign.profit},${campaign.roas},${campaign.cpa},${campaign.cvr},${campaign.visits},${campaign.conversions},${campaign.aov},${campaign.epc},"${campaign.alerts.join(', ')}"\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `voluum-export-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            
+            showToast('Data exported successfully', 'success');
         }
 
         function showToast(message, type = 'success') {
@@ -1205,103 +821,40 @@
             }, 3000);
         }
 
-        function exportToCSV() {
-            if (filteredCampaigns.length === 0) {
-                showToast('No data to export', 'error');
-                return;
-            }
+        function updateStatus(status, message) {
+            const statusBar = document.getElementById('statusBar');
+            const statusEl = statusBar.querySelector('div');
             
-            const headers = ['Campaign', 'Traffic Source', 'OS', 'Status', 'Visits', 'Conversions', 'Revenue', 'Spend', 'CPA', 'ROAS', 'ROAS_7D', 'ROAS_14D', 'ROAS_30D', 'CVR', 'EPC', 'AOV', 'Profit'];
-            const csvContent = [
-                headers.join(','),
-                ...filteredCampaigns.map(campaign => [
-                    `"${campaign.name}"`,
-                    campaign.trafficSource,
-                    campaign.os,
-                    campaign.status,
-                    campaign.visits,
-                    campaign.conversions,
-                    campaign.revenue.toFixed(2),
-                    campaign.spend.toFixed(2),
-                    campaign.cpa.toFixed(2),
-                    campaign.currentRoas.toFixed(2),
-                    campaign.roas7d.toFixed(2),
-                    campaign.roas14d.toFixed(2),
-                    campaign.roas30d.toFixed(2),
-                    campaign.cvr.toFixed(2),
-                    campaign.epc.toFixed(2),
-                    campaign.aov.toFixed(2),
-                    campaign.profit.toFixed(2)
-                ].join(','))
-            ].join('\n');
+            const iconClasses = {
+                loading: 'w-3 h-3 bg-yellow-400 rounded-full mr-2 animate-pulse',
+                success: 'w-3 h-3 bg-green-400 rounded-full mr-2',
+                error: 'w-3 h-3 bg-red-400 rounded-full mr-2'
+            };
             
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `voluum-campaigns-${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-            window.URL.revokeObjectURL(url);
-            
-            showToast('CSV exported successfully', 'success');
+            statusEl.innerHTML = `
+                <div class="${iconClasses[status]}"></div>
+                <span class="text-sm text-gray-700">${message}</span>
+            `;
         }
 
-        function exportCampaign(campaignId) {
-            const campaign = allCampaigns.find(c => c.id === campaignId);
-            if (!campaign) return;
-            
-            const csvContent = [
-                'Campaign,Traffic Source,OS,Status,Visits,Conversions,Revenue,Spend,CPA,ROAS,ROAS_7D,ROAS_14D,ROAS_30D,CVR,EPC,AOV,Profit',
-                [
-                    `"${campaign.name}"`,
-                    campaign.trafficSource,
-                    campaign.os,
-                    campaign.status,
-                    campaign.visits,
-                    campaign.conversions,
-                    campaign.revenue.toFixed(2),
-                    campaign.spend.toFixed(2),
-                    campaign.cpa.toFixed(2),
-                    campaign.currentRoas.toFixed(2),
-                    campaign.roas7d.toFixed(2),
-                    campaign.roas14d.toFixed(2),
-                    campaign.roas30d.toFixed(2),
-                    campaign.cvr.toFixed(2),
-                    campaign.epc.toFixed(2),
-                    campaign.aov.toFixed(2),
-                    campaign.profit.toFixed(2)
-                ].join(',')
-            ].join('\n');
-            
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${campaign.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-            window.URL.revokeObjectURL(url);
-            
-            showToast('Campaign exported successfully', 'success');
+        function showErrorState(error) {
+            const tbody = document.getElementById('campaignTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="px-6 py-12 text-center text-gray-500">
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                        <div class="text-lg font-medium text-gray-700 mb-2">Failed to Load Data</div>
+                        <div class="text-sm text-red-600 mb-2">${error}</div>
+                        <div class="text-sm text-gray-600 mb-4">
+                            Please check your API credentials and try again.
+                        </div>
+                        <button onclick="loadData()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                            <i class="fas fa-sync-alt"></i> Retry
+                        </button>
+                    </td>
+                </tr>
+            `;
         }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('offerModal');
-            if (event.target === modal) {
-                closeOfferModal();
-            }
-        }
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeOfferModal();
-            }
-            if (e.ctrlKey && e.key === 'r') {
-                e.preventDefault();
-                loadData();
-            }
-        });
     </script>
 </body>
 </html>
