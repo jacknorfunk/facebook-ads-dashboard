@@ -1,4 +1,4 @@
-// /api/voluum/offers.js - COMPLETE FIX for Offer-level performance drill-down
+// /api/voluum/offers.js - CORRECTED Offer-level performance drill-down
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -20,27 +20,25 @@ export default async function handler(req, res) {
         // Calculate date range - support both preset ranges and custom dates
         let startDate, endDate;
         if (from && to) {
-            // Custom date range
             startDate = from;
             endDate = to;
             console.log(`📅 Using custom date range: ${startDate} to ${endDate}`);
         } else {
-            // Preset range
             const dateRange = calculateDateRange(range);
             startDate = dateRange.startDate;
             endDate = dateRange.endDate;
             console.log(`📅 Using preset range (${range}): ${startDate} to ${endDate}`);
         }
 
-        // Get Voluum API credentials from environment variables
-        const VOLUME_KEY = process.env.VOLUME_KEY;        // Secret Access Key
-        const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;  // Access Key ID
+        // Get Voluum API credentials
+        const VOLUME_KEY = process.env.VOLUME_KEY;
+        const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;
         
         if (!VOLUME_KEY || !VOLUME_KEY_ID) {
             throw new Error('Voluum API credentials not configured. Missing VOLUME_KEY or VOLUME_KEY_ID environment variables');
         }
 
-        // Step 1: Create a session using the access key
+        // Create session
         console.log('🔐 Creating Voluum API session for offers...');
         const sessionResponse = await fetch('https://api.voluum.com/auth/access/session', {
             method: 'POST',
@@ -86,21 +84,30 @@ export default async function handler(req, res) {
 
         console.log('🎯 Starting offer data collection with PAGINATION...');
 
-        // FIXED: Get ALL offers with pagination (this was the main issue!)
+        // Get ALL offers with pagination
         const allOffers = await getAllOffersWithPagination(authToken, startDate, endDate, campaignId, offerColumns);
         
         console.log(`📊 Total offers retrieved from API: ${allOffers.length}`);
         
-        // Filter to only offers with visits > 0 (strict filtering)
+        // CRITICAL FIX: Filter for active offers with visits > 0
         const activeOffers = allOffers.filter(offer => {
+            // Check if offer is not deleted
+            const isNotDeleted = !offer.deleted && offer.deleted !== true;
+            // Check if offer has visits
             const hasVisits = (offer.visits || 0) > 0;
-            if (!hasVisits) {
-                console.log(`👻 Filtering out offer with no visits: ${offer.name} (${offer.visits} visits)`);
+            
+            if (!isNotDeleted) {
+                console.log(`🗑️ Filtering out deleted offer: ${offer.offerName} (deleted: ${offer.deleted})`);
             }
-            return hasVisits;
+            if (!hasVisits && isNotDeleted) {
+                console.log(`👻 Filtering out offer with no visits: ${offer.offerName} (${offer.visits} visits)`);
+            }
+            
+            return isNotDeleted && hasVisits;
         });
 
         console.log(`✅ Successfully processed ${allOffers.length} total offers`);
+        console.log(`✅ Found ${allOffers.filter(o => !o.deleted).length} active offers`);
         console.log(`✅ Returning ${activeOffers.length} offers WITH visits`);
 
         if (activeOffers.length > 0) {
@@ -109,27 +116,31 @@ export default async function handler(req, res) {
                 console.log(`   ${offer.name}: ${offer.visits} visits, $${offer.revenue.toFixed(2)} revenue, ${offer.roas.toFixed(2)}x ROAS`);
             });
         } else {
-            console.log('⚠️ No offers found with visits for this campaign in the selected date range');
-            console.log('💡 This could mean:');
+            console.log('⚠️ No offers found with visits for this campaign');
+            console.log('💡 This likely means:');
             console.log('   - Campaign uses direct linking (no offer tracking)');
+            console.log('   - All offers for this campaign are inactive/deleted');
             console.log('   - Offers exist but have no visits in this date range');
-            console.log('   - Campaign ID does not match any offers');
+            console.log('   - Campaign ID might not match any offers in Voluum');
         }
 
         return res.json({
             success: true,
             offers: activeOffers,
             debug_info: {
-                data_source: 'voluum_offer_report_with_pagination',
+                data_source: 'voluum_offer_report_corrected',
                 campaignId: campaignId,
                 total_found: allOffers.length,
                 active_offers: activeOffers.length,
+                deleted_offers: allOffers.filter(o => o.deleted).length,
                 date_range_used: `${startDate} to ${endDate}`,
                 selected_range: range,
                 custom_dates: !!from && !!to,
                 columns_requested: offerColumns.split(',').length,
                 pagination_used: true,
                 visits_filter_applied: true,
+                deleted_filter_applied: true,
+                sample_raw_offer: allOffers[0] || null,
                 timestamp: new Date().toISOString()
             }
         });
@@ -141,34 +152,27 @@ export default async function handler(req, res) {
             error: error.message,
             debug_info: {
                 error_details: error.stack,
-                timestamp: new Date().toISOString(),
-                troubleshooting: {
-                    step1: 'Check if campaignId exists in Voluum',
-                    step2: 'Verify date range is not in the future',
-                    step3: 'Ensure campaign has offers configured',
-                    step4: 'Check if offers have visits in the selected period'
-                }
+                timestamp: new Date().toISOString()
             }
         });
     }
 }
 
-// CRITICAL: This function was missing - it handles pagination to get ALL offers
+// CORRECTED: Pagination function that handles Voluum's response format properly
 async function getAllOffersWithPagination(authToken, startDate, endDate, campaignId, offerColumns) {
     let allOffers = [];
     let offset = 0;
-    const limit = 100; // Voluum API limit per request
+    const limit = 100;
     let hasMore = true;
     let pageCount = 0;
     
     console.log('🔄 Starting pagination loop for offers...');
     
-    while (hasMore && pageCount < 50) { // Safety limit to prevent infinite loops
+    while (hasMore && pageCount < 50) {
         pageCount++;
         const reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=offer&columns=${offerColumns}&tz=America/New_York&campaignId=${campaignId}&limit=${limit}&offset=${offset}`;
         
         console.log(`📄 Fetching offers page ${pageCount} (offset: ${offset})`);
-        console.log(`🔗 URL: ${reportUrl}`);
         
         const reportResponse = await fetch(reportUrl, {
             headers: {
@@ -179,19 +183,11 @@ async function getAllOffersWithPagination(authToken, startDate, endDate, campaig
 
         if (!reportResponse.ok) {
             const errorText = await reportResponse.text();
-            console.log(`❌ Offer pagination request failed at offset ${offset}:`, {
-                status: reportResponse.status,
-                statusText: reportResponse.statusText,
-                error: errorText,
-                page: pageCount
-            });
+            console.log(`❌ Offer pagination request failed at offset ${offset}:`, errorText);
             
-            // If it's the first page and fails, throw error
             if (offset === 0) {
                 throw new Error(`Offer API request failed: ${reportResponse.status} - ${errorText}`);
             }
-            // Otherwise, break the loop (partial data is better than none)
-            console.log('⚠️ Breaking pagination loop due to API error');
             break;
         }
 
@@ -200,26 +196,37 @@ async function getAllOffersWithPagination(authToken, startDate, endDate, campaig
             hasRows: !!reportData.rows,
             rowCount: reportData.rows?.length || 0,
             hasColumns: !!reportData.columns,
+            columnCount: reportData.columns?.length || 0,
             totalSoFar: allOffers.length
         });
 
         const { rows = [], columns = [] } = reportData;
 
         if (rows.length === 0) {
-            console.log(`⚠️ No more offers at page ${pageCount} (offset ${offset})`);
+            console.log(`⚠️ No more offers at page ${pageCount}`);
             hasMore = false;
             break;
         }
 
-        // Process offers from this page
+        // CRITICAL FIX: Process offers based on actual Voluum API response format
         console.log(`🔄 Processing ${rows.length} offers from page ${pageCount}...`);
-        const pageOffers = rows.map((row, index) => {
+        const pageOffers = rows.map((rowData, index) => {
             try {
-                const offerData = {};
-                columns.forEach((column, colIndex) => {
-                    offerData[column] = row[colIndex];
-                });
+                let offerData;
+                
+                // Handle different response formats from Voluum API
+                if (columns && columns.length > 0) {
+                    // Format 1: rows are arrays, columns define the structure
+                    offerData = {};
+                    columns.forEach((column, colIndex) => {
+                        offerData[column] = rowData[colIndex];
+                    });
+                } else {
+                    // Format 2: rows are already objects (this is what your debug shows)
+                    offerData = rowData;
+                }
 
+                // Extract values (handling both formats)
                 const visits = parseInt(offerData.visits || 0);
                 const conversions = parseInt(offerData.conversions || 0);
                 const revenue = parseFloat(offerData.revenue || 0);
@@ -242,7 +249,10 @@ async function getAllOffersWithPagination(authToken, startDate, endDate, campaig
                     epc: epc,
                     cvr: cvr,
                     aov: aov,
-                    cpa: parseFloat(offerData.cpa || 0)
+                    cpa: parseFloat(offerData.cpa || 0),
+                    deleted: offerData.deleted || false,  // Include deleted status
+                    // Keep raw data for debugging
+                    rawData: offerData
                 };
             } catch (error) {
                 console.error(`❌ Error processing offer at index ${index}:`, error);
@@ -250,17 +260,14 @@ async function getAllOffersWithPagination(authToken, startDate, endDate, campaig
             }
         }).filter(Boolean);
 
-        // Add this page's offers to our collection
         allOffers = allOffers.concat(pageOffers);
         console.log(`✅ Page ${pageCount} processed: ${pageOffers.length} offers added (total: ${allOffers.length})`);
         
-        // Check if we got fewer results than the limit (last page)
         if (rows.length < limit) {
             console.log(`🏁 Reached last page (got ${rows.length} < ${limit} results)`);
             hasMore = false;
         } else {
             offset += limit;
-            console.log(`➡️ Moving to next page (offset: ${offset})`);
         }
     }
 
@@ -268,17 +275,14 @@ async function getAllOffersWithPagination(authToken, startDate, endDate, campaig
     return allOffers;
 }
 
-// FIXED: Date calculation function with proper "Yesterday" handling
 function calculateDateRange(range) {
     const now = new Date();
-    const timezone = 'America/New_York'; // Eastern Time to match Voluum account
+    const timezone = 'America/New_York';
     
-    // Helper to get date in Eastern Time
     const getEasternDate = (date) => {
         return new Date(date.toLocaleString("en-US", { timeZone: timezone }));
     };
     
-    // Current date in Eastern Time
     const easternNow = getEasternDate(now);
     let startDate, endDate;
 
@@ -291,25 +295,18 @@ function calculateDateRange(range) {
             break;
             
         case 'yesterday':
-            // FIXED: Proper yesterday calculation
             startDate = new Date(easternNow);
             startDate.setDate(startDate.getDate() - 1);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(startDate);
             endDate.setHours(23, 59, 59, 999);
-            
-            console.log('📅 Yesterday calculation:', {
-                easternNow: easternNow.toISOString(),
-                startDate: startDate.toISOString(),
-                endDate: endDate.toISOString()
-            });
             break;
             
         case 'last_7_days':
             endDate = new Date(easternNow);
             endDate.setHours(23, 59, 59, 999);
             startDate = new Date(easternNow);
-            startDate.setDate(startDate.getDate() - 6); // 7 days including today
+            startDate.setDate(startDate.getDate() - 6);
             startDate.setHours(0, 0, 0, 0);
             break;
             
@@ -317,15 +314,14 @@ function calculateDateRange(range) {
             endDate = new Date(easternNow);
             endDate.setHours(23, 59, 59, 999);
             startDate = new Date(easternNow);
-            startDate.setDate(startDate.getDate() - 29); // 30 days including today
+            startDate.setDate(startDate.getDate() - 29);
             startDate.setHours(0, 0, 0, 0);
             break;
             
         case 'this_week':
-            // Monday to Sunday
             startDate = new Date(easternNow);
             const dayOfWeek = startDate.getDay();
-            const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0, Monday = 1
+            const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
             startDate.setDate(startDate.getDate() - daysToMonday);
             startDate.setHours(0, 0, 0, 0);
             
@@ -341,7 +337,6 @@ function calculateDateRange(range) {
             break;
             
         default:
-            // Default to last 7 days
             endDate = new Date(easternNow);
             endDate.setHours(23, 59, 59, 999);
             startDate = new Date(easternNow);
@@ -350,17 +345,12 @@ function calculateDateRange(range) {
             break;
     }
 
-    // Convert to ISO strings for Voluum API (YYYY-MM-DD format) 
     const formatDate = (date) => {
         return date.toISOString().split('T')[0];
     };
 
-    const result = {
+    return {
         startDate: formatDate(startDate),
         endDate: formatDate(endDate)
     };
-    
-    console.log(`📅 Date range calculation for "${range}":`, result);
-    
-    return result;
 }
