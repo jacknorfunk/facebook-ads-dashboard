@@ -1,4 +1,4 @@
-// /api/voluum/offers.js - Offer-level performance drill-down
+// /api/voluum/offers.js - FIXED Offer-level performance drill-down
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { campaignId, range = 'last_7_days' } = req.query;
+        const { campaignId, range = 'last_7_days', from, to } = req.query;
         
         if (!campaignId) {
             return res.status(400).json({
@@ -15,11 +15,22 @@ export default async function handler(req, res) {
             });
         }
 
-        console.log(`📊 Loading offers for campaign: ${campaignId}, range: ${range}`);
+        console.log(`📊 Loading offers for campaign: ${campaignId}`);
 
-        // Calculate date range (same logic as campaigns)
-        const { startDate, endDate } = calculateDateRange(range);
-        console.log(`📅 Using date range: ${startDate} to ${endDate}`);
+        // Calculate date range - support both preset ranges and custom dates
+        let startDate, endDate;
+        if (from && to) {
+            // Custom date range
+            startDate = from;
+            endDate = to;
+            console.log(`📅 Using custom date range: ${startDate} to ${endDate}`);
+        } else {
+            // Preset range
+            const dateRange = calculateDateRange(range);
+            startDate = dateRange.startDate;
+            endDate = dateRange.endDate;
+            console.log(`📅 Using preset range (${range}): ${startDate} to ${endDate}`);
+        }
 
         // Get Voluum API credentials from environment variables
         const VOLUME_KEY = process.env.VOLUME_KEY;        // Secret Access Key
@@ -73,12 +84,73 @@ export default async function handler(req, res) {
             'rpc'
         ].join(',');
 
-        // Build Voluum API request URL with campaign filter
-        const reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=offer&columns=${offerColumns}&tz=America/New_York&campaignId=${campaignId}&limit=100`;
+        // FIXED: Get ALL offers with pagination and filter by visits > 0
+        const allOffers = await getAllOffersWithPagination(authToken, startDate, endDate, campaignId, offerColumns);
         
-        console.log('🎯 Requesting OFFER-level data:', reportUrl);
+        console.log(`📊 Total offers retrieved: ${allOffers.length}`);
+        
+        // Filter to only offers with visits > 0
+        const activeOffers = allOffers.filter(offer => {
+            const hasVisits = (offer.visits || 0) > 0;
+            if (!hasVisits) {
+                console.log(`👻 Filtering out offer with no visits: ${offer.name} (${offer.visits} visits)`);
+            }
+            return hasVisits;
+        });
 
-        // Make API request to Voluum with proper session token
+        console.log(`✅ Successfully processed ${allOffers.length} total offers`);
+        console.log(`✅ Returning ${activeOffers.length} offers with visits`);
+
+        if (activeOffers.length > 0) {
+            console.log('📋 Sample offers with visits:');
+            activeOffers.slice(0, 3).forEach(offer => {
+                console.log(`   ${offer.name}: ${offer.visits} visits, $${offer.revenue} revenue, ${offer.roas.toFixed(2)}x ROAS`);
+            });
+        } else {
+            console.log('⚠️ No offers found with visits for this campaign');
+        }
+
+        return res.json({
+            success: true,
+            offers: activeOffers,
+            debug_info: {
+                data_source: 'voluum_offer_report_paginated',
+                campaignId: campaignId,
+                total_found: allOffers.length,
+                active_offers: activeOffers.length,
+                date_range_used: `${startDate} to ${endDate}`,
+                selected_range: range,
+                custom_dates: !!from && !!to,
+                columns_requested: offerColumns.split(',').length,
+                timestamp: new Date().toISOString()
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Offer API error:', error);
+        return res.status(500).json({
+            success: false,
+            error: error.message,
+            debug_info: {
+                error_details: error.stack,
+                timestamp: new Date().toISOString()
+            }
+        });
+    }
+}
+
+// FIXED: Pagination function to get ALL offers
+async function getAllOffersWithPagination(authToken, startDate, endDate, campaignId, offerColumns) {
+    let allOffers = [];
+    let offset = 0;
+    const limit = 100; // Voluum API limit
+    let hasMore = true;
+    
+    while (hasMore) {
+        const reportUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=offer&columns=${offerColumns}&tz=America/New_York&campaignId=${campaignId}&limit=${limit}&offset=${offset}`;
+        
+        console.log(`📄 Fetching offers page with offset ${offset}:`, reportUrl);
+        
         const reportResponse = await fetch(reportUrl, {
             headers: {
                 'cwauth-token': authToken,
@@ -88,58 +160,33 @@ export default async function handler(req, res) {
 
         if (!reportResponse.ok) {
             const errorText = await reportResponse.text();
-            console.log('❌ Offer report failed:', {
-                status: reportResponse.status,
-                statusText: reportResponse.statusText,
-                errorText: errorText,
-                url: reportUrl
-            });
+            console.log(`❌ Offer pagination request failed at offset ${offset}:`, errorText);
             
-            // Return empty result with error info
-            return res.status(200).json({
-                success: true,
-                offers: [],
-                debug_info: {
-                    error: 'Offer API request failed',
-                    status: reportResponse.status,
-                    statusText: reportResponse.statusText,
-                    response: errorText,
-                    campaignId: campaignId,
-                    date_range: `${startDate} to ${endDate}`,
-                    message: 'This could be due to no offer data available for this campaign or API limitations',
-                    session_creation: 'successful'
-                }
-            });
+            // If it's the first page and fails, throw error
+            if (offset === 0) {
+                throw new Error(`Offer API request failed: ${reportResponse.status} - ${errorText}`);
+            }
+            // Otherwise, break the loop (partial data is better than none)
+            break;
         }
 
-        // Parse the response
         const reportData = await reportResponse.json();
-        console.log('📊 Offer report data structure:', {
+        console.log(`📊 Offers page ${Math.floor(offset/limit) + 1} data:`, {
             hasRows: !!reportData.rows,
             rowCount: reportData.rows?.length || 0,
-            hasColumns: !!reportData.columns,
-            columnCount: reportData.columns?.length || 0
+            totalSoFar: allOffers.length
         });
 
         const { rows = [], columns = [] } = reportData;
 
         if (rows.length === 0) {
-            console.log('⚠️ No offer data returned for this campaign');
-            return res.json({
-                success: true,
-                offers: [],
-                debug_info: {
-                    data_source: 'voluum_offer_report',
-                    message: 'No offers found for this campaign in the selected date range',
-                    campaignId: campaignId,
-                    date_range: `${startDate} to ${endDate}`,
-                    api_response_rows: 0
-                }
-            });
+            console.log(`⚠️ No more offers at offset ${offset}`);
+            hasMore = false;
+            break;
         }
 
-        // Process offers from report data
-        const offers = rows.map(row => {
+        // Process offers from this page
+        const pageOffers = rows.map(row => {
             const offerData = {};
             columns.forEach((column, index) => {
                 offerData[column] = row[index];
@@ -171,47 +218,21 @@ export default async function handler(req, res) {
             };
         });
 
-        // Filter to only offers with visits
-        const activeOffers = offers.filter(offer => offer.visits > 0);
-
-        console.log(`✅ Successfully processed ${offers.length} total offers`);
-        console.log(`✅ Returning ${activeOffers.length} offers with visits`);
-
-        if (activeOffers.length > 0) {
-            console.log('📋 Sample offers:');
-            activeOffers.slice(0, 3).forEach(offer => {
-                console.log(`   ${offer.name}: ${offer.visits} visits, £${offer.revenue} revenue, ${offer.roas.toFixed(2)}x ROAS`);
-            });
+        // Add this page's offers to our collection
+        allOffers = allOffers.concat(pageOffers);
+        
+        // Check if we got fewer results than the limit (last page)
+        if (rows.length < limit) {
+            hasMore = false;
+        } else {
+            offset += limit;
         }
-
-        return res.json({
-            success: true,
-            offers: activeOffers,
-            debug_info: {
-                data_source: 'voluum_offer_report',
-                campaignId: campaignId,
-                total_found: offers.length,
-                active_offers: activeOffers.length,
-                date_range_used: `${startDate} to ${endDate}`,
-                selected_range: range,
-                columns_requested: offerColumns.split(',').length,
-                timestamp: new Date().toISOString()
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ Offer API error:', error);
-        return res.status(500).json({
-            success: false,
-            error: error.message,
-            debug_info: {
-                error_details: error.stack,
-                timestamp: new Date().toISOString()
-            }
-        });
     }
+
+    return allOffers;
 }
 
+// FIXED: Date calculation function with proper "Yesterday" handling
 function calculateDateRange(range) {
     const now = new Date();
     const timezone = 'America/New_York'; // Eastern Time to match Voluum account
@@ -234,11 +255,18 @@ function calculateDateRange(range) {
             break;
             
         case 'yesterday':
+            // FIXED: Proper yesterday calculation
             startDate = new Date(easternNow);
             startDate.setDate(startDate.getDate() - 1);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(startDate);
             endDate.setHours(23, 59, 59, 999);
+            
+            console.log('📅 Yesterday calculation:', {
+                easternNow: easternNow.toISOString(),
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString()
+            });
             break;
             
         case 'last_7_days':
@@ -286,13 +314,17 @@ function calculateDateRange(range) {
             break;
     }
 
-    // Convert to ISO strings for Voluum API (YYYY-MM-DD format)
+    // Convert to ISO strings for Voluum API (YYYY-MM-DD format) 
     const formatDate = (date) => {
         return date.toISOString().split('T')[0];
     };
 
-    return {
+    const result = {
         startDate: formatDate(startDate),
         endDate: formatDate(endDate)
     };
+    
+    console.log(`📅 Date range calculation for "${range}":`, result);
+    
+    return result;
 }
