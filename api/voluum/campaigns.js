@@ -1,4 +1,43 @@
-// /api/voluum/campaigns.js - Fixed date filtering and enhanced functionality
+// Parse the successful report response
+        const reportData = await reportResponse.json();
+        console.log('📊 Raw report data structure:', {
+            hasRows: !!reportData.rows,
+            rowCount: reportData.rows?.length || 0,
+            hasColumns: !!reportData.columns,
+            columnCount: reportData.columns?.length || 0,
+            dataKeys: Object.keys(reportData),
+            sampleRow: reportData.rows?.[0]
+        });
+
+        const { rows = [], columns = [] } = reportData;
+
+        if (rows.length === 0) {
+            console.log('⚠️ No data returned from Voluum API for the selected date range');
+            return res.json({
+                success: true,
+                campaigns: [],
+                debug_info: {
+                    data_source: 'voluum_report_api',
+                    message: 'No campaigns found with data for the selected date range',
+                    date_range: `${startDate} to ${endDate}`,
+                    selected_range: range,
+                    api_response_rows: 0,
+                    columns_available: columns.length,
+                    available_columns: columns,
+                    report_url: reportUrl
+                }
+            });
+        }
+
+        // Process campaigns from report data with better error handling
+        const campaigns = rows.map((row, index) => {
+            try {
+                const campaignData = {};
+                columns.forEach((column, colIndex) => {
+                    campaignData[column] = row[colIndex];
+                });
+
+                //// /api/voluum/campaigns.js - Fixed date filtering and enhanced functionality
 
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
@@ -15,8 +54,8 @@ export default async function handler(req, res) {
         console.log(`📅 Using date range: ${startDate} to ${endDate} (${range})`);
 
         // Get Voluum API credentials from environment variables
-        const VOLUME_KEY = process.env.VOLUME_KEY;
-        const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;
+        const VOLUME_KEY = process.env.VOLUME_KEY;        // Secret Access Key
+        const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;  // Access Key ID
         
         if (!VOLUME_KEY || !VOLUME_KEY_ID) {
             throw new Error('Voluum API credentials not configured. Missing VOLUME_KEY or VOLUME_KEY_ID environment variables');
@@ -28,6 +67,35 @@ export default async function handler(req, res) {
             volumeKeyLength: VOLUME_KEY?.length,
             volumeKeyIdLength: VOLUME_KEY_ID?.length
         });
+
+        // Step 1: Create a session using the access key
+        console.log('🔐 Creating Voluum API session...');
+        const sessionResponse = await fetch('https://api.voluum.com/auth/access/session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                accessId: VOLUME_KEY_ID,
+                accessKey: VOLUME_KEY
+            })
+        });
+
+        if (!sessionResponse.ok) {
+            const sessionError = await sessionResponse.text();
+            console.log('❌ Session creation failed:', sessionError);
+            throw new Error(`Session creation failed: ${sessionResponse.status} - ${sessionError}`);
+        }
+
+        const sessionData = await sessionResponse.json();
+        const authToken = sessionData.token;
+        
+        if (!authToken) {
+            throw new Error('No auth token received from Voluum session API');
+        }
+
+        console.log('✅ Session created successfully, token received:', authToken.substring(0, 8) + '...');
 
         // Define columns for campaign-level reporting
         const campaignColumns = [
@@ -53,10 +121,10 @@ export default async function handler(req, res) {
         console.log('🎯 Requesting ALL CAMPAIGN data (no limit):', reportUrl);
         console.log('🕐 Using Eastern Time timezone to match Voluum account');
 
-        // Make API request to Voluum with proper authentication
+        // Make API request to Voluum with proper session token
         const reportResponse = await fetch(reportUrl, {
             headers: {
-                'cwauth-token': VOLUME_KEY,
+                'cwauth-token': authToken,
                 'Content-Type': 'application/json'
             }
         });
@@ -76,7 +144,7 @@ export default async function handler(req, res) {
             
             const campaignListResponse = await fetch(campaignListUrl, {
                 headers: {
-                    'cwauth-token': VOLUME_KEY,
+                    'cwauth-token': authToken,
                     'Content-Type': 'application/json'
                 }
             });
@@ -87,6 +155,7 @@ export default async function handler(req, res) {
                     success: false,
                     error: 'Both report and campaign endpoints failed. Check API credentials and connectivity.',
                     debug_info: {
+                        session_creation: 'successful',
                         report_error: {
                             status: reportResponse.status, 
                             statusText: reportResponse.statusText,
@@ -99,12 +168,7 @@ export default async function handler(req, res) {
                         },
                         date_range: `${startDate} to ${endDate}`,
                         timezone: 'America/New_York',
-                        api_url: reportUrl,
-                        auth_check: {
-                            hasVolumeKey: !!VOLUME_KEY,
-                            hasVolumeKeyId: !!VOLUME_KEY_ID,
-                            volumeKeyLength: VOLUME_KEY?.length
-                        }
+                        api_url: reportUrl
                     }
                 });
             }
