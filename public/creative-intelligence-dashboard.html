@@ -839,7 +839,7 @@
 
             console.log('📊 Fetching campaign data with params:', params.toString());
 
-            const response = await fetch(`/api/newsbreak/campaigns-simple?${params}`);
+            const response = await fetch(`/api/newsbreak/campaigns-fixed?${params}`);
 
             if (!response.ok) {
                 const errorData = await response.json();
@@ -856,7 +856,7 @@
 
             console.log('✅ Campaign data loaded successfully:', {
                 campaigns: data.campaigns?.length || 0,
-                endpoint: data.debug?.successful_endpoint,
+                api_endpoint: data.debug?.api_endpoint,
                 summary: data.summary
             });
             
@@ -1733,7 +1733,7 @@
                 
                 // Test 3: Simple data fetch
                 console.log('🧪 Test 3: Testing data fetch...');
-                const dataResponse = await fetch('/api/newsbreak/campaigns-simple?date_range=last7days');
+                const dataResponse = await fetch('/api/newsbreak/campaigns-fixed?date_range=last7days');
                 const dataData = await dataResponse.json();
                 console.log('Data fetch test:', dataData);
                 
