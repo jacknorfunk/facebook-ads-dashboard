@@ -739,15 +739,33 @@
         async function testAPIConnections() {
             const trafficSource = document.getElementById('trafficSource').value;
             
-            // Test NewsBreak API connection
+            // Test NewsBreak API connection with detailed debugging
             if (trafficSource === 'newsbreak') {
-                const testResponse = await fetch('/api/newsbreak/test');
-                if (!testResponse.ok) {
-                    throw new Error('NewsBreak API connection failed');
+                console.log('🧪 Testing NewsBreak API...');
+                
+                // First test environment variables
+                const authTestResponse = await fetch('/api/newsbreak/auth-test');
+                const authTestData = await authTestResponse.json();
+                
+                console.log('🔑 API Key test result:', authTestData);
+                
+                if (!authTestData.success || authTestData.api_key_status !== 'Found') {
+                    throw new Error(`API Key Issue: ${authTestData.api_key_status}. Available vars: ${authTestData.newsbreak_related_vars?.join(', ')}`);
                 }
+                
+                // Then test actual API connection
+                const testResponse = await fetch('/api/newsbreak/test-connection');
+                const testData = await testResponse.json();
+                
+                console.log('🔗 Connection test result:', testData);
+                
+                if (!testData.success) {
+                    throw new Error(`Connection failed: ${testData.error}`);
+                }
+                
+                console.log('✅ NewsBreak API fully operational');
             }
             
-            // Test other APIs as needed
             console.log('✅ API connections verified');
         }
 
@@ -796,56 +814,76 @@
         async function loadNewsBreakData(dateRange, campaignFilter) {
             console.log('🔍 Loading NewsBreak data...');
             
-            // Use real NewsBreak API with authentication
-            const apiKey = await getNewsBreakAPIKey(); // This should fetch from Vercel env
-            
-            if (!apiKey) {
-                throw new Error('NewsBreak API key not found. Please check Vercel environment variables.');
+            // First test the API connection
+            try {
+                console.log('🧪 Testing NewsBreak API connection...');
+                const testResponse = await fetch('/api/newsbreak/test-connection');
+                const testData = await testResponse.json();
+                
+                if (!testData.success) {
+                    console.error('❌ NewsBreak API test failed:', testData);
+                    throw new Error(`API Connection Failed: ${testData.error}`);
+                }
+                
+                console.log('✅ NewsBreak API connection successful:', testData.message);
+            } catch (error) {
+                console.error('💥 API connection test error:', error);
+                throw new Error(`Connection test failed: ${error.message}`);
             }
 
+            // Now try to load campaign data
             const params = new URLSearchParams({
                 date_range: dateRange,
                 ...(campaignFilter && { campaign_id: campaignFilter })
             });
 
-            const response = await fetch(`/api/newsbreak/campaigns?${params}`, {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+            console.log('📊 Fetching campaign data with params:', params.toString());
+
+            const response = await fetch(`/api/newsbreak/campaigns-simple?${params}`);
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || 'NewsBreak API request failed');
+                console.error('❌ Campaign data fetch failed:', errorData);
+                throw new Error(errorData.error || 'NewsBreak API request failed');
             }
 
             const data = await response.json();
+            
+            if (!data.success) {
+                console.error('❌ API returned error:', data);
+                throw new Error(data.error || 'API request failed');
+            }
+
+            console.log('✅ Campaign data loaded successfully:', {
+                campaigns: data.campaigns?.length || 0,
+                endpoint: data.debug?.successful_endpoint,
+                summary: data.summary
+            });
             
             // Transform NewsBreak data to our format
             return {
                 creatives: data.campaigns?.map(campaign => ({
                     id: campaign.id,
                     name: campaign.name,
-                    headline: campaign.creative?.headline || 'No headline',
-                    description: campaign.creative?.description || '',
-                    imageUrl: campaign.creative?.image_url || '',
-                    campaignId: campaign.id,
-                    spend: campaign.metrics?.spend || 0,
-                    ctr: campaign.metrics?.ctr || 0,
-                    roas: campaign.metrics?.roas || 0,
-                    cpa: campaign.metrics?.cpa || 0,
-                    conversions: campaign.metrics?.conversions || 0,
-                    impressions: campaign.metrics?.impressions || 0,
-                    deviceType: campaign.targeting?.device_type || 'Unknown',
-                    geo: campaign.targeting?.geo || 'Unknown',
+                    headline: campaign.headline || 'No headline',
+                    description: campaign.description || '',
+                    imageUrl: campaign.imageUrl || '',
+                    campaignId: campaign.campaignId,
+                    spend: campaign.spend || 0,
+                    ctr: campaign.ctr || 0,
+                    roas: campaign.roas || 0,
+                    cpa: campaign.cpa || 0,
+                    conversions: campaign.conversions || 0,
+                    impressions: campaign.impressions || 0,
+                    deviceType: campaign.deviceType || 'Unknown',
+                    geo: campaign.geo || 'Unknown',
                     status: campaign.status || 'Active'
                 })) || [],
                 stats: {
-                    totalCampaigns: data.summary?.total_campaigns || 0,
-                    activeCreatives: data.summary?.active_creatives || 0,
-                    avgCTR: data.summary?.avg_ctr || 0,
-                    avgROAS: data.summary?.avg_roas || 0
+                    totalCampaigns: data.summary?.totalCampaigns || 0,
+                    activeCreatives: data.summary?.activeCreatives || 0,
+                    avgCTR: data.summary?.avgCTR || 0,
+                    avgROAS: data.summary?.avgROAS || 0
                 }
             };
         }
@@ -1652,21 +1690,83 @@
         }
 
         function showError(message) {
+            console.error('🚨 Dashboard Error:', message);
+            
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-state';
             errorDiv.innerHTML = `
                 <strong>Error:</strong> ${message}
-                <br><small>Check console for detailed error information.</small>
+                <br><small>Check browser console for detailed error information.</small>
+                <br><br>
+                <button class="btn btn-primary" onclick="runDiagnostics()" style="margin-top: 0.5rem;">
+                    Run Diagnostics
+                </button>
             `;
             
             document.querySelector('.main-container').prepend(errorDiv);
             
-            // Remove error after 10 seconds
+            // Remove error after 15 seconds
             setTimeout(() => {
                 if (errorDiv.parentNode) {
                     errorDiv.parentNode.removeChild(errorDiv);
                 }
-            }, 10000);
+            }, 15000);
+        }
+
+        // Add diagnostic function
+        async function runDiagnostics() {
+            console.log('🔍 Running diagnostic tests...');
+            updateConnectionStatus('connecting', 'Running diagnostics...');
+            
+            try {
+                // Test 1: Environment Variables
+                console.log('🧪 Test 1: Checking environment variables...');
+                const authResponse = await fetch('/api/newsbreak/auth-test');
+                const authData = await authResponse.json();
+                console.log('Environment test:', authData);
+                
+                // Test 2: API Connection
+                console.log('🧪 Test 2: Testing API connection...');
+                const connResponse = await fetch('/api/newsbreak/test-connection');
+                const connData = await connResponse.json();
+                console.log('Connection test:', connData);
+                
+                // Test 3: Simple data fetch
+                console.log('🧪 Test 3: Testing data fetch...');
+                const dataResponse = await fetch('/api/newsbreak/campaigns-simple?date_range=last7days');
+                const dataData = await dataResponse.json();
+                console.log('Data fetch test:', dataData);
+                
+                // Display results
+                const results = {
+                    env_vars: authData.success,
+                    api_connection: connData.success,
+                    data_fetch: dataData.success,
+                    api_key_length: authData.api_key_length || 0,
+                    successful_endpoint: dataData.debug?.successful_endpoint || 'None'
+                };
+                
+                console.log('📊 Diagnostic Results:', results);
+                
+                alert(`Diagnostic Results:
+                ✓ Environment Variables: ${results.env_vars ? 'OK' : 'FAILED'}
+                ✓ API Connection: ${results.api_connection ? 'OK' : 'FAILED'}  
+                ✓ Data Fetch: ${results.data_fetch ? 'OK' : 'FAILED'}
+                ✓ API Key Length: ${results.api_key_length} characters
+                ✓ Working Endpoint: ${results.successful_endpoint}
+                
+                Check console for detailed logs.`);
+                
+                if (results.data_fetch) {
+                    updateConnectionStatus('connected', 'Diagnostics passed - retrying...');
+                    await loadCreativeData();
+                }
+                
+            } catch (error) {
+                console.error('Diagnostics failed:', error);
+                updateConnectionStatus('error', 'Diagnostics failed');
+                alert(`Diagnostics failed: ${error.message}`);
+            }
         }
 
         // Utility function to debounce API calls
