@@ -1,7 +1,7 @@
 // /api/newsbreak/test-connection.js
-// Fixed NewsBreak API connection test based on actual API documentation
+// Corrected NewsBreak API connection test with proper endpoint and headers
 export default async function handler(req, res) {
-    console.log('🔍 Testing NewsBreak API connection...');
+    console.log('🔍 Testing NewsBreak API connection with correct endpoint...');
     
     try {
         // Get API key from environment
@@ -24,10 +24,10 @@ export default async function handler(req, res) {
             });
         }
 
-        // Based on NewsBreak API documentation, test with a simple report request
-        console.log('🔑 Making test request to NewsBreak Reporting API...');
+        // Use the CORRECT endpoint from the curl example
+        console.log('🔑 Making test request to correct NewsBreak API endpoint...');
         
-        // Try the reporting API endpoint (this is the main API according to docs)
+        // Correct endpoint: /business-api/v1/reports/getIntegratedReport
         const testReportPayload = {
             name: "API Connection Test",
             dateRange: "FIXED",
@@ -41,10 +41,10 @@ export default async function handler(req, res) {
             editors: []
         };
 
-        const testResponse = await fetch('https://business.newsbreak.com/business-api/v1/report', {
+        const testResponse = await fetch('https://business.newsbreak.com/business-api/v1/reports/getIntegratedReport', {
             method: 'POST',
             headers: {
-                'access_token': newsbreakKey, // NewsBreak uses access_token header (not Authorization: Bearer)
+                'Access-Token': newsbreakKey, // Correct header name: Access-Token (not access_token)
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
@@ -77,6 +77,8 @@ export default async function handler(req, res) {
                     status_text: testResponse.statusText,
                     headers: Object.fromEntries(testResponse.headers.entries()),
                     request_payload: testReportPayload,
+                    correct_endpoint: 'https://business.newsbreak.com/business-api/v1/reports/getIntegratedReport',
+                    correct_header: 'Access-Token',
                     timestamp: new Date().toISOString()
                 }
             });
@@ -89,10 +91,10 @@ export default async function handler(req, res) {
             message: 'NewsBreak API connection successful',
             response_data: responseData,
             debug: {
-                api_endpoint: 'https://business.newsbreak.com/business-api/v1/report',
+                api_endpoint: 'https://business.newsbreak.com/business-api/v1/reports/getIntegratedReport',
                 response_status: testResponse.status,
                 request_method: 'POST',
-                auth_method: 'access_token header',
+                auth_method: 'Access-Token header',
                 timestamp: new Date().toISOString()
             }
         });
