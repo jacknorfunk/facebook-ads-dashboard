@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creative Intelligence Analyst Dashboard</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --success-color: #059669;
+            --warning-color: #d97706;
+            --danger-color: #dc2626;
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--background);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        .header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--danger-color);
+        }
+
+        .status-indicator.connected {
+            background: var(--success-color);
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .dashboard-nav {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .nav-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .controls-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-select, .form-input {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: white;
+            font-size: 0.875rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .stat-title {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-change {
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .stat-change.positive {
+            color: var(--success-color);
+        }
+
+        .stat-change.negative {
+            color: var(--danger-color);
+        }
+
+        .data-table {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .table-header {
+            background: #f8fafc;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .table-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 0.75rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            position: sticky;
+            top: 0;
+        }
+
+        th:hover {
+            background: #e2e8f0;
+        }
+
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.875rem;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        .creative-preview {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .creative-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 6px;
+            object-fit: cover;
+            border: 1px solid var(--border-color);
+        }
+
+        .creative-text {
+            flex: 1;
+        }
+
+        .creative-headline {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            line-height: 1.3;
+        }
+
+        .creative-description {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            line-height: 1.3;
+        }
+
+        .performance-metric {
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .metric-positive {
+            color: var(--success-color);
+        }
+
+        .metric-negative {
+            color: var(--danger-color);
+        }
+
+        .metric-neutral {
+            color: var(--text-secondary);
+        }
+
+        .creative-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+
+        .tag {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.625rem;
+            font-weight: 500;
+        }
+
+        .tag.high-performing {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .tag.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .analysis-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .analysis-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .analysis-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .correlation-matrix {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            background: #f8fafc;
+        }
+
+        .correlation-trait {
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .correlation-value {
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-state {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #991b1b;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 1rem;
+            }
+            
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .analysis-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .correlation-matrix {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">🎯 Creative Intelligence Analyst</div>
+            <div class="connection-status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <nav class="dashboard-nav">
+            <button class="nav-tab active" data-tab="ad-data">📥 Ad Data Import</button>
+            <button class="nav-tab" data-tab="creative-analysis">🧠 Creative Analysis</button>
+            <button class="nav-tab" data-tab="headline-analyzer">✍️ Headline Analyzer</button>
+            <button class="nav-tab" data-tab="correlation-matrix">📊 Performance Matrix</button>
+            <button class="nav-tab" data-tab="ai-suggestions">⚡ AI Suggestions</button>
+            <button class="nav-tab" data-tab="ab-testing">🧪 A/B Testing</button>
+        </nav>
+
+        <!-- Ad Data Import Tab -->
+        <div class="tab-content active" id="ad-data">
+            <div class="controls-panel">
+                <div class="controls-grid">
+                    <div class="form-group">
+                        <label class="form-label">Traffic Source</label>
+                        <select class="form-select" id="trafficSource">
+                            <option value="newsbreak">NewsBreak</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="taboola">Taboola</option>
+                            <option value="voluum">Voluum</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date Range</label>
+                        <select class="form-select" id="dateRange">
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="last7days">Last 7 Days</option>
+                            <option value="last30days">Last 30 Days</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Campaign ID (Optional)</label>
+                        <input type="text" class="form-input" id="campaignFilter" placeholder="Enter Campaign ID">
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-primary" id="loadDataBtn">Load Creative Data</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Total Campaigns</div>
+                    <div class="stat-value" id="totalCampaigns">0</div>
+                    <div class="stat-change" id="campaignsChange">Loading...</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Active Creatives</div>
+                    <div class="stat-value" id="activeCreatives">0</div>
+                    <div class="stat-change" id="creativesChange">Loading...</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Average CTR</div>
+                    <div class="stat-value" id="avgCTR">0.00%</div>
+                    <div class="stat-change" id="ctrChange">Loading...</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Average ROAS</div>
+                    <div class="stat-value" id="avgROAS">0.00x</div>
+                    <div class="stat-change" id="roasChange">Loading...</div>
+                </div>
+            </div>
+
+            <div class="data-table">
+                <div class="table-header">
+                    <h3 class="table-title">Live Creative Performance Data</h3>
+                    <div class="table-controls">
+                        <button class="btn btn-primary" id="refreshData">Refresh</button>
+                        <button class="btn btn-primary" id="exportData">Export CSV</button>
+                    </div>
+                </div>
+                <div id="creativeTableContainer">
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <p>Loading creative data from NewsBreak API...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Creative Analysis Tab -->
+        <div class="tab-content" id="creative-analysis">
+            <div class="analysis-panel">
+                <div class="analysis-card">
+                    <h3 class="analysis-title">🎨 Image Analysis Results</h3>
+                    <div id="imageAnalysisResults">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Analyzing creative images with AI...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="analysis-card">
+                    <h3 class="analysis-title">📈 Performance by Creative Type</h3>
+                    <div id="performanceByType">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Processing performance metrics...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Headline Analyzer Tab -->
+        <div class="tab-content" id="headline-analyzer">
+            <div class="analysis-panel">
+                <div class="analysis-card">
+                    <h3 class="analysis-title">✍️ Headline Performance Analysis</h3>
+                    <div id="headlineAnalysis">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Analyzing headline patterns and performance...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="analysis-card">
+                    <h3 class="analysis-title">🏆 Top Performing Headlines</h3>
+                    <div id="topHeadlines">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Loading top performing headlines...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Correlation Matrix Tab -->
+        <div class="tab-content" id="correlation-matrix">
+            <div class="data-table">
+                <div class="table-header">
+                    <h3 class="table-title">📊 Creative Trait vs Performance Correlation</h3>
+                </div>
+                <div id="correlationMatrixContainer">
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <p>Calculating correlation matrix...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Suggestions Tab -->
+        <div class="tab-content" id="ai-suggestions">
+            <div class="analysis-panel">
+                <div class="analysis-card">
+                    <h3 class="analysis-title">⚡ AI-Generated Creative Tests</h3>
+                    <div id="aiSuggestions">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Generating AI-powered creative suggestions...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="analysis-card">
+                    <h3 class="analysis-title">🎯 Scaling Opportunities</h3>
+                    <div id="scalingOpportunities">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Identifying scaling opportunities...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- A/B Testing Tab -->
+        <div class="tab-content" id="ab-testing">
+            <div class="data-table">
+                <div class="table-header">
+                    <h3 class="table-title">🧪 Active A/B Tests</h3>
+                    <div class="table-controls">
+                        <button class="btn btn-primary" id="createTest">Create New Test</button>
+                    </div>
+                </div>
+                <div id="abTestContainer">
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <p>Loading active A/B tests...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Global variables
+        let creativesData = [];
+        let currentTab = 'ad-data';
+        
+        // API Configuration
+        const API_CONFIG = {
+            newsbreak: {
+                baseUrl: 'https://business.newsbreak.com/business-api/v1',
+                endpoints: {
+                    campaigns: '/campaigns',
+                    creatives: '/creatives',
+                    performance: '/reports/performance'
+                }
+            },
+            claude: {
+                baseUrl: 'https://api.anthropic.com/v1',
+                endpoints: {
+                    messages: '/messages'
+                }
+            }
+        };
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            loadInitialData();
+        });
+
+        function initializeEventListeners() {
+            // Tab navigation
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    switchTab(this.dataset.tab);
+                });
+            });
+
+            // Data loading
+            document.getElementById('loadDataBtn').addEventListener('click', loadCreativeData);
+            document.getElementById('refreshData').addEventListener('click', loadCreativeData);
+            document.getElementById('exportData').addEventListener('click', exportToCSV);
+
+            // Traffic source change
+            document.getElementById('trafficSource').addEventListener('change', function() {
+                loadCreativeData();
+            });
+        }
+
+        function switchTab(tabId) {
+            // Update active tab
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+
+            // Show/hide content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabId).classList.add('active');
+
+            currentTab = tabId;
+
+            // Load tab-specific data
+            loadTabData(tabId);
+        }
+
+        function loadTabData(tabId) {
+            switch(tabId) {
+                case 'creative-analysis':
+                    analyzeCreatives();
+                    break;
+                case 'headline-analyzer':
+                    analyzeHeadlines();
+                    break;
+                case 'correlation-matrix':
+                    generateCorrelationMatrix();
+                    break;
+                case 'ai-suggestions':
+                    generateAISuggestions();
+                    break;
+                case 'ab-testing':
+                    loadABTests();
+                    break;
+            }
+        }
+
+        async function loadInitialData() {
+            updateConnectionStatus('connecting', 'Initializing Creative Intelligence...');
+            
+            try {
+                // Test API connections
+                await testAPIConnections();
+                updateConnectionStatus('connected', 'All APIs Connected');
+                
+                // Load initial creative data
+                await loadCreativeData();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateConnectionStatus('error', 'Connection Error');
+                showError('Failed to initialize dashboard: ' + error.message);
+            }
+        }
+
+        async function testAPIConnections() {
+            const trafficSource = document.getElementById('trafficSource').value;
+            
+            // Test NewsBreak API connection
+            if (trafficSource === 'newsbreak') {
+                const testResponse = await fetch('/api/newsbreak/test');
+                if (!testResponse.ok) {
+                    throw new Error('NewsBreak API connection failed');
+                }
+            }
+            
+            // Test other APIs as needed
+            console.log('✅ API connections verified');
+        }
+
+        async function loadCreativeData() {
+            const trafficSource = document.getElementById('trafficSource').value;
+            const dateRange = document.getElementById('dateRange').value;
+            const campaignFilter = document.getElementById('campaignFilter').value;
+
+            updateConnectionStatus('connecting', 'Loading creative data...');
+
+            try {
+                let data;
+                
+                switch(trafficSource) {
+                    case 'newsbreak':
+                        data = await loadNewsBreakData(dateRange, campaignFilter);
+                        break;
+                    case 'facebook':
+                        data = await loadFacebookData(dateRange, campaignFilter);
+                        break;
+                    case 'taboola':
+                        data = await loadTaboolaData(dateRange, campaignFilter);
+                        break;
+                    case 'voluum':
+                        data = await loadVoluumData(dateRange, campaignFilter);
+                        break;
+                    default:
+                        throw new Error('Unsupported traffic source');
+                }
+
+                creativesData = data.creatives || [];
+                
+                // Update dashboard
+                updateDashboardStats(data.stats);
+                renderCreativeTable(creativesData);
+                
+                updateConnectionStatus('connected', `Loaded ${creativesData.length} creatives`);
+                
+            } catch (error) {
+                console.error('Error loading creative data:', error);
+                updateConnectionStatus('error', 'Data Loading Failed');
+                showError('Failed to load creative data: ' + error.message);
+            }
+        }
+
+        async function loadNewsBreakData(dateRange, campaignFilter) {
+            console.log('🔍 Loading NewsBreak data...');
+            
+            // Use real NewsBreak API with authentication
+            const apiKey = await getNewsBreakAPIKey(); // This should fetch from Vercel env
+            
+            if (!apiKey) {
+                throw new Error('NewsBreak API key not found. Please check Vercel environment variables.');
+            }
+
+            const params = new URLSearchParams({
+                date_range: dateRange,
+                ...(campaignFilter && { campaign_id: campaignFilter })
+            });
+
+            const response = await fetch(`/api/newsbreak/campaigns?${params}`, {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'NewsBreak API request failed');
+            }
+
+            const data = await response.json();
+            
+            // Transform NewsBreak data to our format
+            return {
+                creatives: data.campaigns?.map(campaign => ({
+                    id: campaign.id,
+                    name: campaign.name,
+                    headline: campaign.creative?.headline || 'No headline',
+                    description: campaign.creative?.description || '',
+                    imageUrl: campaign.creative?.image_url || '',
+                    campaignId: campaign.id,
+                    spend: campaign.metrics?.spend || 0,
+                    ctr: campaign.metrics?.ctr || 0,
+                    roas: campaign.metrics?.roas || 0,
+                    cpa: campaign.metrics?.cpa || 0,
+                    conversions: campaign.metrics?.conversions || 0,
+                    impressions: campaign.metrics?.impressions || 0,
+                    deviceType: campaign.targeting?.device_type || 'Unknown',
+                    geo: campaign.targeting?.geo || 'Unknown',
+                    status: campaign.status || 'Active'
+                })) || [],
+                stats: {
+                    totalCampaigns: data.summary?.total_campaigns || 0,
+                    activeCreatives: data.summary?.active_creatives || 0,
+                    avgCTR: data.summary?.avg_ctr || 0,
+                    avgROAS: data.summary?.avg_roas || 0
+                }
+            };
+        }
+
+        async function loadFacebookData(dateRange, campaignFilter) {
+            // Placeholder for Facebook API integration
+            console.log('📘 Loading Facebook data...');
+            return {
+                creatives: [],
+                stats: { totalCampaigns: 0, activeCreatives: 0, avgCTR: 0, avgROAS: 0 }
+            };
+        }
+
+        async function loadTaboolaData(dateRange, campaignFilter) {
+            // Placeholder for Taboola API integration
+            console.log('📰 Loading Taboola data...');
+            return {
+                creatives: [],
+                stats: { totalCampaigns: 0, activeCreatives: 0, avgCTR: 0, avgROAS: 0 }
+            };
+        }
+
+        async function loadVoluumData(dateRange, campaignFilter) {
+            console.log('📊 Loading Voluum data...');
+            
+            try {
+                const params = new URLSearchParams({
+                    range: dateRange,
+                    ...(campaignFilter && { campaignId: campaignFilter })
+                });
+
+                const response = await fetch(`/api/voluum/campaigns?${params}`);
+                
+                if (!response.ok) {
+                    throw new Error('Voluum API request failed');
+                }
+
+                const data = await response.json();
+                
+                // Transform Voluum data to our format
+                return {
+                    creatives: data.campaigns?.map(campaign => ({
+                        id: campaign.id,
+                        name: campaign.name,
+                        headline: extractHeadlineFromName(campaign.name),
+                        description: campaign.name,
+                        imageUrl: '', // Voluum doesn't provide image URLs directly
+                        campaignId: campaign.id,
+                        spend: campaign.cost || 0,
+                        ctr: campaign.cvr || 0, // Using CVR as approximation
+                        roas: campaign.currentRoas || 0,
+                        cpa: campaign.cpa || 0,
+                        conversions: campaign.conversions || 0,
+                        impressions: campaign.visits || 0,
+                        deviceType: 'Unknown',
+                        geo: 'Unknown',
+                        status: campaign.status || 'Active'
+                    })) || [],
+                    stats: {
+                        totalCampaigns: data.campaigns?.length || 0,
+                        activeCreatives: data.campaigns?.length || 0,
+                        avgCTR: calculateAverage(data.campaigns || [], 'cvr'),
+                        avgROAS: calculateAverage(data.campaigns || [], 'currentRoas')
+                    }
+                };
+            } catch (error) {
+                console.error('Voluum data loading error:', error);
+                throw error;
+            }
+        }
+
+        function extractHeadlineFromName(campaignName) {
+            // Extract potential headline from campaign name
+            const cleaned = campaignName.replace(/[_-]/g, ' ');
+            return cleaned.length > 50 ? cleaned.substring(0, 50) + '...' : cleaned;
+        }
+
+        function calculateAverage(data, field) {
+            if (!data.length) return 0;
+            const sum = data.reduce((acc, item) => acc + (item[field] || 0), 0);
+            return sum / data.length;
+        }
+
+        async function getNewsBreakAPIKey() {
+            try {
+                const response = await fetch('/api/newsbreak/auth');
+                const data = await response.json();
+                return data.apiKey;
+            } catch (error) {
+                console.error('Failed to get NewsBreak API key:', error);
+                return null;
+            }
+        }
+
+        function updateDashboardStats(stats) {
+            document.getElementById('totalCampaigns').textContent = stats.totalCampaigns || 0;
+            document.getElementById('activeCreatives').textContent = stats.activeCreatives || 0;
+            document.getElementById('avgCTR').textContent = (stats.avgCTR * 100).toFixed(2) + '%';
+            document.getElementById('avgROAS').textContent = stats.avgROAS.toFixed(2) + 'x';
+
+            // Add change indicators (would need historical data)
+            updateChangeIndicator('campaignsChange', 0);
+            updateChangeIndicator('creativesChange', 0);
+            updateChangeIndicator('ctrChange', 0);
+            updateChangeIndicator('roasChange', 0);
+        }
+
+        function updateChangeIndicator(elementId, change) {
+            const element = document.getElementById(elementId);
+            const changeText = change > 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`;
+            element.textContent = changeText;
+            element.className = `stat-change ${change >= 0 ? 'positive' : 'negative'}`;
+        }
+
+        function renderCreativeTable(creatives) {
+            const container = document.getElementById('creativeTableContainer');
+            
+            if (!creatives.length) {
+                container.innerHTML = '<div class="loading-state"><p>No creative data found for the selected criteria.</p></div>';
+                return;
+            }
+
+            const tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('name')">Creative</th>
+                            <th onclick="sortTable('ctr')">CTR</th>
+                            <th onclick="sortTable('roas')">ROAS</th>
+                            <th onclick="sortTable('spend')">Spend</th>
+                            <th onclick="sortTable('conversions')">Conv</th>
+                            <th onclick="sortTable('cpa')">CPA</th>
+                            <th onclick="sortTable('deviceType')">Device</th>
+                            <th>Tags</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${creatives.map(creative => `
+                            <tr onclick="analyzeCreative('${creative.id}')">
+                                <td>
+                                    <div class="creative-preview">
+                                        ${creative.imageUrl ? 
+                                            `<img src="${creative.imageUrl}" alt="Creative" class="creative-image" onerror="this.src='data:image/svg+xml,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot;><rect width=&quot;60&quot; height=&quot;60&quot; fill=&quot;%23f3f4f6&quot;/><text x=&quot;30&quot; y=&quot;35&quot; text-anchor=&quot;middle&quot; fill=&quot;%236b7280&quot; font-size=&quot;12&quot;>IMG</text></svg>'">` : 
+                                            `<div class="creative-image" style="background: #f3f4f6; display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 10px;">IMG</div>`
+                                        }
+                                        <div class="creative-text">
+                                            <div class="creative-headline">${creative.headline}</div>
+                                            <div class="creative-description">${creative.description}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="performance-metric ${getMetricClass(creative.ctr, 0.01)}">${(creative.ctr * 100).toFixed(2)}%</td>
+                                <td class="performance-metric ${getMetricClass(creative.roas, 1.0)}">${creative.roas.toFixed(2)}x</td>
+                                <td class="performance-metric">$${creative.spend.toFixed(2)}</td>
+                                <td class="performance-metric">${creative.conversions}</td>
+                                <td class="performance-metric ${getMetricClass(creative.cpa, 50, true)}">${creative.cpa.toFixed(2)}</td>
+                                <td>${creative.deviceType}</td>
+                                <td>
+                                    <div class="creative-tags">
+                                        ${generateCreativeTags(creative).map(tag => `<span class="tag ${tag.type}">${tag.text}</span>`).join('')}
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = tableHTML;
+        }
+
+        function getMetricClass(value, threshold, inverse = false) {
+            if (inverse) {
+                return value < threshold ? 'metric-positive' : 'metric-negative';
+            }
+            return value >= threshold ? 'metric-positive' : 'metric-negative';
+        }
+
+        function generateCreativeTags(creative) {
+            const tags = [];
+            
+            if (creative.roas >= 2.0) tags.push({ text: 'High ROAS', type: 'high-performing' });
+            if (creative.ctr >= 0.02) tags.push({ text: 'High CTR', type: 'high-performing' });
+            if (creative.roas < 1.0) tags.push({ text: 'Low ROAS', type: 'warning' });
+            if (creative.conversions === 0) tags.push({ text: 'No Conv', type: 'warning' });
+            
+            // Add AI-generated tags based on headline analysis
+            if (creative.headline.toLowerCase().includes('free')) tags.push({ text: 'Free Offer', type: '' });
+            if (/\d+/.test(creative.headline)) tags.push({ text: 'Number Hook', type: '' });
+            if (creative.headline.includes('?')) tags.push({ text: 'Question', type: '' });
+            
+            return tags;
+        }
+
+        let sortDirection = {};
+        function sortTable(column) {
+            const direction = sortDirection[column] === 'asc' ? 'desc' : 'asc';
+            sortDirection[column] = direction;
+            
+            creativesData.sort((a, b) => {
+                let aVal = a[column];
+                let bVal = b[column];
+                
+                if (typeof aVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+                
+                if (direction === 'asc') {
+                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                } else {
+                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                }
+            });
+            
+            renderCreativeTable(creativesData);
+        }
+
+        async function analyzeCreative(creativeId) {
+            const creative = creativesData.find(c => c.id === creativeId);
+            if (!creative) return;
+
+            console.log('🔍 Analyzing creative:', creative);
+            
+            // Switch to creative analysis tab and show detailed analysis
+            switchTab('creative-analysis');
+            
+            // Analyze image if available
+            if (creative.imageUrl) {
+                await analyzeCreativeImage(creative);
+            }
+            
+            // Analyze headline
+            await analyzeCreativeHeadline(creative);
+        }
+
+        async function analyzeCreativeImage(creative) {
+            try {
+                const analysisResult = await callClaudeAPI({
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 1000,
+                    messages: [{
+                        role: "user",
+                        content: [
+                            {
+                                type: "image",
+                                source: {
+                                    type: "base64",
+                                    media_type: "image/jpeg",
+                                    data: await getImageAsBase64(creative.imageUrl)
+                                }
+                            },
+                            {
+                                type: "text",
+                                text: `Analyze this ad creative image for performance optimization. Identify:
+                                1. Key visual elements (faces, objects, colors, text)
+                                2. Emotional tone and appeal
+                                3. Layout and composition
+                                4. Text overlay effectiveness
+                                5. Potential performance factors
+                                
+                                Current performance: CTR: ${(creative.ctr * 100).toFixed(2)}%, ROAS: ${creative.roas.toFixed(2)}x
+                                
+                                Provide actionable insights for optimization.`
+                            }
+                        ]
+                    }]
+                });
+
+                displayImageAnalysis(analysisResult.content[0].text);
+            } catch (error) {
+                console.error('Image analysis error:', error);
+                displayImageAnalysis('Image analysis failed: ' + error.message);
+            }
+        }
+
+        async function analyzeCreativeHeadline(creative) {
+            try {
+                const analysisResult = await callClaudeAPI({
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 1000,
+                    messages: [{
+                        role: "user",
+                        content: `Analyze this ad headline for performance optimization:
+                        
+                        Headline: "${creative.headline}"
+                        Description: "${creative.description}"
+                        Current CTR: ${(creative.ctr * 100).toFixed(2)}%
+                        Current ROAS: ${creative.roas.toFixed(2)}x
+                        
+                        Provide:
+                        1. Emotional triggers and tone analysis
+                        2. Structural elements (numbers, questions, urgency)
+                        3. Length and readability assessment
+                        4. Comparison to high-performing patterns
+                        5. 3 optimized headline variations
+                        
+                        Focus on actionable insights for A/B testing.`
+                    }]
+                });
+
+                displayHeadlineAnalysis(analysisResult.content[0].text);
+            } catch (error) {
+                console.error('Headline analysis error:', error);
+                displayHeadlineAnalysis('Headline analysis failed: ' + error.message);
+            }
+        }
+
+        function displayImageAnalysis(analysis) {
+            document.getElementById('imageAnalysisResults').innerHTML = `
+                <div style="white-space: pre-wrap; line-height: 1.6;">${analysis}</div>
+            `;
+        }
+
+        function displayHeadlineAnalysis(analysis) {
+            document.getElementById('headlineAnalysis').innerHTML = `
+                <div style="white-space: pre-wrap; line-height: 1.6;">${analysis}</div>
+            `;
+        }
+
+        async function callClaudeAPI(payload) {
+            const response = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Claude API error: ${response.status}`);
+            }
+
+            return await response.json();
+        }
+
+        async function getImageAsBase64(imageUrl) {
+            try {
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const base64 = reader.result.split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch (error) {
+                console.error('Image conversion error:', error);
+                return '';
+            }
+        }
+
+        async function analyzeCreatives() {
+            const container = document.getElementById('imageAnalysisResults');
+            container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Performing AI image analysis...</p></div>';
+
+            // Analyze all creatives with images
+            const creativesWithImages = creativesData.filter(c => c.imageUrl);
+            
+            if (creativesWithImages.length === 0) {
+                container.innerHTML = '<p>No creatives with images found. Load creative data first.</p>';
+                return;
+            }
+
+            try {
+                // Analyze image patterns across all creatives
+                const imageAnalysis = await callClaudeAPI({
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 1500,
+                    messages: [{
+                        role: "user",
+                        content: `Analyze the following ad creative performance data and identify patterns:
+                        
+                        ${creativesWithImages.slice(0, 10).map(c => `
+                        Creative: ${c.headline}
+                        CTR: ${(c.ctr * 100).toFixed(2)}%
+                        ROAS: ${c.roas.toFixed(2)}x
+                        Device: ${c.deviceType}
+                        `).join('\n')}
+                        
+                        Identify:
+                        1. Top performing creative patterns
+                        2. Common elements in high CTR ads
+                        3. Visual patterns in high ROAS creatives
+                        4. Device-specific performance insights
+                        5. Recommendations for scaling winners
+                        
+                        Provide data-driven insights only.`
+                    }]
+                });
+
+                displayImageAnalysis(imageAnalysis.content[0].text);
+            } catch (error) {
+                container.innerHTML = `<div class="error-state">Analysis failed: ${error.message}</div>`;
+            }
+        }
+
+        async function analyzeHeadlines() {
+            const container = document.getElementById('headlineAnalysis');
+            container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Analyzing headline patterns...</p></div>';
+
+            if (!creativesData.length) {
+                container.innerHTML = '<p>No creative data found. Load creative data first.</p>';
+                return;
+            }
+
+            try {
+                const headlineAnalysis = await callClaudeAPI({
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 1500,
+                    messages: [{
+                        role: "user",
+                        content: `Analyze these ad headlines and their performance:
+                        
+                        ${creativesData.slice(0, 20).map(c => `
+                        Headline: "${c.headline}"
+                        CTR: ${(c.ctr * 100).toFixed(2)}%
+                        ROAS: ${c.roas.toFixed(2)}x
+                        Conversions: ${c.conversions}
+                        `).join('\n')}
+                        
+                        Provide:
+                        1. Emotional trigger analysis (fear, greed, curiosity, urgency)
+                        2. Structural patterns in top performers
+                        3. Word choice and length optimization
+                        4. A/B test recommendations
+                        5. 5 new headline suggestions based on winning patterns
+                        
+                        Focus on actionable insights for $50k+ daily spend optimization.`
+                    }]
+                });
+
+                displayHeadlineAnalysis(headlineAnalysis.content[0].text);
+
+                // Also update top headlines section
+                updateTopHeadlines();
+            } catch (error) {
+                container.innerHTML = `<div class="error-state">Analysis failed: ${error.message}</div>`;
+            }
+        }
+
+        function updateTopHeadlines() {
+            const topHeadlinesContainer = document.getElementById('topHeadlines');
+            
+            // Sort by ROAS and get top 10
+            const topPerformers = [...creativesData]
+                .sort((a, b) => b.roas - a.roas)
+                .slice(0, 10);
+
+            if (topPerformers.length === 0) {
+                topHeadlinesContainer.innerHTML = '<p>No data available</p>';
+                return;
+            }
+
+            const headlinesHTML = `
+                <div style="space-y: 1rem;">
+                    ${topPerformers.map((creative, index) => `
+                        <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                <span style="font-weight: 600; color: var(--primary-color);">#${index + 1}</span>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.875rem; color: var(--success-color); font-weight: 600;">${creative.roas.toFixed(2)}x ROAS</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${(creative.ctr * 100).toFixed(2)}% CTR</div>
+                                </div>
+                            </div>
+                            <div style="font-weight: 500; margin-bottom: 0.25rem;">${creative.headline}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                ${creative.conversions} conversions • $${creative.spend.toFixed(2)} spend
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            topHeadlinesContainer.innerHTML = headlinesHTML;
+        }
+
+        async function generateCorrelationMatrix() {
+            const container = document.getElementById('correlationMatrixContainer');
+            container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Calculating performance correlations...</p></div>';
+
+            if (!creativesData.length) {
+                container.innerHTML = '<p>No creative data found. Load creative data first.</p>';
+                return;
+            }
+
+            // Calculate correlations between creative traits and performance
+            const correlations = calculateCreativeCorrelations();
+            
+            const matrixHTML = `
+                <div style="padding: 1rem;">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; font-weight: 600; margin-bottom: 1rem; padding: 0.5rem; background: #f8fafc;">
+                        <div>Creative Trait</div>
+                        <div style="text-align: center;">ROAS Impact</div>
+                        <div style="text-align: center;">CTR Impact</div>
+                        <div style="text-align: center;">Sample Size</div>
+                    </div>
+                    ${correlations.map(corr => `
+                        <div class="correlation-matrix">
+                            <div class="correlation-trait">${corr.trait}</div>
+                            <div class="correlation-value ${corr.roasImpact >= 0 ? 'metric-positive' : 'metric-negative'}">
+                                ${corr.roasImpact >= 0 ? '+' : ''}${(corr.roasImpact * 100).toFixed(1)}%
+                            </div>
+                            <div class="correlation-value ${corr.ctrImpact >= 0 ? 'metric-positive' : 'metric-negative'}">
+                                ${corr.ctrImpact >= 0 ? '+' : ''}${(corr.ctrImpact * 100).toFixed(1)}%
+                            </div>
+                            <div class="correlation-value">${corr.sampleSize}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            container.innerHTML = matrixHTML;
+        }
+
+        function calculateCreativeCorrelations() {
+            const traits = [
+                { name: 'Numbers in Headline', test: c => /\d+/.test(c.headline) },
+                { name: 'Question Headlines', test: c => c.headline.includes('?') },
+                { name: 'Urgency Words', test: c => /\b(now|today|limited|hurry|quick)\b/i.test(c.headline) },
+                { name: 'Free Offers', test: c => /\bfree\b/i.test(c.headline) },
+                { name: 'Money/Savings', test: c => /\$|save|money|cash|earn/i.test(c.headline) },
+                { name: 'Long Headlines (>50 chars)', test: c => c.headline.length > 50 },
+                { name: 'Mobile Traffic', test: c => c.deviceType?.toLowerCase().includes('mobile') },
+                { name: 'High Spend (>$100)', test: c => c.spend > 100 }
+            ];
+
+            return traits.map(trait => {
+                const withTrait = creativesData.filter(trait.test);
+                const withoutTrait = creativesData.filter(c => !trait.test(c));
+
+                if (withTrait.length === 0 || withoutTrait.length === 0) {
+                    return {
+                        trait: trait.name,
+                        roasImpact: 0,
+                        ctrImpact: 0,
+                        sampleSize: withTrait.length
+                    };
+                }
+
+                const avgRoasWithTrait = withTrait.reduce((sum, c) => sum + c.roas, 0) / withTrait.length;
+                const avgRoasWithoutTrait = withoutTrait.reduce((sum, c) => sum + c.roas, 0) / withoutTrait.length;
+                
+                const avgCtrWithTrait = withTrait.reduce((sum, c) => sum + c.ctr, 0) / withTrait.length;
+                const avgCtrWithoutTrait = withoutTrait.reduce((sum, c) => sum + c.ctr, 0) / withoutTrait.length;
+
+                return {
+                    trait: trait.name,
+                    roasImpact: avgRoasWithoutTrait > 0 ? (avgRoasWithTrait - avgRoasWithoutTrait) / avgRoasWithoutTrait : 0,
+                    ctrImpact: avgCtrWithoutTrait > 0 ? (avgCtrWithTrait - avgCtrWithoutTrait) / avgCtrWithoutTrait : 0,
+                    sampleSize: withTrait.length
+                };
+            }).sort((a, b) => b.roasImpact - a.roasImpact);
+        }
+
+        async function generateAISuggestions() {
+            const container = document.getElementById('aiSuggestions');
+            container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Generating AI-powered suggestions...</p></div>';
+
+            if (!creativesData.length) {
+                container.innerHTML = '<p>No creative data found. Load creative data first.</p>';
+                return;
+            }
+
+            try {
+                // Get top performers for analysis
+                const topPerformers = creativesData
+                    .filter(c => c.roas > 1.5)
+                    .sort((a, b) => b.roas - a.roas)
+                    .slice(0, 5);
+
+                const suggestions = await callClaudeAPI({
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 2000,
+                    messages: [{
+                        role: "user",
+                        content: `Based on these top performing creatives, generate specific A/B test recommendations:
+
+                        TOP PERFORMERS:
+                        ${topPerformers.map(c => `
+                        Headline: "${c.headline}"
+                        ROAS: ${c.roas.toFixed(2)}x
+                        CTR: ${(c.ctr * 100).toFixed(2)}%
+                        Spend: $${c.spend.toFixed(2)}
+                        Device: ${c.deviceType}
+                        `).join('\n')}
+
+                        Generate:
+                        1. 5 new headline variations based on winning patterns
+                        2. 3 image concept suggestions for testing
+                        3. Audience targeting recommendations
+                        4. Budget allocation suggestions for scaling
+                        5. Creative refresh timeline
+
+                        Each suggestion should include:
+                        - Specific test hypothesis
+                        - Expected performance impact
+                        - Implementation priority (High/Medium/Low)
+                        - Success metrics to track
+
+                        Focus on actionable tests for immediate implementation.`
+                    }]
+                });
+
+                displayAISuggestions(suggestions.content[0].text);
+                updateScalingOpportunities();
+            } catch (error) {
+                container.innerHTML = `<div class="error-state">AI suggestions failed: ${error.message}</div>`;
+            }
+        }
+
+        function displayAISuggestions(suggestions) {
+            document.getElementById('aiSuggestions').innerHTML = `
+                <div style="white-space: pre-wrap; line-height: 1.6; font-size: 0.875rem;">${suggestions}</div>
+            `;
+        }
+
+        function updateScalingOpportunities() {
+            const container = document.getElementById('scalingOpportunities');
+            
+            // Find high-performing, low-spend creatives
+            const scalingCandidates = creativesData
+                .filter(c => c.roas >= 2.0 && c.spend < 500 && c.conversions >= 2)
+                .sort((a, b) => b.roas - a.roas)
+                .slice(0, 8);
+
+            if (scalingCandidates.length === 0) {
+                container.innerHTML = '<p>No immediate scaling opportunities found. Focus on optimizing current campaigns.</p>';
+                return;
+            }
+
+            const opportunitiesHTML = `
+                <div>
+                    ${scalingCandidates.map(creative => `
+                        <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                <div style="font-weight: 600; color: var(--success-color);">🚀 Scale Opportunity</div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.875rem; font-weight: 600;">${creative.roas.toFixed(2)}x ROAS</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">$${creative.spend.toFixed(2)} spent</div>
+                                </div>
+                            </div>
+                            <div style="font-weight: 500; margin-bottom: 0.5rem;">${creative.headline}</div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary);">
+                                <span>${creative.conversions} conversions • ${(creative.ctr * 100).toFixed(2)}% CTR</span>
+                                <span>Recommended: +${Math.floor(creative.spend * 2)} budget</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            container.innerHTML = opportunitiesHTML;
+        }
+
+        async function loadABTests() {
+            const container = document.getElementById('abTestContainer');
+            container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading A/B test data...</p></div>';
+
+            // Simulate A/B test data (in production, this would come from your testing platform)
+            const mockTests = [
+                {
+                    id: 'test_001',
+                    name: 'Headline Test: Numbers vs Questions',
+                    status: 'Running',
+                    variant_a: 'These 7 Tips Will Change Your Life',
+                    variant_b: 'Are You Making These Common Mistakes?',
+                    variant_a_performance: { ctr: 0.024, roas: 2.1, conversions: 45 },
+                    variant_b_performance: { ctr: 0.019, roas: 1.8, conversions: 38 },
+                    confidence: 87,
+                    days_running: 5
+                },
+                {
+                    id: 'test_002',
+                    name: 'Image Test: Close-up vs Product Shot',
+                    status: 'Running',
+                    variant_a: 'Close-up face image',
+                    variant_b: 'Product showcase image',
+                    variant_a_performance: { ctr: 0.031, roas: 2.4, conversions: 62 },
+                    variant_b_performance: { ctr: 0.028, roas: 2.2, conversions: 54 },
+                    confidence: 76,
+                    days_running: 3
+                }
+            ];
+
+            const testsHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Test Name</th>
+                            <th>Status</th>
+                            <th>Variant A</th>
+                            <th>Variant B</th>
+                            <th>Winner</th>
+                            <th>Confidence</th>
+                            <th>Days Running</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${mockTests.map(test => {
+                            const winnerA = test.variant_a_performance.roas > test.variant_b_performance.roas;
+                            return `
+                                <tr>
+                                    <td style="font-weight: 500;">${test.name}</td>
+                                    <td><span class="tag ${test.status === 'Running' ? '' : 'high-performing'}">${test.status}</span></td>
+                                    <td>
+                                        <div style="font-size: 0.875rem; margin-bottom: 0.25rem;">${test.variant_a}</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                            ${(test.variant_a_performance.ctr * 100).toFixed(2)}% CTR • ${test.variant_a_performance.roas.toFixed(2)}x ROAS
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 0.875rem; margin-bottom: 0.25rem;">${test.variant_b}</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                            ${(test.variant_b_performance.ctr * 100).toFixed(2)}% CTR • ${test.variant_b_performance.roas.toFixed(2)}x ROAS
+                                        </div>
+                                    </td>
+                                    <td class="${winnerA ? 'metric-positive' : 'metric-negative'}" style="font-weight: 600;">
+                                        ${winnerA ? 'Variant A' : 'Variant B'}
+                                    </td>
+                                    <td style="font-weight: 600; color: ${test.confidence >= 95 ? 'var(--success-color)' : test.confidence >= 80 ? 'var(--warning-color)' : 'var(--text-secondary)'};">
+                                        ${test.confidence}%
+                                    </td>
+                                    <td>${test.days_running} days</td>
+                                    <td>
+                                        <button class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" onclick="viewTestDetails('${test.id}')">
+                                            View Details
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = testsHTML;
+        }
+
+        function viewTestDetails(testId) {
+            console.log('📊 Viewing test details for:', testId);
+            // In production, this would open a detailed test analysis modal
+            alert(`Test details for ${testId} would open here with statistical significance, conversion funnels, and recommendations.`);
+        }
+
+        function exportToCSV() {
+            if (!creativesData.length) {
+                alert('No data to export. Please load creative data first.');
+                return;
+            }
+
+            const csvHeaders = [
+                'Creative ID', 'Campaign ID', 'Headline', 'Description', 'Image URL',
+                'Spend', 'CTR', 'ROAS', 'CPA', 'Conversions', 'Impressions',
+                'Device Type', 'Geo', 'Status'
+            ];
+
+            const csvRows = creativesData.map(creative => [
+                creative.id,
+                creative.campaignId,
+                `"${creative.headline.replace(/"/g, '""')}"`,
+                `"${creative.description.replace(/"/g, '""')}"`,
+                creative.imageUrl,
+                creative.spend.toFixed(2),
+                (creative.ctr * 100).toFixed(4),
+                creative.roas.toFixed(4),
+                creative.cpa.toFixed(2),
+                creative.conversions,
+                creative.impressions,
+                creative.deviceType,
+                creative.geo,
+                creative.status
+            ]);
+
+            const csvContent = [csvHeaders, ...csvRows]
+                .map(row => row.join(','))
+                .join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `creative_performance_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function updateConnectionStatus(status, message) {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            
+            indicator.className = 'status-indicator';
+            if (status === 'connected') {
+                indicator.classList.add('connected');
+            }
+            
+            text.textContent = message;
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-state';
+            errorDiv.innerHTML = `
+                <strong>Error:</strong> ${message}
+                <br><small>Check console for detailed error information.</small>
+            `;
+            
+            document.querySelector('.main-container').prepend(errorDiv);
+            
+            // Remove error after 10 seconds
+            setTimeout(() => {
+                if (errorDiv.parentNode) {
+                    errorDiv.parentNode.removeChild(errorDiv);
+                }
+            }, 10000);
+        }
+
+        // Utility function to debounce API calls
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+    </script>
+</body>
+</html>
