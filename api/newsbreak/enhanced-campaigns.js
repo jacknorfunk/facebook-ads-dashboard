@@ -1,5 +1,5 @@
 // /api/newsbreak/enhanced-campaigns.js
-// Enhanced implementation using full NewsBreak API access
+// Enhanced NewsBreak API that gets REAL data (no mock data)
 
 export default async function handler(req, res) {
     // CORS headers
@@ -30,35 +30,76 @@ export default async function handler(req, res) {
         const campaignFilter = req.query.campaign_id;
         const { startDate, endDate } = getDateRange(dateRange);
 
-        console.log(`[Enhanced NewsBreak API] Fetching comprehensive campaign data for ${startDate} to ${endDate}`);
+        console.log(`[Enhanced NewsBreak API] Fetching real campaign data for ${startDate} to ${endDate}`);
 
-        // Step 1: Get Campaign List with full details
-        const campaigns = await getCampaignList(newsbreakKey);
-        
-        // Step 2: Get Ads for each campaign
-        const campaignsWithAds = await enrichCampaignsWithAds(newsbreakKey, campaigns, campaignFilter);
-        
-        // Step 3: Get Performance Data via Integrated Report
+        // Step 1: Try to get campaign list using getCampaignList
+        let campaigns = [];
+        try {
+            campaigns = await getCampaignList(newsbreakKey);
+            console.log(`[NewsBreak API] Retrieved ${campaigns.length} campaigns from getCampaignList`);
+        } catch (error) {
+            console.log(`[NewsBreak API] getCampaignList failed: ${error.message}, trying getIntegratedReport`);
+        }
+
+        // Step 2: Get performance data via Integrated Report
         const performanceData = await getPerformanceData(newsbreakKey, startDate, endDate, campaignFilter);
-        
-        // Step 4: Merge and process all data
-        const enrichedCampaigns = mergeCampaignData(campaignsWithAds, performanceData);
-        
-        // Step 5: Calculate summary statistics
-        const summary = calculateEnhancedSummary(enrichedCampaigns);
+        console.log(`[NewsBreak API] Retrieved performance data with ${performanceData.data?.length || 0} rows`);
 
-        console.log(`[Enhanced NewsBreak API] Successfully processed ${enrichedCampaigns.length} campaigns with full creative data`);
+        // Step 3: If we have campaign list, enrich with ads
+        if (campaigns.length > 0) {
+            const enrichedCampaigns = await enrichCampaignsWithAds(newsbreakKey, campaigns, campaignFilter);
+            const finalCampaigns = mergeCampaignData(enrichedCampaigns, performanceData);
+            
+            if (finalCampaigns.length > 0) {
+                const summary = calculateEnhancedSummary(finalCampaigns);
+                return res.status(200).json({
+                    success: true,
+                    campaigns: finalCampaigns,
+                    summary: summary,
+                    source: 'enhanced_api_with_campaigns',
+                    metadata: {
+                        dateRange: { startDate, endDate },
+                        totalCampaigns: campaigns.length,
+                        enrichedCampaigns: finalCampaigns.length,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+            }
+        }
 
+        // Step 4: If no campaigns from list, use performance data directly
+        if (performanceData.data && performanceData.data.length > 0) {
+            const campaignsFromPerformance = processPerformanceDataOnly(performanceData);
+            
+            if (campaignsFromPerformance.length > 0) {
+                const summary = calculateEnhancedSummary(campaignsFromPerformance);
+                return res.status(200).json({
+                    success: true,
+                    campaigns: campaignsFromPerformance,
+                    summary: summary,
+                    source: 'performance_data_only',
+                    metadata: {
+                        dateRange: { startDate, endDate },
+                        dataRows: performanceData.data.length,
+                        timestamp: new Date().toISOString()
+                    }
+                });
+            }
+        }
+
+        // Step 5: If still no data, return empty result (NO MOCK DATA)
+        console.log('[NewsBreak API] No real data available - returning empty result');
         return res.status(200).json({
             success: true,
-            campaigns: enrichedCampaigns,
-            summary: summary,
+            campaigns: [],
+            summary: getEmptySummary(),
+            source: 'no_data_available',
+            message: 'No campaign data available for the selected date range. This may be because:\n1. No campaigns are running\n2. Date range has no data\n3. API permissions may be limited\n4. Contact your NewsBreak account manager',
             metadata: {
                 dateRange: { startDate, endDate },
-                totalCampaigns: campaigns.length,
-                campaignsWithAds: campaignsWithAds.length,
-                enrichedCampaigns: enrichedCampaigns.length,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                apiKeyLength: newsbreakKey.length,
+                attemptedEndpoints: ['getCampaignList', 'getIntegratedReport']
             }
         });
 
@@ -69,14 +110,20 @@ export default async function handler(req, res) {
             success: false,
             error: error.message,
             campaigns: [],
-            summary: getEmptySummary()
+            summary: getEmptySummary(),
+            source: 'api_error',
+            debug: {
+                timestamp: new Date().toISOString(),
+                errorType: error.name,
+                errorMessage: error.message
+            }
         });
     }
 }
 
 // Get campaign list using NewsBreak API
 async function getCampaignList(apiKey) {
-    console.log('[NewsBreak API] Fetching campaign list...');
+    console.log('[NewsBreak API] Attempting getCampaignList...');
     
     const response = await fetch('https://business.newsbreak.com/business-api/v1/campaigns/getCampaignList', {
         method: 'POST',
@@ -85,19 +132,21 @@ async function getCampaignList(apiKey) {
             'Access-Token': apiKey
         },
         body: JSON.stringify({
-            // Get all campaigns - can add filters if needed
-            status: ['ACTIVE', 'PAUSED'], // Get both active and paused campaigns
-            limit: 1000 // Increase limit to get all campaigns
+            status: ['ACTIVE', 'PAUSED'],
+            limit: 1000
         })
     });
 
     if (!response.ok) {
-        throw new Error(`Failed to fetch campaign list: ${response.status}`);
+        throw new Error(`getCampaignList failed: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log(`[NewsBreak API] Retrieved ${data.data?.length || 0} campaigns`);
     
+    if (data.code !== 0) {
+        throw new Error(`getCampaignList API error: ${data.errMsg || 'Unknown error'}`);
+    }
+
     return data.data || [];
 }
 
@@ -106,33 +155,25 @@ async function enrichCampaignsWithAds(apiKey, campaigns, campaignFilter) {
     console.log('[NewsBreak API] Enriching campaigns with ad data...');
     
     const enrichedCampaigns = [];
-    
-    // Filter campaigns if specific campaign requested
     const targetCampaigns = campaignFilter 
         ? campaigns.filter(c => c.id === campaignFilter)
-        : campaigns;
+        : campaigns.slice(0, 20); // Limit to prevent timeout
 
     for (const campaign of targetCampaigns) {
         try {
-            // Get ads for this campaign
             const ads = await getAdList(apiKey, campaign.id);
-            
-            // Get ad sets for additional context
             const adSets = await getAdSetList(apiKey, campaign.id);
             
-            const enrichedCampaign = {
+            enrichedCampaigns.push({
                 ...campaign,
                 ads: ads,
                 adSets: adSets,
                 adCount: ads.length,
                 activeAds: ads.filter(ad => ad.status === 'ACTIVE').length
-            };
-            
-            enrichedCampaigns.push(enrichedCampaign);
+            });
             
         } catch (error) {
             console.error(`[NewsBreak API] Error enriching campaign ${campaign.id}:`, error);
-            // Include campaign even if we can't get ads
             enrichedCampaigns.push({
                 ...campaign,
                 ads: [],
@@ -143,7 +184,6 @@ async function enrichCampaignsWithAds(apiKey, campaigns, campaignFilter) {
         }
     }
     
-    console.log(`[NewsBreak API] Enriched ${enrichedCampaigns.length} campaigns with creative data`);
     return enrichedCampaigns;
 }
 
@@ -157,17 +197,16 @@ async function getAdList(apiKey, campaignId) {
         },
         body: JSON.stringify({
             campaignId: campaignId,
-            limit: 1000
+            limit: 100
         })
     });
 
     if (!response.ok) {
-        console.warn(`[NewsBreak API] Failed to fetch ads for campaign ${campaignId}: ${response.status}`);
-        return [];
+        return []; // Return empty array instead of throwing
     }
 
     const data = await response.json();
-    return data.data || [];
+    return (data.code === 0) ? (data.data || []) : [];
 }
 
 // Get ad set list for a campaign
@@ -180,17 +219,16 @@ async function getAdSetList(apiKey, campaignId) {
         },
         body: JSON.stringify({
             campaignId: campaignId,
-            limit: 1000
+            limit: 100
         })
     });
 
     if (!response.ok) {
-        console.warn(`[NewsBreak API] Failed to fetch ad sets for campaign ${campaignId}: ${response.status}`);
         return [];
     }
 
     const data = await response.json();
-    return data.data || [];
+    return (data.code === 0) ? (data.data || []) : [];
 }
 
 // Get performance data using integrated report
@@ -206,22 +244,17 @@ async function getPerformanceData(apiKey, startDate, endDate, campaignFilter) {
         filterIds: campaignFilter ? [campaignFilter] : [],
         dimensions: [
             "CAMPAIGN_ID",
-            "CAMPAIGN_NAME", 
-            "AD_ID",
-            "AD_NAME",
-            "ADSET_ID",
-            "ADSET_NAME",
-            "DATE"
+            "CAMPAIGN_NAME",
+            "AD_ID", 
+            "AD_NAME"
         ],
         metrics: [
             "COST",
-            "IMPRESSIONS", 
-            "CLICKS",
+            "IMPRESSIONS",
+            "CLICKS", 
             "CTR",
             "CONVERSIONS",
-            "REVENUE",
-            "CPA",
-            "CVR"
+            "REVENUE"
         ],
         emails: [],
         editors: []
@@ -242,9 +275,111 @@ async function getPerformanceData(apiKey, startDate, endDate, campaignFilter) {
     }
 
     const data = await response.json();
-    console.log(`[NewsBreak API] Retrieved performance data with ${data.data?.length || 0} rows`);
+    
+    if (data.code !== 0) {
+        console.warn(`[NewsBreak API] Performance data API error: ${data.errMsg}`);
+        return { columns: [], data: [] };
+    }
     
     return data;
+}
+
+// Process performance data when no campaign list available
+function processPerformanceDataOnly(performanceData) {
+    console.log('[NewsBreak API] Processing performance data only...');
+    
+    const { columns, data: performanceRows } = performanceData;
+    
+    if (!performanceRows || performanceRows.length === 0) {
+        return [];
+    }
+
+    // Group by campaign
+    const campaignMap = new Map();
+    
+    performanceRows.forEach(row => {
+        let rowData = {};
+        if (columns && columns.length > 0) {
+            columns.forEach((column, index) => {
+                rowData[column] = row[index];
+            });
+        } else {
+            rowData = row;
+        }
+        
+        const campaignId = rowData.CAMPAIGN_ID || rowData.campaignId;
+        const campaignName = rowData.CAMPAIGN_NAME || rowData.campaignName || `Campaign ${campaignId}`;
+        
+        if (campaignId) {
+            if (!campaignMap.has(campaignId)) {
+                campaignMap.set(campaignId, {
+                    id: campaignId,
+                    name: campaignName,
+                    performanceRows: []
+                });
+            }
+            campaignMap.get(campaignId).performanceRows.push(rowData);
+        }
+    });
+
+    // Convert to campaign format
+    const campaigns = Array.from(campaignMap.values()).map(campaign => {
+        const aggregatedPerf = aggregatePerformanceData(campaign.performanceRows);
+        
+        return {
+            id: campaign.id,
+            name: campaign.name,
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+            status: 'ACTIVE',
+            
+            // Extract headline from ad data if available
+            headline: extractHeadlineFromPerformanceData(campaign.performanceRows),
+            description: '',
+            imageUrl: '',
+            creativeCount: campaign.performanceRows.length,
+            
+            // Performance metrics
+            spend: aggregatedPerf.cost,
+            revenue: aggregatedPerf.revenue,
+            impressions: aggregatedPerf.impressions,
+            clicks: aggregatedPerf.clicks,
+            conversions: aggregatedPerf.conversions,
+            ctr: aggregatedPerf.ctr,
+            cpa: aggregatedPerf.cpa,
+            roas: aggregatedPerf.roas,
+            cvr: aggregatedPerf.cvr,
+            
+            trafficSource: 'newsbreak',
+            deviceType: 'All',
+            geo: 'US',
+            
+            rawPerformanceData: campaign.performanceRows
+        };
+    });
+
+    // Filter out campaigns with no meaningful data
+    return campaigns.filter(campaign => 
+        campaign.impressions > 0 || campaign.clicks > 0 || campaign.spend > 0
+    );
+}
+
+function extractHeadlineFromPerformanceData(performanceRows) {
+    // Try to get headline from ad name
+    for (const row of performanceRows) {
+        const adName = row.AD_NAME || row.adName;
+        if (adName && adName.length > 10) {
+            return adName.length > 80 ? adName.substring(0, 80) + '...' : adName;
+        }
+    }
+    
+    // Fallback to campaign name
+    const campaignName = performanceRows[0]?.CAMPAIGN_NAME || performanceRows[0]?.campaignName;
+    if (campaignName) {
+        return campaignName.length > 80 ? campaignName.substring(0, 80) + '...' : campaignName;
+    }
+    
+    return 'NewsBreak Campaign';
 }
 
 // Merge campaign metadata with performance data
@@ -260,12 +395,10 @@ function mergeCampaignData(campaigns, performanceData) {
         performanceRows.forEach(row => {
             let rowData = {};
             if (columns.length > 0) {
-                // Column-mapped format
                 columns.forEach((column, index) => {
                     rowData[column] = row[index];
                 });
             } else {
-                // Direct object format
                 rowData = row;
             }
             
@@ -282,20 +415,15 @@ function mergeCampaignData(campaigns, performanceData) {
     // Merge data
     const enrichedCampaigns = campaigns.map(campaign => {
         const performanceRows = performanceLookup.get(campaign.id) || [];
-        
-        // Aggregate performance data
         const aggregatedPerf = aggregatePerformanceData(performanceRows);
-        
-        // Extract creative information from ads
         const creativeData = extractCreativeData(campaign.ads || []);
         
         return {
-            // Campaign metadata
             id: campaign.id,
             name: campaign.name || `Campaign ${campaign.id}`,
             campaignId: campaign.id,
             campaignName: campaign.name,
-            status: campaign.status || 'UNKNOWN',
+            status: campaign.status || 'ACTIVE',
             
             // Creative data
             headline: creativeData.primaryHeadline,
@@ -314,16 +442,13 @@ function mergeCampaignData(campaigns, performanceData) {
             roas: aggregatedPerf.roas,
             cvr: aggregatedPerf.cvr,
             
-            // Metadata
             trafficSource: 'newsbreak',
-            deviceType: 'All', // NewsBreak doesn't separate by device in campaign level
+            deviceType: 'All',
             geo: campaign.targetLocation || 'US',
             
-            // Raw data for advanced analysis
             rawCampaignData: campaign,
             rawPerformanceData: performanceRows,
             
-            // Additional insights
             adSets: campaign.adSets || [],
             ads: campaign.ads || []
         };
@@ -331,10 +456,9 @@ function mergeCampaignData(campaigns, performanceData) {
     
     // Filter out campaigns with no data
     const validCampaigns = enrichedCampaigns.filter(campaign => 
-        campaign.impressions > 0 || campaign.clicks > 0 || campaign.conversions > 0
+        campaign.impressions > 0 || campaign.clicks > 0 || campaign.conversions > 0 || campaign.spend > 0
     );
     
-    console.log(`[NewsBreak API] Merged data for ${validCampaigns.length} campaigns with performance data`);
     return validCampaigns;
 }
 
@@ -375,18 +499,17 @@ function aggregatePerformanceData(performanceRows) {
 function extractCreativeData(ads) {
     if (!ads.length) {
         return {
-            primaryHeadline: 'No Creative Data',
+            primaryHeadline: 'No Creative Data Available',
             primaryDescription: '',
             primaryImageUrl: '',
             totalCreatives: 0
         };
     }
     
-    // Get the first active ad or just the first ad
     const primaryAd = ads.find(ad => ad.status === 'ACTIVE') || ads[0];
     
     return {
-        primaryHeadline: primaryAd.headline || primaryAd.title || primaryAd.name || 'Untitled Creative',
+        primaryHeadline: primaryAd.headline || primaryAd.title || primaryAd.name || 'NewsBreak Creative',
         primaryDescription: primaryAd.description || primaryAd.body || '',
         primaryImageUrl: primaryAd.imageUrl || primaryAd.image || '',
         totalCreatives: ads.length,
@@ -400,7 +523,7 @@ function extractCreativeData(ads) {
     };
 }
 
-// Calculate enhanced summary with creative insights
+// Calculate enhanced summary
 function calculateEnhancedSummary(campaigns) {
     if (!campaigns.length) {
         return getEmptySummary();
@@ -434,7 +557,6 @@ function calculateEnhancedSummary(campaigns) {
         totalImpressions: totals.impressions,
         totalClicks: totals.clicks,
         
-        // Additional insights
         averageCreativesPerCampaign: campaigns.length > 0 ? (totals.creativeCount / campaigns.length) : 0,
         topPerformingCampaigns: campaigns
             .filter(c => c.roas > 0)
