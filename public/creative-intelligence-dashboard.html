@@ -395,6 +395,17 @@
             padding: 1rem;
             margin: 1rem 0;
             color: #991b1b;
+            white-space: pre-line;
+        }
+
+        .warning-state {
+            background: #fffbeb;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #92400e;
+            white-space: pre-line;
         }
 
         .ai-insights-summary {
@@ -539,7 +550,7 @@
                 <div id="creativeTableContainer">
                     <div class="loading-state">
                         <div class="spinner"></div>
-                        <p>Loading creative data from NewsBreak API...</p>
+                        <p>Loading REAL creative data from NewsBreak API...</p>
                     </div>
                 </div>
             </div>
@@ -807,7 +818,15 @@
                 updateDashboardStats(data.stats);
                 renderCreativeTable(creativesData);
                 
-                updateConnectionStatus('connected', `Loaded ${creativesData.length} creatives`);
+                // Show source information
+                if (data.source) {
+                    console.log(`📊 Data source: ${data.source}`);
+                    if (data.source === 'no_data_available') {
+                        showWarning('No campaign data available for the selected criteria. Try:\n• Different date range\n• Check if campaigns are running\n• Contact your NewsBreak account manager');
+                    }
+                }
+                
+                updateConnectionStatus('connected', `Loaded ${creativesData.length} campaigns`);
                 
             } catch (error) {
                 console.error('Error loading creative data:', error);
@@ -816,9 +835,9 @@
             }
         }
 
-        // NewsBreak data loading with working API
+        // UPDATED NewsBreak data loading - NO MOCK DATA
         async function loadNewsBreakData(dateRange, campaignFilter) {
-            console.log('🔍 Loading NewsBreak data with working API...');
+            console.log('🔍 Loading NewsBreak data with enhanced API (NO MOCK DATA)...');
             
             try {
                 const params = new URLSearchParams({
@@ -826,25 +845,64 @@
                     ...(campaignFilter && { campaign_id: campaignFilter })
                 });
 
-                console.log('📊 Fetching campaign data with working endpoint...');
-                const response = await fetch(`/api/newsbreak/campaigns-fixed?${params}`);
+                console.log('📊 Fetching REAL campaign data from enhanced API...');
+                
+                // Try enhanced API first
+                let response = await fetch(`/api/newsbreak/enhanced-campaigns?${params}`);
+                let data;
 
-                if (!response.ok) {
-                    throw new Error(`API request failed: ${response.status}`);
+                if (response.ok) {
+                    data = await response.json();
+                    console.log('✅ Enhanced API response:', data);
+                } else {
+                    console.log('⚠️ Enhanced API not available, trying campaigns-fixed...');
+                    // Fallback to existing API
+                    response = await fetch(`/api/newsbreak/campaigns-fixed?${params}`);
+                    data = await response.json();
                 }
 
-                const data = await response.json();
-                
-                if (!data.success) {
-                    throw new Error(data.error || 'API request failed');
+                // CHECK FOR MOCK DATA AND ALERT USER
+                if (!data.success && data.debug?.note === "Using mock data - API returned 400") {
+                    console.error('❌ API is returning mock data due to API errors');
+                    
+                    const errorMessage = `⚠️ MOCK DATA DETECTED
+
+Your NewsBreak API is returning errors, so mock data is being shown.
+
+API Error Details:
+• Error: "${data.debug.api_error?.errMsg}"
+• This means your NewsBreak API access may be limited
+• Contact your NewsBreak Account Manager for assistance
+
+IMPORTANT: The data you see is NOT REAL campaign data.`;
+
+                    showError(errorMessage);
+                    
+                    // Don't proceed with mock data - return empty instead
+                    return {
+                        creatives: [],
+                        stats: {
+                            totalCampaigns: 0,
+                            activeCreatives: 0,
+                            avgCTR: 0,
+                            avgROAS: 0
+                        },
+                        source: 'mock_data_rejected'
+                    };
                 }
 
-                console.log('✅ Campaign data loaded successfully:', {
-                    campaigns: data.campaigns?.length || 0,
-                    debug: data.debug,
-                    summary: data.summary
-                });
-                
+                console.log(`✅ Data loaded - Source: ${data.source || 'unknown'}`);
+                console.log(`📊 Campaigns found: ${data.campaigns?.length || 0}`);
+
+                // If no real data available, show a clear message
+                if (!data.campaigns || data.campaigns.length === 0) {
+                    if (data.message) {
+                        showWarning(data.message);
+                    } else {
+                        showWarning('No campaign data available. This may indicate:\n• No active campaigns in the selected date range\n• API access limitations\n• Contact your NewsBreak account manager for assistance');
+                    }
+                }
+
                 // Transform data to dashboard format
                 return {
                     creatives: data.campaigns?.map(campaign => ({
@@ -862,17 +920,32 @@
                         impressions: campaign.impressions || 0,
                         deviceType: campaign.deviceType || 'All',
                         geo: campaign.geo || 'US',
-                        status: campaign.status || 'Active'
+                        status: campaign.status || 'Active',
+                        
+                        // Enhanced data if available
+                        creativeCount: campaign.creativeCount || 1,
+                        adSets: campaign.adSets || [],
+                        ads: campaign.ads || [],
+                        rawCampaignData: campaign.rawCampaignData
                     })) || [],
                     stats: {
                         totalCampaigns: data.summary?.totalCampaigns || 0,
                         activeCreatives: data.summary?.activeCreatives || 0,
                         avgCTR: data.summary?.avgCTR || 0,
-                        avgROAS: data.summary?.avgROAS || 0
-                    }
+                        avgROAS: data.summary?.avgROAS || 0,
+                        
+                        // Enhanced stats if available
+                        activeCampaigns: data.summary?.activeCampaigns || 0,
+                        totalSpend: data.summary?.totalSpend || 0,
+                        totalRevenue: data.summary?.totalRevenue || 0,
+                        averageCreativesPerCampaign: data.summary?.averageCreativesPerCampaign || 0,
+                        topPerformingCampaigns: data.summary?.topPerformingCampaigns || []
+                    },
+                    metadata: data.metadata,
+                    source: data.source
                 };
             } catch (error) {
-                console.error('NewsBreak data loading error:', error);
+                console.error('❌ NewsBreak data loading error:', error);
                 throw error;
             }
         }
@@ -1232,215 +1305,17 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 0.5rem;">
                             <span style="font-weight: 500;">${type.name}</span>
                             <div style="text-align: right;">
-                                <div style="font-weight: 600; color: ${type.avgRoas >= 1.5 ? 'var(--success-color)' : 'var(--warning-color)'};">
-                                    ${type.avgRoas.toFixed(2)}x ROAS
-                                </div>
-                                <div style="font-size: 0.75rem; color: var(--text-secondary);">
-                                    ${type.count} campaigns
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            
-            typeContainer.innerHTML = typeHTML;
-        }
-
-        function analyzeCreativeTypes() {
-            const types = [
-                {
-                    name: 'Financial Content',
-                    filter: c => /money|financial|save|cash|earn/i.test(c.headline)
-                },
-                {
-                    name: 'Insurance Related',
-                    filter: c => /insurance|coverage|protect/i.test(c.headline)
-                },
-                {
-                    name: 'Question Headlines',
-                    filter: c => c.headline.includes('?')
-                },
-                {
-                    name: 'Number Headlines',
-                    filter: c => /\d+/.test(c.headline)
-                },
-                {
-                    name: 'Other',
-                    filter: c => true
-                }
-            ];
-
-            return types.map(type => {
-                const matching = creativesData.filter(type.filter);
-                return {
-                    name: type.name,
-                    count: matching.length,
-                    avgRoas: matching.length > 0 ? matching.reduce((sum, c) => sum + c.roas, 0) / matching.length : 0,
-                    avgCtr: matching.length > 0 ? matching.reduce((sum, c) => sum + c.ctr, 0) / matching.length : 0
-                };
-            }).filter(type => type.count > 0);
-        }
-
-        function updateTopHeadlines(topHeadlines = null) {
-            const container = document.getElementById('topHeadlines');
-            
-            if (!creativesData.length) {
-                container.innerHTML = '<p>No creative data available.</p>';
-                return;
-            }
-
-            // Use provided data or calculate locally
-            const headlines = topHeadlines || creativesData
-                .sort((a, b) => b.roas - a.roas)
-                .slice(0, 10);
-
-            const headlinesHTML = `
-                <div>
-                    <div style="background: #f0f9ff; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                        <h4 style="font-weight: 600; color: var(--primary-color);">🏆 Top Performing Headlines</h4>
-                        <p style="color: var(--text-secondary); font-size: 0.875rem;">Ranked by ROAS performance</p>
-                    </div>
-                    ${headlines.map((headline, index) => `
-                        <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 1rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                                <span style="font-weight: 600; color: var(--primary-color);">#${index + 1}</span>
-                                <div style="text-align: right;">
-                                    <div style="font-size: 0.875rem; color: var(--success-color); font-weight: 600;">${headline.roas.toFixed(2)}x ROAS</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${(headline.ctr * 100).toFixed(2)}% CTR</div>
-                                </div>
-                            </div>
-                            <div style="font-weight: 500; margin-bottom: 0.5rem;">${headline.headline}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-secondary);">
-                                ${headline.conversions} conversions • $${headline.spend.toFixed(2)} spend
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-
-            container.innerHTML = headlinesHTML;
-        }
-
-        function generateCorrelationMatrix() {
-            const container = document.getElementById('correlationMatrixContainer');
-            
-            if (!creativesData.length) {
-                container.innerHTML = '<p>No creative data available for correlation analysis.</p>';
-                return;
-            }
-
-            const correlations = calculateCreativeCorrelations();
-            
-            const matrixHTML = `
-                <div style="padding: 1rem;">
-                    <div style="background: #f0f9ff; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                        <h4 style="font-weight: 600; color: var(--primary-color); margin-bottom: 0.5rem;">📊 Performance Correlation Analysis</h4>
-                        <p style="color: var(--text-secondary); font-size: 0.875rem;">Statistical analysis of creative traits vs performance metrics</p>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; font-weight: 600; margin-bottom: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px;">
-                        <div>Creative Trait</div>
-                        <div style="text-align: center;">ROAS Impact</div>
-                        <div style="text-align: center;">CTR Impact</div>
-                        <div style="text-align: center;">Sample Size</div>
-                    </div>
-                    
-                    ${correlations.map(corr => `
-                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 0.5rem;">
-                            <div style="font-weight: 500;">${corr.trait}</div>
-                            <div style="text-align: center; font-weight: 600; color: ${corr.roasImpact >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
-                                ${corr.roasImpact >= 0 ? '+' : ''}${(corr.roasImpact * 100).toFixed(1)}%
-                            </div>
-                            <div style="text-align: center; font-weight: 600; color: ${corr.ctrImpact >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
-                                ${corr.ctrImpact >= 0 ? '+' : ''}${(corr.ctrImpact * 100).toFixed(1)}%
-                            </div>
-                            <div style="text-align: center; color: var(--text-secondary);">${corr.sampleSize}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            
-            container.innerHTML = matrixHTML;
-        }
-
-        function calculateCreativeCorrelations() {
-            const traits = [
-                { name: 'Numbers in Headline', test: c => /\d+/.test(c.headline) },
-                { name: 'Question Headlines', test: c => c.headline.includes('?') },
-                { name: 'Urgency Words', test: c => /\b(now|today|limited|hurry|quick)\b/i.test(c.headline) },
-                { name: 'Free Offers', test: c => /\bfree\b/i.test(c.headline) },
-                { name: 'Money/Savings', test: c => /\$|save|money|cash|earn/i.test(c.headline) },
-                { name: 'Long Headlines (>50 chars)', test: c => c.headline.length > 50 },
-                { name: 'High Spend (>$100)', test: c => c.spend > 100 }
-            ];
-
-            return traits.map(trait => {
-                const withTrait = creativesData.filter(trait.test);
-                const withoutTrait = creativesData.filter(c => !trait.test(c));
-
-                if (withTrait.length === 0 || withoutTrait.length === 0) {
-                    return {
-                        trait: trait.name,
-                        roasImpact: 0,
-                        ctrImpact: 0,
-                        sampleSize: withTrait.length
-                    };
-                }
-
-                const avgRoasWithTrait = withTrait.reduce((sum, c) => sum + c.roas, 0) / withTrait.length;
-                const avgRoasWithoutTrait = withoutTrait.reduce((sum, c) => sum + c.roas, 0) / withoutTrait.length;
-                
-                const avgCtrWithTrait = withTrait.reduce((sum, c) => sum + c.ctr, 0) / withTrait.length;
-                const avgCtrWithoutTrait = withoutTrait.reduce((sum, c) => sum + c.ctr, 0) / withoutTrait.length;
-
-                return {
-                    trait: trait.name,
-                    roasImpact: avgRoasWithoutTrait > 0 ? (avgRoasWithTrait - avgRoasWithoutTrait) / avgRoasWithoutTrait : 0,
-                    ctrImpact: avgCtrWithoutTrait > 0 ? (avgCtrWithTrait - avgCtrWithoutTrait) / avgCtrWithoutTrait : 0,
-                    sampleSize: withTrait.length
-                };
-            }).sort((a, b) => b.roasImpact - a.roasImpact);
-        }
-
-        function updateScalingOpportunities() {
-            const container = document.getElementById('scalingOpportunities');
-            
-            if (!creativesData.length) {
-                container.innerHTML = '<p>No creative data available for scaling analysis.</p>';
-                return;
-            }
-
-            const scalingCandidates = creativesData
-                .filter(c => c.roas >= 2.0 && c.conversions >= 3 && c.spend < 500)
-                .sort((a, b) => b.roas - a.roas)
-                .slice(0, 8);
-
-            if (scalingCandidates.length === 0) {
-                container.innerHTML = '<p>No immediate scaling opportunities found. Focus on optimizing current campaigns.</p>';
-                return;
-            }
-
-            const opportunitiesHTML = `
-                <div>
-                    <div style="background: #f0fdf4; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                        <h4 style="font-weight: 600; color: var(--success-color);">🚀 Scaling Opportunities</h4>
-                        <p style="color: var(--text-secondary); font-size: 0.875rem;">${scalingCandidates.length} high-potential campaigns ready for budget increases</p>
-                    </div>
-                    ${scalingCandidates.map(candidate => `
-                        <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 1rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
                                 <div style="font-weight: 600; color: var(--success-color);">🚀 Scale Opportunity</div>
                                 <div style="text-align: right;">
                                     <div style="font-size: 0.875rem; font-weight: 600;">${candidate.roas.toFixed(2)}x ROAS</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">$${candidate.spend.toFixed(2)} spent</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${candidate.spend.toFixed(2)} spent</div>
                                 </div>
                             </div>
                             <div style="font-weight: 500; margin-bottom: 0.5rem;">${candidate.name}</div>
                             <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary);">
-                                <span>Current Budget: $${candidate.spend.toFixed(2)}</span>
+                                <span>Current Budget: ${candidate.spend.toFixed(2)}</span>
                                 <span style="color: var(--success-color); font-weight: 500;">
-                                    Recommended: $${(candidate.spend * 2).toFixed(2)} 
+                                    Recommended: ${(candidate.spend * 2).toFixed(2)} 
                                     (+100%)
                                 </span>
                             </div>
@@ -1723,7 +1598,7 @@
             document.body.removeChild(link);
         }
 
-        // Enhanced diagnostic function
+        // Enhanced diagnostic function - Updated to work with new APIs
         async function runEnhancedDiagnostics() {
             console.log('🔍 Running enhanced diagnostic tests...');
             updateConnectionStatus('connecting', 'Running enhanced diagnostics...');
@@ -1732,8 +1607,8 @@
                 const diagnosticResults = {
                     envVars: { status: 'unknown', details: null },
                     apiConnection: { status: 'unknown', details: null },
-                    workingAPI: { status: 'unknown', details: null },
-                    creativeAnalysis: { status: 'unknown', details: null }
+                    enhancedAPI: { status: 'unknown', details: null },
+                    workingAPI: { status: 'unknown', details: null }
                 };
 
                 // Test 1: Environment Variables
@@ -1762,8 +1637,21 @@
                     diagnosticResults.apiConnection = { status: 'error', details: error.message };
                 }
 
-                // Test 3: Working API Endpoints (campaigns-fixed)
-                console.log('🧪 Test 3: Testing working API endpoints...');
+                // Test 3: Enhanced API Endpoints
+                console.log('🧪 Test 3: Testing enhanced API endpoints...');
+                try {
+                    const enhancedResponse = await fetch('/api/newsbreak/enhanced-campaigns?date_range=last7days');
+                    const enhancedData = await enhancedResponse.json();
+                    diagnosticResults.enhancedAPI = { 
+                        status: enhancedData.success ? 'pass' : 'fail', 
+                        details: enhancedData 
+                    };
+                } catch (error) {
+                    diagnosticResults.enhancedAPI = { status: 'error', details: error.message };
+                }
+
+                // Test 4: Working API Endpoints (campaigns-fixed) 
+                console.log('🧪 Test 4: Testing fallback API endpoints...');
                 try {
                     const workingResponse = await fetch('/api/newsbreak/campaigns-fixed?date_range=last7days');
                     const workingData = await workingResponse.json();
@@ -1775,51 +1663,27 @@
                     diagnosticResults.workingAPI = { status: 'error', details: error.message };
                 }
 
-                // Test 4: Creative Analysis API (optional)
-                console.log('🧪 Test 4: Testing creative analysis API...');
-                try {
-                    const analysisResponse = await fetch('/api/newsbreak/creative-analysis', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            campaigns: [{ 
-                                id: 'test', 
-                                name: 'Test Campaign',
-                                headline: 'Test Headline',
-                                roas: 2.0,
-                                ctr: 0.02,
-                                spend: 100,
-                                conversions: 5
-                            }],
-                            analysisType: 'headline_analysis'
-                        })
-                    });
-                    const analysisData = await analysisResponse.json();
-                    diagnosticResults.creativeAnalysis = { 
-                        status: analysisData.success ? 'pass' : 'pass', // Mark as pass even if not available
-                        details: analysisData 
-                    };
-                } catch (error) {
-                    diagnosticResults.creativeAnalysis = { status: 'pass', details: 'AI API optional - local analysis available' };
-                }
-
                 // Display comprehensive results
                 console.log('📊 Enhanced Diagnostic Results:', diagnosticResults);
                 
                 const criticalPassed = diagnosticResults.envVars.status === 'pass' && 
                                      diagnosticResults.apiConnection.status === 'pass' && 
-                                     diagnosticResults.workingAPI.status === 'pass';
+                                     (diagnosticResults.enhancedAPI.status === 'pass' ||
+                                      diagnosticResults.workingAPI.status === 'pass');
                 
                 const resultMessage = `Enhanced Diagnostic Results:
                 
 ✓ Environment Variables: ${getStatusEmoji(diagnosticResults.envVars.status)} ${diagnosticResults.envVars.status.toUpperCase()}
 ✓ Basic API Connection: ${getStatusEmoji(diagnosticResults.apiConnection.status)} ${diagnosticResults.apiConnection.status.toUpperCase()}  
-✓ Working API Endpoints: ${getStatusEmoji(diagnosticResults.workingAPI.status)} ${diagnosticResults.workingAPI.status.toUpperCase()}
-✓ Creative Analysis API: ${getStatusEmoji(diagnosticResults.creativeAnalysis.status)} ${diagnosticResults.creativeAnalysis.status.toUpperCase()} (Optional)
+✓ Enhanced API Endpoints: ${getStatusEmoji(diagnosticResults.enhancedAPI.status)} ${diagnosticResults.enhancedAPI.status.toUpperCase()}
+✓ Fallback API Endpoints: ${getStatusEmoji(diagnosticResults.workingAPI.status)} ${diagnosticResults.workingAPI.status.toUpperCase()}
 
 Overall System Status: ${criticalPassed ? '✅ READY FOR PRODUCTION' : '⚠️ ISSUES DETECTED'}
 
-The dashboard will work with local analysis if AI API is not available.
+${diagnosticResults.workingAPI.details?.debug?.note === "Using mock data - API returned 400" ? 
+  '⚠️ WARNING: System is falling back to mock data due to API errors.\nContact your NewsBreak Account Manager to resolve API access issues.' : 
+  'Dashboard will show real campaign data when available.'}
+
 Check console for detailed logs and error information.`;
                 
                 alert(resultMessage);
@@ -1863,11 +1727,14 @@ Check console for detailed logs and error information.`;
         function showError(message) {
             console.error('🚨 Dashboard Error:', message);
             
+            // Remove existing error messages
+            const existingErrors = document.querySelectorAll('.error-state');
+            existingErrors.forEach(error => error.remove());
+            
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-state';
             errorDiv.innerHTML = `
-                <strong>Error:</strong> ${message}
-                <br><small>Check browser console for detailed error information.</small>
+                <strong>⚠️ IMPORTANT:</strong> ${message}
                 <br><br>
                 <button class="btn btn-primary" onclick="runEnhancedDiagnostics()" style="margin-top: 0.5rem;">
                     Run Diagnostics
@@ -1876,12 +1743,35 @@ Check console for detailed logs and error information.`;
             
             document.querySelector('.main-container').prepend(errorDiv);
             
-            // Remove error after 15 seconds
+            // Remove error after 30 seconds
             setTimeout(() => {
                 if (errorDiv.parentNode) {
                     errorDiv.parentNode.removeChild(errorDiv);
                 }
-            }, 15000);
+            }, 30000);
+        }
+
+        function showWarning(message) {
+            console.warn('⚠️ Dashboard Warning:', message);
+            
+            // Remove existing warning messages
+            const existingWarnings = document.querySelectorAll('.warning-state');
+            existingWarnings.forEach(warning => warning.remove());
+            
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'warning-state';
+            warningDiv.innerHTML = `
+                <strong>ℹ️ Information:</strong> ${message}
+            `;
+            
+            document.querySelector('.main-container').prepend(warningDiv);
+            
+            // Remove warning after 20 seconds
+            setTimeout(() => {
+                if (warningDiv.parentNode) {
+                    warningDiv.parentNode.removeChild(warningDiv);
+                }
+            }, 20000);
         }
 
         // Add global functions for button access
@@ -1890,7 +1780,206 @@ Check console for detailed logs and error information.`;
         window.analyzeCreative = analyzeCreative;
 
         console.log('✅ NewsBreak Creative Intelligence Dashboard loaded successfully');
-        console.log('🎯 Features: Real NewsBreak API integration, Local AI analysis, Production ready');
+        console.log('🎯 Features: REAL NewsBreak API integration, No Mock Data, Production ready');
+        console.log('⚠️ MOCK DATA DETECTION: Dashboard will alert you if mock data is detected');
     </script>
 </body>
-</html>
+</html>: ${type.avgRoas >= 1.5 ? 'var(--success-color)' : 'var(--warning-color)'};">
+                                    ${type.avgRoas.toFixed(2)}x ROAS
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                    ${type.count} campaigns
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            typeContainer.innerHTML = typeHTML;
+        }
+
+        function analyzeCreativeTypes() {
+            const types = [
+                {
+                    name: 'Financial Content',
+                    filter: c => /money|financial|save|cash|earn/i.test(c.headline)
+                },
+                {
+                    name: 'Insurance Related',
+                    filter: c => /insurance|coverage|protect/i.test(c.headline)
+                },
+                {
+                    name: 'Question Headlines',
+                    filter: c => c.headline.includes('?')
+                },
+                {
+                    name: 'Number Headlines',
+                    filter: c => /\d+/.test(c.headline)
+                },
+                {
+                    name: 'Other',
+                    filter: c => true
+                }
+            ];
+
+            return types.map(type => {
+                const matching = creativesData.filter(type.filter);
+                return {
+                    name: type.name,
+                    count: matching.length,
+                    avgRoas: matching.length > 0 ? matching.reduce((sum, c) => sum + c.roas, 0) / matching.length : 0,
+                    avgCtr: matching.length > 0 ? matching.reduce((sum, c) => sum + c.ctr, 0) / matching.length : 0
+                };
+            }).filter(type => type.count > 0);
+        }
+
+        function updateTopHeadlines(topHeadlines = null) {
+            const container = document.getElementById('topHeadlines');
+            
+            if (!creativesData.length) {
+                container.innerHTML = '<p>No creative data available.</p>';
+                return;
+            }
+
+            // Use provided data or calculate locally
+            const headlines = topHeadlines || creativesData
+                .sort((a, b) => b.roas - a.roas)
+                .slice(0, 10);
+
+            const headlinesHTML = `
+                <div>
+                    <div style="background: #f0f9ff; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <h4 style="font-weight: 600; color: var(--primary-color);">🏆 Top Performing Headlines</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem;">Ranked by ROAS performance</p>
+                    </div>
+                    ${headlines.map((headline, index) => `
+                        <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                <span style="font-weight: 600; color: var(--primary-color);">#${index + 1}</span>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.875rem; color: var(--success-color); font-weight: 600;">${headline.roas.toFixed(2)}x ROAS</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${(headline.ctr * 100).toFixed(2)}% CTR</div>
+                                </div>
+                            </div>
+                            <div style="font-weight: 500; margin-bottom: 0.5rem;">${headline.headline}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                ${headline.conversions} conversions • $${headline.spend.toFixed(2)} spend
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            container.innerHTML = headlinesHTML;
+        }
+
+        function generateCorrelationMatrix() {
+            const container = document.getElementById('correlationMatrixContainer');
+            
+            if (!creativesData.length) {
+                container.innerHTML = '<p>No creative data available for correlation analysis.</p>';
+                return;
+            }
+
+            const correlations = calculateCreativeCorrelations();
+            
+            const matrixHTML = `
+                <div style="padding: 1rem;">
+                    <div style="background: #f0f9ff; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <h4 style="font-weight: 600; color: var(--primary-color); margin-bottom: 0.5rem;">📊 Performance Correlation Analysis</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem;">Statistical analysis of creative traits vs performance metrics</p>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; font-weight: 600; margin-bottom: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 6px;">
+                        <div>Creative Trait</div>
+                        <div style="text-align: center;">ROAS Impact</div>
+                        <div style="text-align: center;">CTR Impact</div>
+                        <div style="text-align: center;">Sample Size</div>
+                    </div>
+                    
+                    ${correlations.map(corr => `
+                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 0.5rem;">
+                            <div style="font-weight: 500;">${corr.trait}</div>
+                            <div style="text-align: center; font-weight: 600; color: ${corr.roasImpact >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
+                                ${corr.roasImpact >= 0 ? '+' : ''}${(corr.roasImpact * 100).toFixed(1)}%
+                            </div>
+                            <div style="text-align: center; font-weight: 600; color: ${corr.ctrImpact >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
+                                ${corr.ctrImpact >= 0 ? '+' : ''}${(corr.ctrImpact * 100).toFixed(1)}%
+                            </div>
+                            <div style="text-align: center; color: var(--text-secondary);">${corr.sampleSize}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            container.innerHTML = matrixHTML;
+        }
+
+        function calculateCreativeCorrelations() {
+            const traits = [
+                { name: 'Numbers in Headline', test: c => /\d+/.test(c.headline) },
+                { name: 'Question Headlines', test: c => c.headline.includes('?') },
+                { name: 'Urgency Words', test: c => /\b(now|today|limited|hurry|quick)\b/i.test(c.headline) },
+                { name: 'Free Offers', test: c => /\bfree\b/i.test(c.headline) },
+                { name: 'Money/Savings', test: c => /\$|save|money|cash|earn/i.test(c.headline) },
+                { name: 'Long Headlines (>50 chars)', test: c => c.headline.length > 50 },
+                { name: 'High Spend (>$100)', test: c => c.spend > 100 }
+            ];
+
+            return traits.map(trait => {
+                const withTrait = creativesData.filter(trait.test);
+                const withoutTrait = creativesData.filter(c => !trait.test(c));
+
+                if (withTrait.length === 0 || withoutTrait.length === 0) {
+                    return {
+                        trait: trait.name,
+                        roasImpact: 0,
+                        ctrImpact: 0,
+                        sampleSize: withTrait.length
+                    };
+                }
+
+                const avgRoasWithTrait = withTrait.reduce((sum, c) => sum + c.roas, 0) / withTrait.length;
+                const avgRoasWithoutTrait = withoutTrait.reduce((sum, c) => sum + c.roas, 0) / withoutTrait.length;
+                
+                const avgCtrWithTrait = withTrait.reduce((sum, c) => sum + c.ctr, 0) / withTrait.length;
+                const avgCtrWithoutTrait = withoutTrait.reduce((sum, c) => sum + c.ctr, 0) / withoutTrait.length;
+
+                return {
+                    trait: trait.name,
+                    roasImpact: avgRoasWithoutTrait > 0 ? (avgRoasWithTrait - avgRoasWithoutTrait) / avgRoasWithoutTrait : 0,
+                    ctrImpact: avgCtrWithoutTrait > 0 ? (avgCtrWithTrait - avgCtrWithoutTrait) / avgCtrWithoutTrait : 0,
+                    sampleSize: withTrait.length
+                };
+            }).sort((a, b) => b.roasImpact - a.roasImpact);
+        }
+
+        function updateScalingOpportunities() {
+            const container = document.getElementById('scalingOpportunities');
+            
+            if (!creativesData.length) {
+                container.innerHTML = '<p>No creative data available for scaling analysis.</p>';
+                return;
+            }
+
+            const scalingCandidates = creativesData
+                .filter(c => c.roas >= 2.0 && c.conversions >= 3 && c.spend < 500)
+                .sort((a, b) => b.roas - a.roas)
+                .slice(0, 8);
+
+            if (scalingCandidates.length === 0) {
+                container.innerHTML = '<p>No immediate scaling opportunities found. Focus on optimizing current campaigns.</p>';
+                return;
+            }
+
+            const opportunitiesHTML = `
+                <div>
+                    <div style="background: #f0fdf4; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <h4 style="font-weight: 600; color: var(--success-color);">🚀 Scaling Opportunities</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem;">${scalingCandidates.length} high-potential campaigns ready for budget increases</p>
+                    </div>
+                    ${scalingCandidates.map(candidate => `
+                        <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                <div style="font-weight: 600; color
