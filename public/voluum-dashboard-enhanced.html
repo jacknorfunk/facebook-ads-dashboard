@@ -1379,15 +1379,43 @@
             `;
             
             try {
-                // Try to fetch real Voluum offers
-                const offers = await fetchVoluumCampaignOffers(campaignId);
-                displayCampaignOffers(offers);
+                // Check if we're using Voluum traffic source
+                const trafficSource = document.getElementById('trafficSourceFilter') ? 
+                    document.getElementById('trafficSourceFilter').value : 'voluum';
+                
+                console.log('🚦 Traffic source detected:', trafficSource);
+                
+                if (trafficSource === 'voluum') {
+                    // Try to fetch real Voluum offers
+                    console.log('🔗 Attempting to fetch real Voluum offers...');
+                    const offers = await fetchVoluumCampaignOffers(campaignId);
+                    displayCampaignOffers(offers);
+                } else {
+                    // For non-Voluum sources, go straight to simulated offers
+                    console.log('🎭 Using simulated offers for non-Voluum traffic source');
+                    const simulatedOffers = generateSimulatedOffers(currentCampaign);
+                    displayCampaignOffers(simulatedOffers);
+                }
                 
             } catch (error) {
-                console.error('Error loading campaign offers:', error);
+                console.error('❌ Error loading campaign offers:', error);
+                console.log('🔄 Falling back to simulated offers for campaign:', currentCampaign);
+                
+                // Ensure we have a current campaign
+                if (!currentCampaign) {
+                    console.error('❌ No current campaign available for simulated offers');
+                    offersContainer.innerHTML = `
+                        <div style="text-align: center; padding: 3rem; color: #6b7280; background: #f8fafc; border-radius: 8px; border: 2px dashed #e5e7eb;">
+                            <h4 style="margin: 0 0 1rem 0;">⚠️ Error Loading Campaign</h4>
+                            <p style="margin: 0;">Campaign data not available. Please try refreshing the page.</p>
+                        </div>
+                    `;
+                    return;
+                }
                 
                 // Fallback to simulated offers based on campaign data
                 const simulatedOffers = generateSimulatedOffers(currentCampaign);
+                console.log('🎭 Generated simulated offers:', simulatedOffers);
                 displayCampaignOffers(simulatedOffers);
             }
         }
@@ -1474,17 +1502,30 @@
         }
 
         function generateSimulatedOffers(campaign) {
-            console.log(`🎭 Generating simulated offers for campaign: ${campaign.id} (${campaign.name})`);
+            console.log(`🎭 Generating simulated offers for campaign:`, campaign);
+            
+            if (!campaign) {
+                console.error('❌ No campaign provided to generateSimulatedOffers');
+                return [];
+            }
             
             // Generate 2-4 offers per campaign (realistic number)
             const numOffers = Math.floor(Math.random() * 3) + 2;
             const offers = [];
             const offerTypes = ['Insurance Quote', 'Financial Product', 'Lead Generation', 'E-commerce Product', 'Service Signup', 'App Download'];
             
+            // Safely get campaign values with defaults
+            const campaignRevenue = campaign.revenue || 0;
+            const campaignCost = campaign.cost || 0;
+            const campaignConversions = campaign.conversions || 0;
+            const campaignVisits = campaign.visits || 1000; // Default if not available
+            
+            console.log(`📊 Campaign totals: Revenue: $${campaignRevenue}, Cost: $${campaignCost}, Conversions: ${campaignConversions}`);
+            
             // Ensure offers add up to campaign totals
-            let remainingRevenue = campaign.revenue;
-            let remainingCost = campaign.cost;
-            let remainingConversions = campaign.conversions;
+            let remainingRevenue = campaignRevenue;
+            let remainingCost = campaignCost;
+            let remainingConversions = campaignConversions;
             
             for (let i = 0; i < numOffers; i++) {
                 // Calculate share for this offer (last offer gets remainder)
@@ -1506,11 +1547,11 @@
                 remainingCost -= offerCost;
                 remainingConversions -= offerConversions;
                 
-                const offerClicks = Math.floor(campaign.visits * 0.02 * offerShare);
+                const offerClicks = Math.floor(campaignVisits * 0.02 * offerShare);
                 
                 offers.push({
                     id: `offer_${campaign.id}_${i + 1}`,
-                    name: `${campaign.name.split(' ')[0]} - ${offerTypes[i % offerTypes.length]} ${i + 1}`,
+                    name: `${(campaign.name || 'Campaign').split(' ')[0]} - ${offerTypes[i % offerTypes.length]} ${i + 1}`,
                     url: `https://example.com/offer/${campaign.id}_${i + 1}`,
                     status: Math.random() > 0.85 ? 'paused' : 'active',
                     revenue: Math.max(0, offerRevenue),
@@ -1518,7 +1559,7 @@
                     roas: offerCost > 0 ? (offerRevenue / offerCost) : 0,
                     conversions: Math.max(0, offerConversions),
                     clicks: Math.max(0, offerClicks),
-                    visits: Math.floor(campaign.visits * offerShare),
+                    visits: Math.floor(campaignVisits * offerShare),
                     conversionRate: offerClicks > 0 ? (offerConversions / offerClicks) : 0,
                     campaignId: campaign.id // Explicitly tie to this campaign
                 });
