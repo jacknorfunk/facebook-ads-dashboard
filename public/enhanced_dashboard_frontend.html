@@ -14,6 +14,79 @@
             margin: 0;
             padding: 0;
         }
+
+        // Debug function to test API endpoint
+        async function debugCampaignAPI(campaignId) {
+            console.log('🐛 Starting API debug for campaign:', campaignId);
+            
+            const detailsContent = document.getElementById('campaignDetailsContent');
+            detailsContent.innerHTML = `
+                <div style="padding: 24px;">
+                    <h3 style="color: #374151; margin-bottom: 16px;">
+                        <i class="fas fa-bug" style="margin-right: 8px;"></i>API Debug Information
+                    </h3>
+                    <div id="debugOutput" style="font-family: monospace; font-size: 0.875rem; background-color: #f3f4f6; padding: 16px; border-radius: 6px; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">
+                        Testing API endpoint...
+                    </div>
+                    <div style="margin-top: 16px;">
+                        <button onclick="fetchCampaignDetails('${campaignId}')" class="btn btn-primary">
+                            <i class="fas fa-arrow-left" style="margin-right: 8px;"></i>Back to Campaign Details
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            const debugOutput = document.getElementById('debugOutput');
+            
+            try {
+                debugOutput.textContent = 'Step 1: Testing API endpoint availability...\n';
+                
+                // Test 1: Check if API endpoint exists
+                const testResponse = await fetch('/api/voluum/campaignById', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        campaignId: 'test-id'
+                    })
+                });
+                
+                debugOutput.textContent += `Response status: ${testResponse.status}\n`;
+                debugOutput.textContent += `Response headers: ${JSON.stringify(Object.fromEntries(testResponse.headers.entries()), null, 2)}\n\n`;
+                
+                // Test 2: Check response content
+                const responseText = await testResponse.text();
+                debugOutput.textContent += `Step 2: Raw response content:\n${responseText.substring(0, 500)}...\n\n`;
+                
+                // Test 3: Environment check
+                debugOutput.textContent += `Step 3: Environment check:\n`;
+                debugOutput.textContent += `Current URL: ${window.location.href}\n`;
+                debugOutput.textContent += `API URL: ${window.location.origin}/api/voluum/campaignById\n\n`;
+                
+                // Test 4: Try alternative endpoint
+                debugOutput.textContent += `Step 4: Testing base campaigns endpoint...\n`;
+                const campaignsResponse = await fetch('/api/voluum/campaigns?range=last_7_days');
+                debugOutput.textContent += `Campaigns endpoint status: ${campaignsResponse.status}\n`;
+                
+                if (campaignsResponse.ok) {
+                    const campaignsData = await campaignsResponse.json();
+                    debugOutput.textContent += `Campaigns loaded: ${campaignsData.campaigns?.length || 0}\n`;
+                    
+                    if (campaignsData.campaigns && campaignsData.campaigns.length > 0) {
+                        debugOutput.textContent += `Sample campaign ID: ${campaignsData.campaigns[0].id}\n`;
+                    }
+                } else {
+                    debugOutput.textContent += `Campaigns endpoint failed: ${await campaignsResponse.text()}\n`;
+                }
+                
+                debugOutput.textContent += '\n✅ Debug completed. Check the information above to identify the issue.';
+                
+            } catch (error) {
+                debugOutput.textContent += `\n❌ Debug error: ${error.message}\n`;
+                debugOutput.textContent += `Error stack: ${error.stack}`;
+            }
+        }
         
         /* Campaign row click highlighting */
         .campaign-row {
@@ -833,37 +906,99 @@
             detailsContent.innerHTML = `
                 <div style="text-align: center; padding: 32px;">
                     <div class="loading-spinner" style="width: 24px; height: 24px; margin: 0 auto 16px;"></div>
-                    <div>Fetching campaign details via POST /bulk/campaign/select...</div>
+                    <div>Fetching campaign details...</div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 8px;">Campaign ID: ${campaignId}</div>
                 </div>
             `;
             
             try {
-                console.log(`📤 Making POST request to /api/voluum/campaignById for ${campaignId}`);
+                console.log(`📤 POST /api/voluum/campaignById for campaign: ${campaignId}`);
                 
                 const response = await fetch('/api/voluum/campaignById', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify({
                         campaignId: campaignId
                     })
                 });
                 
-                const data = await response.json();
+                console.log(`📊 Response status: ${response.status}`);
+                console.log(`📊 Response headers:`, Object.fromEntries(response.headers.entries()));
+                
+                // Check if response is JSON
+                const contentType = response.headers.get('Content-Type');
+                console.log(`📊 Content-Type: ${contentType}`);
+                
+                let data;
+                const responseText = await response.text();
+                console.log(`📊 Raw response (first 200 chars): ${responseText.substring(0, 200)}`);
+                
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('❌ JSON parse failed:', parseError);
+                    console.error('❌ Full response:', responseText);
+                    
+                    throw new Error(`Server returned invalid JSON. Response was: ${responseText.substring(0, 200)}...`);
+                }
+                
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
                 
                 if (!data.success) {
-                    throw new Error(data.error || 'Failed to fetch campaign details');
+                    throw new Error(data.error || 'API returned success: false');
                 }
                 
                 currentCampaignDetails = data.campaign;
-                console.log('✅ Campaign details fetched successfully');
+                console.log('✅ Campaign details loaded:', currentCampaignDetails);
                 
                 // Render campaign details
-                renderCampaignDetails(currentCampaignDetails);
+                renderCampaignDetails(currentCampaignDetails, data.source);
                 
             } catch (error) {
-                console.error('❌ Error fetching campaign details:', error);
+                console.error('❌ Campaign details error:', error);
+                
+                // Show detailed error
+                detailsContent.innerHTML = `
+                    <div style="padding: 24px;">
+                        <div style="text-align: center; color: #dc2626; margin-bottom: 24px;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 16px;"></i>
+                            <h3 style="margin: 0 0 8px 0;">Failed to Load Campaign Details</h3>
+                        </div>
+                        
+                        <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 16px; margin-bottom: 16px;">
+                            <div style="font-weight: 500; color: #dc2626; margin-bottom: 8px;">Error Details:</div>
+                            <div style="font-family: monospace; font-size: 0.875rem; color: #991b1b; word-break: break-word;">
+                                ${error.message}
+                            </div>
+                        </div>
+                        
+                        <div style="background-color: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 16px; margin-bottom: 16px;">
+                            <div style="font-weight: 500; color: #1e40af; margin-bottom: 8px;">Troubleshooting Steps:</div>
+                            <div style="font-size: 0.875rem; color: #1e40af;">
+                                1. Check if campaignById.js file exists in /api/voluum/<br>
+                                2. Verify VOLUME_KEY and VOLUME_KEY_ID environment variables<br>
+                                3. Ensure campaign ID exists in Voluum: <code>${campaignId}</code><br>
+                                4. Check server logs for detailed error information<br>
+                                5. Try the debug function to test API connectivity
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center;">
+                            <button onclick="fetchCampaignDetails('${campaignId}')" class="btn btn-primary" style="margin-right: 12px;">
+                                <i class="fas fa-refresh" style="margin-right: 8px;"></i>Retry
+                            </button>
+                            <button onclick="debugCampaignAPI('${campaignId}')" class="btn" style="background-color: #f3f4f6; color: #374151;">
+                                <i class="fas fa-bug" style="margin-right: 8px;"></i>Debug API
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
                 throw error;
             }
         }
