@@ -81,8 +81,8 @@ export default async function handler(req, res) {
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
-                accessKey: VOLUME_KEY,
-                accessKeyId: VOLUME_KEY_ID
+                accessId: VOLUME_KEY_ID,
+                accessKey: VOLUME_KEY
             })
         });
 
