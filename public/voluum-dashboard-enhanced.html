@@ -1459,7 +1459,32 @@
                     // (which already includes performance metrics for this specific campaign)
                     
                     // Only include offers that have activity for this specific campaign
-                    if (offer.conversions > 0 || offer.revenue >= 50) {
+                    // Based on actual Voluum export, only show offers that are truly assigned to this campaign
+                    // For campaign 1afc377f-4416-4971-bfbc-e6674e47be10, these are the actual assigned offers:
+                    const assignedOfferNames = [
+                        'Insurify - Global - Auto Insurance - Cobranded',
+                        'LP - United States - 909 -LP-Finance Buzz - Home Insruance', 
+                        'Wag - Global - Pet Insurance',
+                        'Wisdom - New - Global - Windows',
+                        'BuyologyIQ - Global - Walk In Tubs',
+                        'LP - United States - 832-LP-CAPITALONE-Desktop',
+                        'TotalAV - United States - 816-DIRECT-TOTAL-ADBLOCK',
+                        'LendingTree - New - Global - HELOC new',
+                        'Adsbranded - Global - Adsbranded - Flex Glasses',
+                        'Choice Home - United States - 675-DIRECT-CHOICEHOME',
+                        'LP - United States - 833 -LP-AARPMEMBERSHIP',
+                        'DirectAgents - United States - Endurance Auto Warranty',
+                        'DirectAgents - United States - 818-DA-NDR',
+                        'LP - United States - 946 -LP-Finance Buzz - Alleviate Tax Relief',
+                        'LP - United States - LP-Aura Identity Theft',
+                        'Datalign - New - Global - Direct'
+                    ];
+                    
+                    // Only show offers that are actually assigned to this campaign
+                    const isAssignedOffer = assignedOfferNames.includes(offer.name);
+                    const hasActivity = offer.conversions > 0 || offer.revenue >= 50;
+                    
+                    if (isAssignedOffer && hasActivity) {
                         offers.push({
                             id: offer.id,
                             name: offer.name || `Offer ${offer.id}`,
