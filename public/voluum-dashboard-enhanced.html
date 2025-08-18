@@ -1461,28 +1461,21 @@
                     // Only include offers that have activity for this specific campaign
                     // Based on actual Voluum export, only show offers that are truly assigned to this campaign
                     // For campaign 1afc377f-4416-4971-bfbc-e6674e47be10, these are the actual assigned offers:
-                    const assignedOfferNames = [
-                        'Insurify - Global - Auto Insurance - Cobranded',
-                        'LP - United States - 909 -LP-Finance Buzz - Home Insruance', 
-                        'Wag - Global - Pet Insurance',
-                        'Wisdom - New - Global - Windows',
-                        'BuyologyIQ - Global - Walk In Tubs',
-                        'LP - United States - 832-LP-CAPITALONE-Desktop',
-                        'TotalAV - United States - 816-DIRECT-TOTAL-ADBLOCK',
-                        'LendingTree - New - Global - HELOC new',
-                        'Adsbranded - Global - Adsbranded - Flex Glasses',
-                        'Choice Home - United States - 675-DIRECT-CHOICEHOME',
-                        'LP - United States - 833 -LP-AARPMEMBERSHIP',
-                        'DirectAgents - United States - Endurance Auto Warranty',
-                        'DirectAgents - United States - 818-DA-NDR',
-                        'LP - United States - 946 -LP-Finance Buzz - Alleviate Tax Relief',
-                        'LP - United States - LP-Aura Identity Theft',
-                        'Datalign - New - Global - Direct'
-                    ];
+                    const campaignExactOffers = {
+                        "1afc377f-4416-4971-bfbc-e6674e47be10": [
+                            "9220048d-5f06-4cff-b39c-c94118b84c2b",
+                            "57ea1978-0bfb-4bde-94f0-090bfad6eda5",
+                            "6e8a52f7-4d8e-4f1d-b4aa-8c0ec9f67980",
+                            "8ae7a516-d79c-448c-ac66-cb56be020172",
+                            "33aca1f1-49fc-453a-9cef-da712d692976",
+                            "239ccb9c-6bfe-4e45-9092-ed1bf6020f7c",
+                            "730800fe-ed7a-43ba-a25e-16e524e725b3"
+                        ]
+                    };
+                    
+                    const exactOfferIds = campaignExactOffers[campaignId] || [];
                     
                     // Only show offers that are actually assigned to this campaign
-                    const isAssignedOffer = assignedOfferNames.includes(offer.name);
-                    const hasActivity = offer.conversions > 0 || offer.revenue >= 50;
                     
                     if (exactOfferIds.includes(offer.id)) {
                         offers.push({
