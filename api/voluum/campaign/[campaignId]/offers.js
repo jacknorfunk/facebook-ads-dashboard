@@ -54,8 +54,44 @@ export default async function handler(req, res) {
 
         console.log('✅ Voluum session created successfully');
 
-        // Step 2: Use reports API following the same pattern as campaigns.js
-        // Calculate date range based on the dashboard selection
+        // Step 2: First get the campaign configuration to see which offers are assigned to it
+        console.log(`🔍 Getting campaign configuration for ${campaignId}...`);
+        
+        const campaignResponse = await fetch(`https://api.voluum.com/campaign/${campaignId}`, {
+            method: 'GET',
+            headers: {
+                'cwauth-token': authToken,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!campaignResponse.ok) {
+            console.warn('⚠️ Could not fetch campaign config, falling back to reports method');
+        }
+
+        let campaignOfferIds = [];
+        if (campaignResponse.ok) {
+            const campaignData = await campaignResponse.json();
+            console.log('📋 Campaign configuration:', campaignData);
+            
+            // Extract offer IDs from campaign configuration
+            if (campaignData.offers && Array.isArray(campaignData.offers)) {
+                campaignOfferIds = campaignData.offers.map(offer => offer.id || offer.offerId);
+                console.log(`✅ Found ${campaignOfferIds.length} offers configured in campaign:`, campaignOfferIds);
+            } else if (campaignData.landingPages) {
+                // Sometimes offers are nested in landing pages
+                campaignData.landingPages.forEach(lp => {
+                    if (lp.offers && Array.isArray(lp.offers)) {
+                        lp.offers.forEach(offer => {
+                            campaignOfferIds.push(offer.id || offer.offerId);
+                        });
+                    }
+                });
+                console.log(`✅ Found ${campaignOfferIds.length} offers from landing pages:`, campaignOfferIds);
+            }
+        }
+
+        // Step 3: Calculate date range based on the dashboard selection
         let startDate, endDate;
         
         if (from && to) {
@@ -94,9 +130,18 @@ export default async function handler(req, res) {
         
         console.log(`📊 Fetching offers for campaign ${campaignId} from ${startDate} to ${endDate}`);
         
-        // Build report URL following the same pattern as campaigns.js
-        // Group by offer and filter by campaign
-        const reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
+        // Step 4: Get performance data for the campaign's offers
+        let reportUrl;
+        if (campaignOfferIds.length > 0) {
+            // If we have specific offer IDs, filter to just those
+            const offerFilter = campaignOfferIds.map(id => `offerId=${id}`).join('&');
+            reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&${offerFilter}&limit=1000`;
+            console.log(`🎯 Using campaign-specific offer IDs: ${campaignOfferIds.length} offers`);
+        } else {
+            // Fallback: use campaign filter (current method)
+            reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
+            console.log(`🎯 Using campaign filter fallback`);
+        }
         
         console.log(`🎯 Fetching offers using official API structure:`, reportUrl);
 
@@ -142,11 +187,12 @@ export default async function handler(req, res) {
         }
         
         // Transform report rows to offers format with performance data
-        const offers = reportData.rows.map(row => ({
+        // Filter to only offers that are configured in this campaign (if we have that info)
+        let offers = reportData.rows.map(row => ({
             id: row.offerId,
             name: row.offerName || `Offer ${row.offerId}`,
-            url: row.offerUrl || '', // URL might be in the report data
-            status: 'active', // Assume active if has recent activity
+            url: row.offerUrl || '',
+            status: 'active',
             visits: row.visits || 0,
             clicks: row.clicks || 0,
             conversions: row.conversions || 0,
@@ -156,6 +202,13 @@ export default async function handler(req, res) {
             ctr: row.ctr || 0,
             roas: row.cost > 0 ? (row.revenue / row.cost) : 0
         }));
+
+        // Additional filtering: if we have campaign offer IDs, only include those
+        if (campaignOfferIds.length > 0) {
+            const beforeCount = offers.length;
+            offers = offers.filter(offer => campaignOfferIds.includes(offer.id));
+            console.log(`🔍 Filtered from ${beforeCount} to ${offers.length} offers based on campaign configuration`);
+        }
         
         console.log(`📋 Found ${offers.length} offers with activity for campaign ${campaignId}`);
 
