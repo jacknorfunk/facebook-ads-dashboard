@@ -1294,11 +1294,13 @@
 
         async function showCampaignOffers(campaignId, campaignName) {
             console.log('🎯 Showing offers for campaign:', campaignId, campaignName);
+            console.log('📊 Selected campaign data:', allCampaigns.find(c => c.id === campaignId));
             
             // Find the selected campaign
             const selectedCampaign = allCampaigns.find(c => c.id === campaignId);
             if (!selectedCampaign) {
-                console.error('Campaign not found:', campaignId);
+                console.error('❌ Campaign not found:', campaignId);
+                console.log('Available campaigns:', allCampaigns.map(c => ({ id: c.id, name: c.name })));
                 return;
             }
             
@@ -1315,7 +1317,8 @@
             // Populate campaign summary
             populateCampaignSummary(selectedCampaign);
             
-            // Load offers data
+            // Load offers data - this should be campaign-specific
+            console.log('🔄 Loading offers specifically for campaign:', campaignId);
             await loadCampaignOffers(campaignId);
         }
 
@@ -1393,70 +1396,135 @@
             console.log('🔍 Fetching Voluum offers for campaign:', campaignId);
             
             try {
-                const offersResponse = await fetch(`/api/voluum/campaign/${campaignId}/offers`);
-                if (!offersResponse.ok) {
-                    throw new Error('Failed to fetch campaign offers');
+                // Method 1: Try to get offers specifically for this campaign
+                let offersResponse = await fetch(`/api/voluum/campaign/${campaignId}/offers`);
+                let offersData = null;
+                
+                if (offersResponse.ok) {
+                    offersData = await offersResponse.json();
+                    console.log('✅ Got campaign-specific offers:', offersData);
+                } else {
+                    console.warn('⚠️ Campaign-specific offers API failed, trying reports method');
+                    
+                    // Method 2: Use reports API with campaign filter
+                    const reportsResponse = await fetch(`/api/voluum/reports/offer?campaignId=${campaignId}&range=last7days`);
+                    if (reportsResponse.ok) {
+                        const reportsData = await reportsResponse.json();
+                        // Transform reports data to offers format
+                        offersData = {
+                            offers: reportsData.offers || []
+                        };
+                        console.log('✅ Got offers from reports API:', offersData);
+                    }
                 }
                 
-                const offersData = await offersResponse.json();
+                if (!offersData || !offersData.offers || offersData.offers.length === 0) {
+                    console.warn('⚠️ No offers found for campaign, this might be expected');
+                    return [];
+                }
+                
                 const offers = [];
                 
-                for (const offer of offersData.offers || []) {
+                for (const offer of offersData.offers) {
                     try {
+                        // Get detailed metrics for this specific offer + campaign combination
                         const metricsResponse = await fetch(`/api/voluum/reports/offer/${offer.id}?campaignId=${campaignId}&range=last7days`);
                         const metrics = metricsResponse.ok ? await metricsResponse.json() : {};
                         
-                        offers.push({
-                            id: offer.id,
-                            name: offer.name || `Offer ${offer.id}`,
-                            url: offer.url,
-                            status: offer.status || 'active',
-                            revenue: metrics.revenue || 0,
-                            cost: metrics.cost || 0,
-                            roas: metrics.cost > 0 ? (metrics.revenue / metrics.cost) : 0,
-                            conversions: metrics.conversions || 0,
-                            clicks: metrics.clicks || 0,
-                            conversionRate: metrics.clicks > 0 ? (metrics.conversions / metrics.clicks) : 0
-                        });
+                        // Only include offers that have activity for this campaign
+                        if (metrics.visits > 0 || metrics.conversions > 0 || metrics.revenue > 0) {
+                            offers.push({
+                                id: offer.id,
+                                name: offer.name || `Offer ${offer.id}`,
+                                url: offer.url,
+                                status: offer.status || 'active',
+                                revenue: metrics.revenue || 0,
+                                cost: metrics.cost || 0,
+                                roas: metrics.cost > 0 ? (metrics.revenue / metrics.cost) : 0,
+                                conversions: metrics.conversions || 0,
+                                clicks: metrics.clicks || 0,
+                                visits: metrics.visits || 0,
+                                conversionRate: metrics.clicks > 0 ? (metrics.conversions / metrics.clicks) : 0,
+                                campaignId: campaignId // Track which campaign this is for
+                            });
+                        } else {
+                            console.log(`⏭️ Skipping offer ${offer.id} - no activity for campaign ${campaignId}`);
+                        }
                     } catch (offerError) {
+                        console.warn(`⚠️ Error fetching metrics for offer ${offer.id}:`, offerError);
+                        // Only add offer with basic info if it's specifically associated with this campaign
                         offers.push({
                             id: offer.id,
                             name: offer.name || `Offer ${offer.id}`,
                             url: offer.url,
                             status: offer.status || 'active',
-                            revenue: 0, cost: 0, roas: 0, conversions: 0, clicks: 0, conversionRate: 0
+                            revenue: 0, cost: 0, roas: 0, conversions: 0, clicks: 0, visits: 0, conversionRate: 0,
+                            campaignId: campaignId
                         });
                     }
                 }
                 
+                console.log(`✅ Filtered to ${offers.length} offers with activity for campaign ${campaignId}`);
                 return offers;
                 
             } catch (error) {
+                console.error('❌ Error fetching campaign offers:', error);
                 throw error;
             }
         }
 
         function generateSimulatedOffers(campaign) {
-            const numOffers = Math.floor(Math.random() * 4) + 2;
+            console.log(`🎭 Generating simulated offers for campaign: ${campaign.id} (${campaign.name})`);
+            
+            // Generate 2-4 offers per campaign (realistic number)
+            const numOffers = Math.floor(Math.random() * 3) + 2;
             const offers = [];
             const offerTypes = ['Insurance Quote', 'Financial Product', 'Lead Generation', 'E-commerce Product', 'Service Signup', 'App Download'];
             
+            // Ensure offers add up to campaign totals
+            let remainingRevenue = campaign.revenue;
+            let remainingCost = campaign.cost;
+            let remainingConversions = campaign.conversions;
+            
             for (let i = 0; i < numOffers; i++) {
-                const offerShare = Math.random() * 0.6 + 0.2;
+                // Calculate share for this offer (last offer gets remainder)
+                let offerShare;
+                if (i === numOffers - 1) {
+                    // Last offer gets remaining amounts
+                    offerShare = 1.0;
+                } else {
+                    // Random share between 0.15 and 0.6
+                    offerShare = Math.random() * 0.45 + 0.15;
+                }
+                
+                const offerRevenue = i === numOffers - 1 ? remainingRevenue : remainingRevenue * offerShare;
+                const offerCost = i === numOffers - 1 ? remainingCost : remainingCost * offerShare;
+                const offerConversions = i === numOffers - 1 ? remainingConversions : Math.floor(remainingConversions * offerShare);
+                
+                // Update remaining amounts
+                remainingRevenue -= offerRevenue;
+                remainingCost -= offerCost;
+                remainingConversions -= offerConversions;
+                
+                const offerClicks = Math.floor(campaign.visits * 0.02 * offerShare);
+                
                 offers.push({
                     id: `offer_${campaign.id}_${i + 1}`,
-                    name: `${offerTypes[i % offerTypes.length]} ${i + 1}`,
-                    url: `https://example.com/offer/${i + 1}`,
-                    status: Math.random() > 0.8 ? 'paused' : 'active',
-                    revenue: campaign.revenue * offerShare,
-                    cost: campaign.cost * offerShare,
-                    roas: campaign.currentRoas * (0.8 + Math.random() * 0.4),
-                    conversions: Math.floor(campaign.conversions * offerShare),
-                    clicks: Math.floor(campaign.visits * 0.02 * offerShare),
-                    conversionRate: Math.random() * 0.1
+                    name: `${campaign.name.split(' ')[0]} - ${offerTypes[i % offerTypes.length]} ${i + 1}`,
+                    url: `https://example.com/offer/${campaign.id}_${i + 1}`,
+                    status: Math.random() > 0.85 ? 'paused' : 'active',
+                    revenue: Math.max(0, offerRevenue),
+                    cost: Math.max(0, offerCost),
+                    roas: offerCost > 0 ? (offerRevenue / offerCost) : 0,
+                    conversions: Math.max(0, offerConversions),
+                    clicks: Math.max(0, offerClicks),
+                    visits: Math.floor(campaign.visits * offerShare),
+                    conversionRate: offerClicks > 0 ? (offerConversions / offerClicks) : 0,
+                    campaignId: campaign.id // Explicitly tie to this campaign
                 });
             }
             
+            console.log(`✅ Generated ${offers.length} offers for campaign ${campaign.id}:`, offers.map(o => `${o.name} ($${o.revenue.toFixed(2)})`));
             return offers.sort((a, b) => b.revenue - a.revenue);
         }
 

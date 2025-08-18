@@ -113,24 +113,59 @@ export default async function handler(req, res) {
             console.log(`📋 Found ${offers.length} offers in landing pages`);
         }
 
-        // Step 4: If no offers found in campaign, try fetching all offers and filter
+        // Step 4: If no offers found in campaign, try using reports API to find offers with activity
         if (offers.length === 0) {
-            console.log('🔍 No offers found in campaign structure, fetching all offers...');
+            console.log('🔍 No offers found in campaign structure, trying reports API...');
             
-            const allOffersResponse = await fetch('https://api.voluum.com/offer', {
-                method: 'GET',
-                headers: {
-                    'cwauth-token': authToken,
-                    'Accept': 'application/json'
-                }
-            });
+            try {
+                // Use reports API to find offers that have activity for this campaign
+                const reportQuery = {
+                    from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                    to: new Date().toISOString(),
+                    tz: 'Etc/GMT',
+                    columns: ['offerId', 'offerName', 'visits', 'conversions', 'revenue', 'cost'],
+                    filters: [
+                        {
+                            column: 'campaignId',
+                            operator: 'EQUALS',
+                            value: campaignId
+                        }
+                    ],
+                    groupBy: ['offerId', 'offerName']
+                };
 
-            if (allOffersResponse.ok) {
-                const allOffersData = await allOffersResponse.json();
-                // Filter offers that might be associated with this campaign
-                // This is a fallback method as direct association might not be available
-                offers = allOffersData.offers || [];
-                console.log(`📋 Fetched ${offers.length} total offers as fallback`);
+                const reportResponse = await fetch('https://api.voluum.com/report', {
+                    method: 'POST',
+                    headers: {
+                        'cwauth-token': authToken,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(reportQuery)
+                });
+
+                if (reportResponse.ok) {
+                    const reportData = await reportResponse.json();
+                    console.log('📊 Report data for campaign offers:', reportData);
+                    
+                    // Transform report rows to offers format
+                    offers = (reportData.rows || []).map(row => ({
+                        id: row.offerId,
+                        name: row.offerName || `Offer ${row.offerId}`,
+                        url: '', // URL not available in reports
+                        status: 'active', // Assume active if has recent activity
+                        visits: row.visits || 0,
+                        conversions: row.conversions || 0,
+                        revenue: row.revenue || 0,
+                        cost: row.cost || 0
+                    }));
+                    
+                    console.log(`📋 Found ${offers.length} offers with activity for campaign ${campaignId}`);
+                } else {
+                    console.warn('⚠️ Reports API also failed, campaign may have no offers');
+                }
+            } catch (reportError) {
+                console.warn('⚠️ Error using reports API:', reportError);
             }
         }
 
