@@ -1459,7 +1459,7 @@
                     // (which already includes performance metrics for this specific campaign)
                     
                     // Only include offers that have activity for this specific campaign
-                    if (offer.visits > 0 || offer.conversions > 0 || offer.revenue > 0) {
+                    if (offer.conversions > 0 || offer.revenue >= 50) {
                         offers.push({
                             id: offer.id,
                             name: offer.name || `Offer ${offer.id}`,
