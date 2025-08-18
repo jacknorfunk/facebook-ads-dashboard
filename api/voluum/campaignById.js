@@ -1,4 +1,4 @@
-// /api/voluum/campaignById.js - Simple Vercel Compatible Version
+// /api/voluum/campaignById.js - Enhanced Debug Version
 
 export default async function handler(req, res) {
     // Set CORS headers
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
         });
     }
 
-    console.log(`🎯 Simple Campaign API - Fetching details for: ${campaignId}`);
+    console.log(`🎯 Enhanced Campaign API - Fetching details for: ${campaignId}`);
 
     try {
         // Get auth token from environment variables
@@ -47,97 +47,150 @@ export default async function handler(req, res) {
 
         console.log('✅ Auth token found, making API request...');
 
-        // Try the bulk select endpoint first
+        // ENHANCED: First get the campaigns from the working endpoint to find this campaign
         let campaignData = null;
         let dataSource = 'unknown';
+        let debugInfo = {
+            searchAttempts: [],
+            campaignFound: false,
+            availableCampaignIds: []
+        };
 
         try {
-            console.log('📡 Trying bulk select endpoint...');
+            console.log('📡 Step 1: Getting all campaigns from working endpoint...');
             
-            const bulkResponse = await fetch('https://api.voluum.com/campaign/bulk/select', {
-                method: 'POST',
+            const currentDate = new Date();
+            const last30Days = new Date(currentDate.getTime() - (30 * 24 * 60 * 60 * 1000));
+            
+            const startDate = last30Days.toISOString().split('T')[0];
+            const endDate = currentDate.toISOString().split('T')[0];
+            
+            const campaignsUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
+            
+            console.log(`📡 Campaigns URL: ${campaignsUrl}`);
+            
+            const campaignsResponse = await fetch(campaignsUrl, {
                 headers: {
                     'cwauth-token': authToken,
                     'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    campaignIds: [campaignId]
-                })
+                }
             });
 
-            console.log(`📊 Bulk select response status: ${bulkResponse.status}`);
-
-            if (bulkResponse.ok) {
-                const bulkData = await bulkResponse.json();
-                console.log('📊 Bulk select data:', bulkData);
+            if (campaignsResponse.ok) {
+                const campaignsData = await campaignsResponse.json();
+                console.log(`📊 Found ${campaignsData.rows?.length || 0} campaigns in report`);
                 
-                if (bulkData && Array.isArray(bulkData) && bulkData.length > 0) {
-                    campaignData = bulkData[0];
-                    dataSource = 'POST /bulk/campaign/select';
-                    console.log('✅ Campaign data found via bulk select');
+                debugInfo.searchAttempts.push({
+                    method: 'campaigns_report',
+                    status: 'success',
+                    campaignsFound: campaignsData.rows?.length || 0
+                });
+
+                if (campaignsData.rows && campaignsData.columns) {
+                    // Extract all campaign IDs for debugging
+                    const campaignIdIndex = campaignsData.columns.indexOf('campaignId');
+                    const campaignNameIndex = campaignsData.columns.indexOf('campaignName');
+                    
+                    if (campaignIdIndex >= 0) {
+                        debugInfo.availableCampaignIds = campaignsData.rows.map(row => ({
+                            id: row[campaignIdIndex],
+                            name: campaignNameIndex >= 0 ? row[campaignNameIndex] : 'Unknown'
+                        })).slice(0, 10); // First 10 for debugging
+                    }
+                    
+                    // Find the specific campaign
+                    const campaignRow = campaignsData.rows.find(row => {
+                        return campaignIdIndex >= 0 && row[campaignIdIndex] === campaignId;
+                    });
+                    
+                    if (campaignRow) {
+                        console.log('✅ Campaign found in campaigns report');
+                        debugInfo.campaignFound = true;
+                        
+                        // Convert row data to object
+                        campaignData = {};
+                        campaignsData.columns.forEach((column, index) => {
+                            campaignData[column] = campaignRow[index];
+                        });
+                        
+                        dataSource = 'campaigns_report';
+                    } else {
+                        console.log(`⚠️ Campaign ${campaignId} not found in campaigns report`);
+                        
+                        // Check if any campaign names contain "taboola" for debugging
+                        const taboolaCampaigns = campaignsData.rows.filter(row => {
+                            const name = campaignNameIndex >= 0 ? row[campaignNameIndex] : '';
+                            return name && name.toLowerCase().includes('taboola');
+                        });
+                        
+                        debugInfo.taboolaCampaignsFound = taboolaCampaigns.length;
+                        debugInfo.sampleTaboolaCampaigns = taboolaCampaigns.slice(0, 3).map(row => ({
+                            id: campaignIdIndex >= 0 ? row[campaignIdIndex] : 'unknown',
+                            name: campaignNameIndex >= 0 ? row[campaignNameIndex] : 'unknown'
+                        }));
+                    }
                 }
             } else {
-                const errorText = await bulkResponse.text();
-                console.log(`⚠️ Bulk select failed: ${bulkResponse.status} - ${errorText}`);
+                const errorText = await campaignsResponse.text();
+                console.log(`⚠️ Campaigns report failed: ${campaignsResponse.status} - ${errorText}`);
+                debugInfo.searchAttempts.push({
+                    method: 'campaigns_report',
+                    status: 'failed',
+                    error: `${campaignsResponse.status}: ${errorText}`
+                });
             }
-        } catch (bulkError) {
-            console.log('⚠️ Bulk select error:', bulkError.message);
+        } catch (campaignsError) {
+            console.log('⚠️ Campaigns report error:', campaignsError.message);
+            debugInfo.searchAttempts.push({
+                method: 'campaigns_report',
+                status: 'error',
+                error: campaignsError.message
+            });
         }
 
-        // If bulk select failed, try to find the campaign in the existing campaigns list
+        // If not found in campaigns report, try bulk select anyway
         if (!campaignData) {
-            console.log('📡 Trying to find campaign in campaigns list...');
-            
             try {
-                // Use the same approach as the working campaigns endpoint
-                const currentDate = new Date();
-                const last7Days = new Date(currentDate.getTime() - (7 * 24 * 60 * 60 * 1000));
+                console.log('📡 Step 2: Trying bulk select endpoint...');
                 
-                const startDate = last7Days.toISOString().split('T')[0];
-                const endDate = currentDate.toISOString().split('T')[0];
-                
-                const reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
-                
-                console.log(`📡 Fetching campaigns from: ${reportUrl}`);
-                
-                const reportResponse = await fetch(reportUrl, {
+                const bulkResponse = await fetch('https://api.voluum.com/campaign/bulk/select', {
+                    method: 'POST',
                     headers: {
                         'cwauth-token': authToken,
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    body: JSON.stringify({
+                        campaignIds: [campaignId]
+                    })
                 });
 
-                if (reportResponse.ok) {
-                    const reportData = await reportResponse.json();
-                    console.log(`📊 Report data: ${reportData.rows?.length || 0} campaigns found`);
+                console.log(`📊 Bulk select response status: ${bulkResponse.status}`);
+                debugInfo.searchAttempts.push({
+                    method: 'bulk_select',
+                    status: bulkResponse.status
+                });
+
+                if (bulkResponse.ok) {
+                    const bulkData = await bulkResponse.json();
+                    console.log('📊 Bulk select data:', bulkData);
                     
-                    if (reportData.rows && reportData.columns) {
-                        // Find the campaign in the report data
-                        const campaignRow = reportData.rows.find(row => {
-                            const campaignIdIndex = reportData.columns.indexOf('campaignId');
-                            return campaignIdIndex >= 0 && row[campaignIdIndex] === campaignId;
-                        });
-                        
-                        if (campaignRow) {
-                            console.log('✅ Campaign found in report data');
-                            
-                            // Convert row data to object
-                            campaignData = {};
-                            reportData.columns.forEach((column, index) => {
-                                campaignData[column] = campaignRow[index];
-                            });
-                            
-                            dataSource = 'Report API search';
-                        } else {
-                            console.log(`⚠️ Campaign ${campaignId} not found in report data`);
-                        }
+                    if (bulkData && Array.isArray(bulkData) && bulkData.length > 0) {
+                        campaignData = bulkData[0];
+                        dataSource = 'bulk_select';
+                        debugInfo.campaignFound = true;
+                        console.log('✅ Campaign data found via bulk select');
                     }
                 } else {
-                    const errorText = await reportResponse.text();
-                    console.log(`⚠️ Report API failed: ${reportResponse.status} - ${errorText}`);
+                    const errorText = await bulkResponse.text();
+                    console.log(`⚠️ Bulk select failed: ${bulkResponse.status} - ${errorText}`);
                 }
-            } catch (reportError) {
-                console.log('⚠️ Report API error:', reportError.message);
+            } catch (bulkError) {
+                console.log('⚠️ Bulk select error:', bulkError.message);
+                debugInfo.searchAttempts.push({
+                    method: 'bulk_select',
+                    status: 'error',
+                    error: bulkError.message
+                });
             }
         }
 
@@ -149,7 +202,10 @@ export default async function handler(req, res) {
                 dataSource: 'No data source worked',
                 debug: {
                     campaignId: campaignId,
-                    searchedMethods: ['bulk_select', 'report_api'],
+                    searchAttempts: debugInfo.searchAttempts,
+                    availableCampaignIds: debugInfo.availableCampaignIds,
+                    taboolaCampaignsFound: debugInfo.taboolaCampaignsFound,
+                    sampleTaboolaCampaigns: debugInfo.sampleTaboolaCampaigns,
                     timestamp: new Date().toISOString()
                 }
             });
@@ -164,10 +220,11 @@ export default async function handler(req, res) {
             success: true,
             campaign: processedCampaign,
             dataSource: dataSource,
+            debug: debugInfo,
             metadata: {
                 campaignId: campaignId,
                 lastUpdated: new Date().toISOString(),
-                apiVersion: 'simple_vercel_v1'
+                apiVersion: 'enhanced_debug_v1'
             }
         });
 
