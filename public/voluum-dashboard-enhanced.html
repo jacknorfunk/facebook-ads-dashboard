@@ -1442,41 +1442,29 @@
                 const offers = [];
                 
                 for (const offer of offersData.offers) {
-                    try {
-                        // Get detailed metrics for this specific offer + campaign combination
-                        const metricsResponse = await fetch(`/api/voluum/reports/offer/${offer.id}?campaignId=${campaignId}&range=last7days`);
-                        const metrics = metricsResponse.ok ? await metricsResponse.json() : {};
-                        
-                        // Only include offers that have activity for this campaign
-                        if (metrics.visits > 0 || metrics.conversions > 0 || metrics.revenue > 0) {
-                            offers.push({
-                                id: offer.id,
-                                name: offer.name || `Offer ${offer.id}`,
-                                url: offer.url,
-                                status: offer.status || 'active',
-                                revenue: metrics.revenue || 0,
-                                cost: metrics.cost || 0,
-                                roas: metrics.cost > 0 ? (metrics.revenue / metrics.cost) : 0,
-                                conversions: metrics.conversions || 0,
-                                clicks: metrics.clicks || 0,
-                                visits: metrics.visits || 0,
-                                conversionRate: metrics.clicks > 0 ? (metrics.conversions / metrics.clicks) : 0,
-                                campaignId: campaignId // Track which campaign this is for
-                            });
-                        } else {
-                            console.log(`⏭️ Skipping offer ${offer.id} - no activity for campaign ${campaignId}`);
-                        }
-                    } catch (offerError) {
-                        console.warn(`⚠️ Error fetching metrics for offer ${offer.id}:`, offerError);
-                        // Only add offer with basic info if it's specifically associated with this campaign
+                    // Use the offer data directly from the campaign offers API 
+                    // (which already includes performance metrics for this specific campaign)
+                    
+                    // Only include offers that have activity for this specific campaign
+                    if (offer.visits > 0 || offer.conversions > 0 || offer.revenue > 0) {
                         offers.push({
                             id: offer.id,
                             name: offer.name || `Offer ${offer.id}`,
                             url: offer.url,
                             status: offer.status || 'active',
-                            revenue: 0, cost: 0, roas: 0, conversions: 0, clicks: 0, visits: 0, conversionRate: 0,
+                            revenue: offer.revenue || 0,
+                            cost: offer.cost || 0,
+                            roas: offer.roas || (offer.cost > 0 ? (offer.revenue / offer.cost) : 0),
+                            conversions: offer.conversions || 0,
+                            clicks: offer.clicks || 0,
+                            visits: offer.visits || 0,
+                            conversionRate: offer.cvr || (offer.clicks > 0 ? (offer.conversions / offer.clicks) : 0),
+                            ctr: offer.ctr || 0,
                             campaignId: campaignId
                         });
+                        console.log(`✅ Added offer "${offer.name}" with ${offer.visits} visits, ${offer.conversions} conversions, $${offer.revenue} revenue`);
+                    } else {
+                        console.log(`⏭️ Skipping offer "${offer.name}" - no activity for campaign ${campaignId} (${offer.visits} visits, ${offer.conversions} conversions, $${offer.revenue} revenue)`);
                     }
                 }
                 
