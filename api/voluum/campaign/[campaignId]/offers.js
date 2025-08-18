@@ -54,51 +54,68 @@ export default async function handler(req, res) {
 
         console.log('✅ Voluum session created successfully');
 
-        // Step 2: Use reports API to get offers with performance data for this campaign
-        console.log(`📊 Using reports API to get offers for campaign ${campaignId}...`);
+        // Step 2: Use reports API following the same pattern as campaigns.js
+        // Calculate date range (last 7 days) 
+        const endDate = new Date();
+        const startDate = new Date(endDate.getTime() - (7 * 24 * 60 * 60 * 1000));
         
-        // Calculate date range (last 7 days)
-        const reportQuery = {
-            from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            to: new Date().toISOString(),
-            tz: 'Etc/GMT',
-            columns: ['offerId', 'offerName', 'visits', 'clicks', 'conversions', 'revenue', 'cost', 'cvr', 'ctr'],
-            filters: [
-                {
-                    column: 'campaignId',
-                    operator: 'EQUALS',
-                    value: campaignId
-                }
-            ],
-            groupBy: ['offerId', 'offerName']
-        };
+        const startDateStr = startDate.toISOString().split('T')[0];
+        const endDateStr = endDate.toISOString().split('T')[0];
+        
+        console.log(`📊 Fetching offers for campaign ${campaignId} from ${startDateStr} to ${endDateStr}`);
+        
+        // Build report URL following the same pattern as campaigns.js
+        // Group by offer and filter by campaign
+        const reportUrl = `https://api.voluum.com/report?from=${startDateStr}T00:00:00Z&to=${endDateStr}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
+        
+        console.log(`🎯 Fetching offers using official API structure:`, reportUrl);
 
-        console.log('📋 Report query:', JSON.stringify(reportQuery, null, 2));
-
-        const reportResponse = await fetch('https://api.voluum.com/report', {
-            method: 'POST',
+        const reportResponse = await fetch(reportUrl, {
+            method: 'GET',
             headers: {
                 'cwauth-token': authToken,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(reportQuery)
+                'Content-Type': 'application/json'
+            }
         });
 
         if (!reportResponse.ok) {
             const errorText = await reportResponse.text();
-            console.error('❌ Reports API failed:', errorText);
-            throw new Error(`Failed to fetch campaign offers from reports: ${reportResponse.status} - ${errorText}`);
+            console.error('❌ Offers report API failed:', errorText);
+            throw new Error(`Failed to fetch campaign offers: ${reportResponse.status} - ${errorText}`);
         }
 
         const reportData = await reportResponse.json();
-        console.log('📊 Report data for campaign offers:', reportData);
+        console.log('📊 Raw offers report data:', {
+            hasRows: !!reportData.rows,
+            rowCount: reportData.rows?.length || 0,
+            hasColumns: !!reportData.columns,
+            sampleRow: reportData.rows?.[0]
+        });
+        
+        if (!reportData.rows || reportData.rows.length === 0) {
+            console.log(`⚠️ No offers found for campaign ${campaignId} in the specified date range`);
+            return res.status(200).json({
+                success: true,
+                offers: [],
+                metadata: {
+                    campaignId: campaignId,
+                    offerCount: 0,
+                    message: 'No offers found for this campaign in the selected date range',
+                    fetchTime: new Date().toISOString(),
+                    source: 'voluum_reports_api',
+                    dateRange: {
+                        from: startDateStr,
+                        to: endDateStr
+                    }
+                }
+            });
+        }
         
         // Transform report rows to offers format with performance data
-        const offers = (reportData.rows || []).map(row => ({
+        const offers = reportData.rows.map(row => ({
             id: row.offerId,
             name: row.offerName || `Offer ${row.offerId}`,
-            url: '', // URL not available in reports, will be fetched separately if needed
+            url: row.offerUrl || '', // URL might be in the report data
             status: 'active', // Assume active if has recent activity
             visits: row.visits || 0,
             clicks: row.clicks || 0,
@@ -106,53 +123,25 @@ export default async function handler(req, res) {
             revenue: row.revenue || 0,
             cost: row.cost || 0,
             cvr: row.cvr || 0,
-            ctr: row.ctr || 0
+            ctr: row.ctr || 0,
+            roas: row.cost > 0 ? (row.revenue / row.cost) : 0
         }));
         
         console.log(`📋 Found ${offers.length} offers with activity for campaign ${campaignId}`);
 
-        // Step 3: Optionally enrich offers with additional details (URL, etc.)
-        const enrichedOffers = await Promise.all(offers.map(async (offer) => {
-            try {
-                // Try to get detailed offer information for URL and other details
-                const offerDetailResponse = await fetch(`https://api.voluum.com/offer/${offer.id}`, {
-                    method: 'GET',
-                    headers: {
-                        'cwauth-token': authToken,
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (offerDetailResponse.ok) {
-                    const detailedOffer = await offerDetailResponse.json();
-                    return {
-                        ...offer,
-                        // Add URL and other details from offer API
-                        url: detailedOffer.url || offer.url,
-                        status: detailedOffer.status || offer.status
-                    };
-                }
-            } catch (error) {
-                console.warn(`⚠️ Could not fetch details for offer ${offer.id}:`, error.message);
-            }
-            
-            // Return offer with performance data even if details fetch failed
-            return offer;
-        }));
-
-        console.log(`✅ Successfully processed ${enrichedOffers.length} offers with performance data`);
+        console.log(`✅ Successfully processed ${offers.length} offers with performance data`);
 
         return res.status(200).json({
             success: true,
-            offers: enrichedOffers,
+            offers: offers,
             metadata: {
                 campaignId: campaignId,
-                offerCount: enrichedOffers.length,
+                offerCount: offers.length,
                 fetchTime: new Date().toISOString(),
                 source: 'voluum_reports_api',
                 dateRange: {
-                    from: reportQuery.from,
-                    to: reportQuery.to
+                    from: startDateStr,
+                    to: endDateStr
                 }
             }
         });
