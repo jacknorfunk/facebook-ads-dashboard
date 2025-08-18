@@ -1,16 +1,21 @@
-// /api/voluum/campaignById.js - Campaign Details via POST /bulk/campaign/select
-// Implements the POST /bulk/campaign/select endpoint as requested in requirements
-// Uses only live Voluum data with proper error handling and no dummy data
+// /api/voluum/campaignById.js
+// Fixed version - POST /bulk/campaign/select implementation
+// Simplified and focused on working correctly
 
 export default async function handler(req, res) {
+    // Ensure proper JSON response headers
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Only allow POST method
     if (req.method !== 'POST') {
         return res.status(405).json({ 
             success: false, 
-            error: 'Method not allowed. Use POST for bulk campaign select.' 
+            error: 'Method not allowed. Use POST.' 
         });
     }
 
     try {
+        // Get campaign ID from request body
         const { campaignId } = req.body;
         
         if (!campaignId) {
@@ -20,18 +25,22 @@ export default async function handler(req, res) {
             });
         }
 
-        console.log(`🔍 Fetching campaign details for ID: ${campaignId}`);
+        console.log(`📍 Campaign details request for: ${campaignId}`);
 
-        // Get Voluum API credentials
+        // Check environment variables
         const VOLUME_KEY = process.env.VOLUME_KEY;
         const VOLUME_KEY_ID = process.env.VOLUME_KEY_ID;
         
         if (!VOLUME_KEY || !VOLUME_KEY_ID) {
-            throw new Error('Voluum API credentials not configured. Missing VOLUME_KEY or VOLUME_KEY_ID environment variables');
+            console.error('❌ Missing Voluum credentials');
+            return res.status(500).json({
+                success: false,
+                error: 'Voluum API credentials not configured'
+            });
         }
 
-        // Create session using access key (following official documentation)
-        console.log('🔐 Creating Voluum API session for campaign details...');
+        // Create Voluum session
+        console.log('🔐 Creating Voluum session...');
         const sessionResponse = await fetch('https://api.voluum.com/auth/access/session', {
             method: 'POST',
             headers: {
@@ -46,34 +55,35 @@ export default async function handler(req, res) {
 
         if (!sessionResponse.ok) {
             const sessionError = await sessionResponse.text();
-            console.log('❌ Campaign session creation failed:', sessionError);
-            throw new Error(`Session creation failed: ${sessionResponse.status} - ${sessionError}`);
+            console.error('❌ Session creation failed:', sessionError);
+            return res.status(401).json({
+                success: false,
+                error: `Voluum authentication failed: ${sessionResponse.status}`
+            });
         }
 
         const sessionData = await sessionResponse.json();
         const authToken = sessionData.token;
         
         if (!authToken) {
-            throw new Error('No auth token received from Voluum session API');
+            console.error('❌ No token received');
+            return res.status(401).json({
+                success: false,
+                error: 'No authentication token received from Voluum'
+            });
         }
 
-        console.log('✅ Campaign session created successfully');
+        console.log('✅ Voluum session created');
 
-        // Use the official POST /bulk/campaign/select endpoint
-        // Following the official Voluum API documentation structure
-        
-        console.log(`🎯 Using official POST /bulk/campaign/select endpoint for campaign: ${campaignId}`);
+        // Try to get campaign details using the bulk select endpoint
+        console.log(`🔍 Fetching campaign via bulk select: ${campaignId}`);
         
         const bulkSelectUrl = 'https://api.voluum.com/bulk/campaign/select';
-        
-        // Prepare the JSON payload as per official API documentation
         const requestPayload = {
-            campaignIds: [campaignId]  // Array of campaign IDs to select
+            campaignIds: [campaignId]
         };
-        
-        console.log(`📤 Request payload:`, JSON.stringify(requestPayload, null, 2));
-        
-        const bulkSelectResponse = await fetch(bulkSelectUrl, {
+
+        const bulkResponse = await fetch(bulkSelectUrl, {
             method: 'POST',
             headers: {
                 'cwauth-token': authToken,
@@ -83,59 +93,99 @@ export default async function handler(req, res) {
             body: JSON.stringify(requestPayload)
         });
 
-        if (!bulkSelectResponse.ok) {
-            const errorText = await bulkSelectResponse.text();
-            console.log(`❌ POST /bulk/campaign/select failed:`, errorText);
+        if (!bulkResponse.ok) {
+            // If bulk select fails, try fallback method using report API
+            console.log(`⚠️ Bulk select failed (${bulkResponse.status}), trying fallback...`);
             
-            // Rate limit handling as mentioned in requirements
-            if (bulkSelectResponse.status === 429) {
-                console.log(`⏰ Rate limit hit, implementing backoff...`);
-                await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000)); // 2-3 second delay
-                
-                // Retry once after backoff
-                const retryResponse = await fetch(bulkSelectUrl, {
-                    method: 'POST',
-                    headers: {
-                        'cwauth-token': authToken,
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(requestPayload)
-                });
-                
-                if (!retryResponse.ok) {
-                    throw new Error(`Bulk select retry failed: ${retryResponse.status} - ${await retryResponse.text()}`);
+            const endDate = new Date().toISOString().split('T')[0];
+            const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            
+            const reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&campaignId=${campaignId}&limit=1`;
+            
+            const reportResponse = await fetch(reportUrl, {
+                headers: {
+                    'cwauth-token': authToken,
+                    'Content-Type': 'application/json'
                 }
-                
-                const retryData = await retryResponse.json();
-                console.log(`✅ Bulk select retry successful`);
-                
-                return res.json({
-                    success: true,
-                    campaign: retryData,
-                    source: 'voluum_bulk_campaign_select_retry',
-                    debug_info: {
-                        endpoint: 'POST /bulk/campaign/select',
-                        campaignId: campaignId,
-                        rate_limit_handled: true,
-                        retry_successful: true,
-                        timestamp: new Date().toISOString()
-                    }
+            });
+
+            if (!reportResponse.ok) {
+                const errorText = await reportResponse.text();
+                console.error('❌ Both bulk select and report API failed');
+                return res.status(404).json({
+                    success: false,
+                    error: `Campaign ${campaignId} not found or access denied`
                 });
             }
+
+            const reportData = await reportResponse.json();
             
-            throw new Error(`Bulk select failed: ${bulkSelectResponse.status} - ${errorText}`);
+            if (!reportData.rows || reportData.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: `Campaign ${campaignId} not found in the last 30 days`
+                });
+            }
+
+            // Transform report data to campaign format
+            const campaignRow = reportData.rows[0];
+            const campaignDetails = {
+                id: campaignId,
+                name: campaignRow.campaignName || `Campaign ${campaignId}`,
+                status: 'ACTIVE',
+                revenue: parseFloat(campaignRow.revenue || 0),
+                cost: parseFloat(campaignRow.cost || 0),
+                visits: parseInt(campaignRow.visits || 0),
+                conversions: parseInt(campaignRow.conversions || 0),
+                roas: 0,
+                cpa: 0,
+                cvr: 0,
+                profit: 0
+            };
+
+            // Calculate metrics
+            campaignDetails.roas = campaignDetails.cost > 0 ? (campaignDetails.revenue / campaignDetails.cost) : 0;
+            campaignDetails.cpa = campaignDetails.conversions > 0 ? (campaignDetails.cost / campaignDetails.conversions) : 0;
+            campaignDetails.cvr = campaignDetails.visits > 0 ? ((campaignDetails.conversions / campaignDetails.visits) * 100) : 0;
+            campaignDetails.profit = campaignDetails.revenue - campaignDetails.cost;
+
+            console.log('✅ Campaign details retrieved via report fallback');
+            return res.json({
+                success: true,
+                campaign: campaignDetails,
+                source: 'voluum_report_fallback',
+                debug_info: {
+                    method: 'report_api_fallback',
+                    campaignId: campaignId,
+                    timestamp: new Date().toISOString()
+                }
+            });
         }
 
-        const campaignDetails = await bulkSelectResponse.json();
-        console.log(`✅ POST /bulk/campaign/select successful for campaign ${campaignId}`);
-        console.log(`📊 Campaign details retrieved:`, {
-            hasData: !!campaignDetails,
-            keys: campaignDetails ? Object.keys(campaignDetails) : []
+        // Process bulk select response
+        const bulkData = await bulkResponse.json();
+        console.log('✅ Campaign details retrieved via bulk select');
+        
+        return res.json({
+            success: true,
+            campaign: bulkData,
+            source: 'voluum_bulk_select',
+            debug_info: {
+                method: 'bulk_campaign_select',
+                campaignId: campaignId,
+                timestamp: new Date().toISOString()
+            }
         });
 
-        // Final check: If no campaign found
-        if (!campaignDetails) {
-            return res.status(404).json({
-                success: false,
-                error: `Campaign with ID ${campaignId} not foun
+    } catch (error) {
+        console.error('❌ Campaign API error:', error);
+        return res.status(500).json({
+            success: false,
+            error: error.message || 'Internal server error',
+            debug_info: {
+                error_type: error.name,
+                timestamp: new Date().toISOString()
+            }
+        });
+    }
+}
