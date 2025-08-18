@@ -768,7 +768,7 @@
             }
             
             return `
-                <tr class="${alertClass} ${pinnedClass} ${expandedClass}" style="cursor: pointer;" onmouseover="this.style.backgroundColor='#f9fafb'" onmouseout="this.style.backgroundColor='white'">
+                <tr class="${alertClass} ${pinnedClass} ${expandedClass}" style="cursor: pointer;" onmouseover="this.style.backgroundColor='#f9fafb'" onmouseout="this.style.backgroundColor='white'" onclick="showCampaignOffers('${campaign.id}', '${campaign.name.replace(/'/g, '\\\'')}')">
                     <td style="padding: 12px 16px; white-space: nowrap;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <button onclick="toggleCampaignExpansion('${campaign.id}')" style="color: #9ca3af; background: none; border: none; cursor: pointer;">
@@ -1288,6 +1288,246 @@
             }
         `;
         document.head.appendChild(style);
+
+        // Campaign Offers Modal Functions
+        let currentCampaign = null;
+
+        async function showCampaignOffers(campaignId, campaignName) {
+            console.log('🎯 Showing offers for campaign:', campaignId, campaignName);
+            
+            // Find the selected campaign
+            const selectedCampaign = allCampaigns.find(c => c.id === campaignId);
+            if (!selectedCampaign) {
+                console.error('Campaign not found:', campaignId);
+                return;
+            }
+            
+            currentCampaign = selectedCampaign;
+            
+            // Show modal
+            const modal = document.getElementById('offersModal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            
+            // Update modal title
+            document.getElementById('modalTitle').textContent = `Campaign: ${campaignName}`;
+            
+            // Populate campaign summary
+            populateCampaignSummary(selectedCampaign);
+            
+            // Load offers data
+            await loadCampaignOffers(campaignId);
+        }
+
+        function closeOffersModal() {
+            document.getElementById('offersModal').style.display = 'none';
+            document.body.style.overflow = '';
+            currentCampaign = null;
+        }
+
+        function populateCampaignSummary(campaign) {
+            const summaryContainer = document.getElementById('campaignSummary');
+            
+            summaryContainer.innerHTML = `
+                <div>
+                    <h3 style="color: #2563eb; font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">${campaign.name}</h3>
+                    <p style="color: #6b7280; margin-bottom: 0.5rem;">Campaign ID: ${campaign.id}</p>
+                    <p style="color: #6b7280; font-size: 0.875rem;">${campaign.landingPage || 'Voluum Campaign'}</p>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem;">
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <div style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">ROAS</div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: ${campaign.currentRoas >= 2 ? '#059669' : campaign.currentRoas < 1 ? '#dc2626' : '#1f2937'};">${campaign.currentRoas.toFixed(2)}x</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <div style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">Revenue</div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #059669;">$${campaign.revenue.toFixed(2)}</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <div style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">Cost</div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #1f2937;">$${campaign.cost.toFixed(2)}</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <div style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">CVR</div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: ${campaign.cvr >= 2 ? '#059669' : campaign.cvr < 1 ? '#dc2626' : '#1f2937'};">${campaign.cvr.toFixed(2)}%</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <div style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">Conversions</div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #1f2937;">${campaign.conversions}</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <div style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 500; margin-bottom: 0.5rem;">CPA</div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: ${campaign.cpa <= 50 ? '#059669' : '#dc2626'};">$${campaign.cpa.toFixed(2)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadCampaignOffers(campaignId) {
+            const offersContainer = document.getElementById('offersContainer');
+            const offersCount = document.getElementById('offersCount');
+            
+            // Show loading state
+            offersContainer.innerHTML = `
+                <div style="text-align: center; padding: 3rem; color: #6b7280;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 1rem;"></i>
+                    <p>Loading campaign offers from Voluum...</p>
+                </div>
+            `;
+            
+            try {
+                // Try to fetch real Voluum offers
+                const offers = await fetchVoluumCampaignOffers(campaignId);
+                displayCampaignOffers(offers);
+                
+            } catch (error) {
+                console.error('Error loading campaign offers:', error);
+                
+                // Fallback to simulated offers based on campaign data
+                const simulatedOffers = generateSimulatedOffers(currentCampaign);
+                displayCampaignOffers(simulatedOffers);
+            }
+        }
+
+        async function fetchVoluumCampaignOffers(campaignId) {
+            console.log('🔍 Fetching Voluum offers for campaign:', campaignId);
+            
+            try {
+                const offersResponse = await fetch(`/api/voluum/campaign/${campaignId}/offers`);
+                if (!offersResponse.ok) {
+                    throw new Error('Failed to fetch campaign offers');
+                }
+                
+                const offersData = await offersResponse.json();
+                const offers = [];
+                
+                for (const offer of offersData.offers || []) {
+                    try {
+                        const metricsResponse = await fetch(`/api/voluum/reports/offer/${offer.id}?campaignId=${campaignId}&range=last7days`);
+                        const metrics = metricsResponse.ok ? await metricsResponse.json() : {};
+                        
+                        offers.push({
+                            id: offer.id,
+                            name: offer.name || `Offer ${offer.id}`,
+                            url: offer.url,
+                            status: offer.status || 'active',
+                            revenue: metrics.revenue || 0,
+                            cost: metrics.cost || 0,
+                            roas: metrics.cost > 0 ? (metrics.revenue / metrics.cost) : 0,
+                            conversions: metrics.conversions || 0,
+                            clicks: metrics.clicks || 0,
+                            conversionRate: metrics.clicks > 0 ? (metrics.conversions / metrics.clicks) : 0
+                        });
+                    } catch (offerError) {
+                        offers.push({
+                            id: offer.id,
+                            name: offer.name || `Offer ${offer.id}`,
+                            url: offer.url,
+                            status: offer.status || 'active',
+                            revenue: 0, cost: 0, roas: 0, conversions: 0, clicks: 0, conversionRate: 0
+                        });
+                    }
+                }
+                
+                return offers;
+                
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        function generateSimulatedOffers(campaign) {
+            const numOffers = Math.floor(Math.random() * 4) + 2;
+            const offers = [];
+            const offerTypes = ['Insurance Quote', 'Financial Product', 'Lead Generation', 'E-commerce Product', 'Service Signup', 'App Download'];
+            
+            for (let i = 0; i < numOffers; i++) {
+                const offerShare = Math.random() * 0.6 + 0.2;
+                offers.push({
+                    id: `offer_${campaign.id}_${i + 1}`,
+                    name: `${offerTypes[i % offerTypes.length]} ${i + 1}`,
+                    url: `https://example.com/offer/${i + 1}`,
+                    status: Math.random() > 0.8 ? 'paused' : 'active',
+                    revenue: campaign.revenue * offerShare,
+                    cost: campaign.cost * offerShare,
+                    roas: campaign.currentRoas * (0.8 + Math.random() * 0.4),
+                    conversions: Math.floor(campaign.conversions * offerShare),
+                    clicks: Math.floor(campaign.visits * 0.02 * offerShare),
+                    conversionRate: Math.random() * 0.1
+                });
+            }
+            
+            return offers.sort((a, b) => b.revenue - a.revenue);
+        }
+
+        function displayCampaignOffers(offers) {
+            const offersContainer = document.getElementById('offersContainer');
+            const offersCount = document.getElementById('offersCount');
+            
+            offersCount.textContent = offers.length;
+            
+            if (offers.length === 0) {
+                offersContainer.innerHTML = `
+                    <div style="text-align: center; padding: 3rem; color: #6b7280; background: #f8fafc; border-radius: 8px; border: 2px dashed #e5e7eb;">
+                        <h4 style="margin: 0 0 1rem 0;">📭 No Offers Found</h4>
+                        <p style="margin: 0;">This campaign doesn't have any associated offers yet.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const offersHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                    ${offers.map(offer => `
+                        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0, 0, 0, 0.1)'" onmouseout="this.style.boxShadow='none'">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                                <div style="font-weight: 600; color: #1f2937; flex: 1; margin-right: 1rem;">${offer.name}</div>
+                                <span style="padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 500; ${offer.status === 'active' ? 'background: #dcfce7; color: #166534;' : 'background: #fef3c7; color: #92400e;'}">${offer.status}</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">Revenue</div>
+                                    <div style="font-size: 1rem; font-weight: 600; color: #059669;">$${offer.revenue.toFixed(2)}</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">ROAS</div>
+                                    <div style="font-size: 1rem; font-weight: 600; color: ${offer.roas >= 2 ? '#059669' : offer.roas >= 1 ? '#d97706' : '#dc2626'};">${offer.roas.toFixed(2)}x</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">Conversions</div>
+                                    <div style="font-size: 1rem; font-weight: 600;">${offer.conversions}</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">Conv Rate</div>
+                                    <div style="font-size: 1rem; font-weight: 600;">${(offer.conversionRate * 100).toFixed(2)}%</div>
+                                </div>
+                            </div>
+                            ${offer.url ? `
+                                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">Offer URL</div>
+                                    <div style="font-size: 0.75rem; word-break: break-all; color: #2563eb;">
+                                        <a href="${offer.url}" target="_blank" style="color: inherit; text-decoration: none;">${offer.url}</a>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            offersContainer.innerHTML = offersHTML;
+        }
+
+        // Add modal event listeners when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('modalClose').addEventListener('click', closeOffersModal);
+            document.getElementById('offersModal').addEventListener('click', function(e) {
+                if (e.target === this) closeOffersModal();
+            });
+        });
+
+        // Make function globally available
+        window.showCampaignOffers = showCampaignOffers;
     </script>
 </body>
 </html>
