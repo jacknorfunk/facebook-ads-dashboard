@@ -133,14 +133,58 @@ export default async function handler(req, res) {
         // Step 4: Get performance data for the campaign's offers
         let reportUrl;
         if (campaignOfferIds.length > 0) {
-            // If we have specific offer IDs, filter to just those
-            const offerFilter = campaignOfferIds.map(id => `offerId=${id}`).join('&');
-            reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&${offerFilter}&limit=1000`;
+            // If we have specific offer IDs from campaign config, use only those
             console.log(`🎯 Using campaign-specific offer IDs: ${campaignOfferIds.length} offers`);
-        } else {
-            // Fallback: use campaign filter (current method)
             reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
-            console.log(`🎯 Using campaign filter fallback`);
+        } else {
+            // If no campaign config available, try to get campaign structure from different API
+            console.log(`🔍 No offers found in campaign config, trying alternative method...`);
+            
+            try {
+                // Try bulk campaign select API to get campaign structure
+                const bulkResponse = await fetch(`https://api.voluum.com/bulk/campaign/select`, {
+                    method: 'POST',
+                    headers: {
+                        'cwauth-token': authToken,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        campaignIds: [campaignId]
+                    })
+                });
+
+                if (bulkResponse.ok) {
+                    const bulkData = await bulkResponse.json();
+                    console.log('📋 Bulk campaign data:', JSON.stringify(bulkData, null, 2));
+                    
+                    if (bulkData.campaigns && bulkData.campaigns.length > 0) {
+                        const campaign = bulkData.campaigns[0];
+                        
+                        // Extract offer IDs from bulk campaign data
+                        if (campaign.offers && Array.isArray(campaign.offers)) {
+                            campaignOfferIds = campaign.offers.map(offer => offer.id || offer.offerId).filter(Boolean);
+                            console.log(`✅ Found ${campaignOfferIds.length} offers from bulk API:`, campaignOfferIds);
+                        } else if (campaign.funnel && campaign.funnel.offers) {
+                            campaignOfferIds = campaign.funnel.offers.map(offer => offer.id || offer.offerId).filter(Boolean);
+                            console.log(`✅ Found ${campaignOfferIds.length} offers from funnel:`, campaignOfferIds);
+                        } else if (campaign.landingPages) {
+                            campaign.landingPages.forEach(lp => {
+                                if (lp.offers && Array.isArray(lp.offers)) {
+                                    const lpOffers = lp.offers.map(offer => offer.id || offer.offerId).filter(Boolean);
+                                    campaignOfferIds.push(...lpOffers);
+                                }
+                            });
+                            console.log(`✅ Found ${campaignOfferIds.length} offers from landing pages:`, campaignOfferIds);
+                        }
+                    }
+                } else {
+                    console.warn('⚠️ Bulk campaign API failed:', bulkResponse.status);
+                }
+            } catch (bulkError) {
+                console.error('❌ Error with bulk campaign API:', bulkError.message);
+            }
+            
+            reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
         }
         
         console.log(`🎯 Fetching offers using official API structure:`, reportUrl);
