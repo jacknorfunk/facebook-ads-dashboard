@@ -1449,6 +1449,9 @@
                         <button onclick="fetchCampaignDetails('${campaignId}')" class="btn btn-primary">
                             <i class="fas fa-arrow-left" style="margin-right: 8px;"></i>Back to Campaign Details
                         </button>
+                        <button onclick="testRealCampaign()" class="btn" style="background-color: #f3f4f6; color: #374151; margin-left: 8px;">
+                            <i class="fas fa-vial" style="margin-right: 8px;"></i>Test Real Campaign
+                        </button>
                     </div>
                 </div>
             `;
@@ -1458,7 +1461,7 @@
             try {
                 debugOutput.textContent = 'Step 1: Testing API endpoint availability...\n';
                 
-                // Test 1: Check if API endpoint exists
+                // Test 1: Check if API endpoint exists with fake ID (expected to fail)
                 const testResponse = await fetch('/api/voluum/campaignById', {
                     method: 'POST',
                     headers: {
@@ -1469,40 +1472,95 @@
                     })
                 });
                 
-                debugOutput.textContent += `Response status: ${testResponse.status}\n`;
+                debugOutput.textContent += `Response status: ${testResponse.status} (Expected: 404 for fake ID)\n`;
                 debugOutput.textContent += `Response headers: ${JSON.stringify(Object.fromEntries(testResponse.headers.entries()), null, 2)}\n\n`;
                 
                 // Test 2: Check response content
                 const responseText = await testResponse.text();
                 debugOutput.textContent += `Step 2: Raw response content:\n${responseText.substring(0, 500)}...\n\n`;
                 
-                // Test 3: Environment check
-                debugOutput.textContent += `Step 3: Environment check:\n`;
-                debugOutput.textContent += `Current URL: ${window.location.href}\n`;
-                debugOutput.textContent += `API URL: ${window.location.origin}/api/voluum/campaignById\n\n`;
-                
-                // Test 4: Try alternative endpoint
-                debugOutput.textContent += `Step 4: Testing base campaigns endpoint...\n`;
+                // Test 3: Get real campaign IDs
+                debugOutput.textContent += `Step 3: Getting real campaign IDs...\n`;
                 const campaignsResponse = await fetch('/api/voluum/campaigns?range=last_7_days');
                 debugOutput.textContent += `Campaigns endpoint status: ${campaignsResponse.status}\n`;
                 
+                let realCampaignId = null;
                 if (campaignsResponse.ok) {
                     const campaignsData = await campaignsResponse.json();
                     debugOutput.textContent += `Campaigns loaded: ${campaignsData.campaigns?.length || 0}\n`;
                     
                     if (campaignsData.campaigns && campaignsData.campaigns.length > 0) {
+                        // Find a Taboola campaign to test
+                        const taboolaCampaign = campaignsData.campaigns.find(c => 
+                            c.name && c.name.toLowerCase().includes('taboola')
+                        );
+                        
+                        realCampaignId = taboolaCampaign ? taboolaCampaign.id : campaignsData.campaigns[0].id;
+                        
                         debugOutput.textContent += `Sample campaign ID: ${campaignsData.campaigns[0].id}\n`;
+                        if (taboolaCampaign) {
+                            debugOutput.textContent += `Found Taboola campaign: ${taboolaCampaign.name} (ID: ${taboolaCampaign.id})\n`;
+                        }
                     }
                 } else {
                     debugOutput.textContent += `Campaigns endpoint failed: ${await campaignsResponse.text()}\n`;
                 }
                 
-                debugOutput.textContent += '\n✅ Debug completed. Check the information above to identify the issue.';
+                // Test 4: Test with real campaign ID if available
+                if (realCampaignId) {
+                    debugOutput.textContent += `\nStep 4: Testing with real campaign ID: ${realCampaignId}\n`;
+                    
+                    const realTestResponse = await fetch('/api/voluum/campaignById', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            campaignId: realCampaignId
+                        })
+                    });
+                    
+                    debugOutput.textContent += `Real campaign test status: ${realTestResponse.status}\n`;
+                    
+                    if (realTestResponse.ok) {
+                        const realData = await realTestResponse.json();
+                        debugOutput.textContent += `✅ SUCCESS: Campaign details loaded!\n`;
+                        debugOutput.textContent += `Campaign name: ${realData.campaign?.name}\n`;
+                        debugOutput.textContent += `Traffic source: ${realData.campaign?.detectedTrafficSource}\n`;
+                        debugOutput.textContent += `Data source: ${realData.dataSource}\n`;
+                    } else {
+                        const realErrorText = await realTestResponse.text();
+                        debugOutput.textContent += `❌ Real campaign test failed: ${realErrorText.substring(0, 200)}\n`;
+                    }
+                }
+                
+                debugOutput.textContent += '\n✅ Debug completed. API is working if Step 4 shows SUCCESS.';
                 
             } catch (error) {
                 debugOutput.textContent += `\n❌ Debug error: ${error.message}\n`;
                 debugOutput.textContent += `Error stack: ${error.stack}`;
             }
+        }
+
+        // Test with a real campaign from the current data
+        async function testRealCampaign() {
+            if (allCampaigns.length === 0) {
+                showToast('No campaigns loaded yet. Please wait for data to load.', 'warning');
+                return;
+            }
+            
+            // Find a Taboola campaign to test the fix
+            const taboolaCampaign = allCampaigns.find(c => 
+                c.name && c.name.toLowerCase().includes('taboola')
+            );
+            
+            const testCampaign = taboolaCampaign || allCampaigns[0];
+            
+            console.log('🧪 Testing real campaign:', testCampaign.name, testCampaign.id);
+            showToast(`Testing campaign: ${testCampaign.name}`, 'success');
+            
+            // Open the campaign details modal
+            await openCampaignDetails(testCampaign.id, testCampaign.name);
         }
 
         // Add CSS animation for pulse effect
