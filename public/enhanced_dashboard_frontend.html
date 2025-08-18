@@ -15,79 +15,6 @@
             padding: 0;
         }
 
-        // Debug function to test API endpoint
-        async function debugCampaignAPI(campaignId) {
-            console.log('🐛 Starting API debug for campaign:', campaignId);
-            
-            const detailsContent = document.getElementById('campaignDetailsContent');
-            detailsContent.innerHTML = `
-                <div style="padding: 24px;">
-                    <h3 style="color: #374151; margin-bottom: 16px;">
-                        <i class="fas fa-bug" style="margin-right: 8px;"></i>API Debug Information
-                    </h3>
-                    <div id="debugOutput" style="font-family: monospace; font-size: 0.875rem; background-color: #f3f4f6; padding: 16px; border-radius: 6px; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">
-                        Testing API endpoint...
-                    </div>
-                    <div style="margin-top: 16px;">
-                        <button onclick="fetchCampaignDetails('${campaignId}')" class="btn btn-primary">
-                            <i class="fas fa-arrow-left" style="margin-right: 8px;"></i>Back to Campaign Details
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            const debugOutput = document.getElementById('debugOutput');
-            
-            try {
-                debugOutput.textContent = 'Step 1: Testing API endpoint availability...\n';
-                
-                // Test 1: Check if API endpoint exists
-                const testResponse = await fetch('/api/voluum/campaignById', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        campaignId: 'test-id'
-                    })
-                });
-                
-                debugOutput.textContent += `Response status: ${testResponse.status}\n`;
-                debugOutput.textContent += `Response headers: ${JSON.stringify(Object.fromEntries(testResponse.headers.entries()), null, 2)}\n\n`;
-                
-                // Test 2: Check response content
-                const responseText = await testResponse.text();
-                debugOutput.textContent += `Step 2: Raw response content:\n${responseText.substring(0, 500)}...\n\n`;
-                
-                // Test 3: Environment check
-                debugOutput.textContent += `Step 3: Environment check:\n`;
-                debugOutput.textContent += `Current URL: ${window.location.href}\n`;
-                debugOutput.textContent += `API URL: ${window.location.origin}/api/voluum/campaignById\n\n`;
-                
-                // Test 4: Try alternative endpoint
-                debugOutput.textContent += `Step 4: Testing base campaigns endpoint...\n`;
-                const campaignsResponse = await fetch('/api/voluum/campaigns?range=last_7_days');
-                debugOutput.textContent += `Campaigns endpoint status: ${campaignsResponse.status}\n`;
-                
-                if (campaignsResponse.ok) {
-                    const campaignsData = await campaignsResponse.json();
-                    debugOutput.textContent += `Campaigns loaded: ${campaignsData.campaigns?.length || 0}\n`;
-                    
-                    if (campaignsData.campaigns && campaignsData.campaigns.length > 0) {
-                        debugOutput.textContent += `Sample campaign ID: ${campaignsData.campaigns[0].id}\n`;
-                    }
-                } else {
-                    debugOutput.textContent += `Campaigns endpoint failed: ${await campaignsResponse.text()}\n`;
-                }
-                
-                debugOutput.textContent += '\n✅ Debug completed. Check the information above to identify the issue.';
-                
-            } catch (error) {
-                debugOutput.textContent += `\n❌ Debug error: ${error.message}\n`;
-                debugOutput.textContent += `Error stack: ${error.stack}`;
-            }
-        }
-        
         /* Campaign row click highlighting */
         .campaign-row {
             transition: all 0.2s ease;
@@ -320,7 +247,7 @@
                         Multi-Source Traffic Dashboard
                     </h1>
                     <div style="margin-left: 24px; font-size: 0.875rem; color: rgba(255, 255, 255, 0.8);">
-                        Enhanced with Campaign Details & 7-Day ROAS
+                        Enhanced with Campaign Details & 7-Day ROAS - FIXED VERSION
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 16px;">
@@ -385,7 +312,7 @@
             </div>
         </div>
 
-        <!-- Filters Section (same as before) -->
+        <!-- Filters Section -->
         <div class="card" style="margin-bottom: 32px;">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
                 <!-- Date Range -->
@@ -422,9 +349,10 @@
                     <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Traffic Source</label>
                     <select id="trafficSourceFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
                         <option value="">All Sources</option>
-                        <option value="facebook">Facebook</option>
                         <option value="taboola">Taboola</option>
+                        <option value="facebook">Facebook</option>
                         <option value="newsbreak">NewsBreak</option>
+                        <option value="admaven">AdMaven</option>
                         <option value="other">Other</option>
                     </select>
                 </div>
@@ -588,6 +516,7 @@
         let filteredCampaigns = [];
         let currentCampaignDetails = null;
         let activeTab = 'details';
+        let debugMode = false;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -697,19 +626,62 @@
                 // Simulate 7D ROAS for comparison (will be replaced with real API data)
                 campaign.roas7d = campaign.currentRoas * (1 + (Math.random() * 0.2 - 0.1));
                 
-                // Detect traffic source
-                campaign.detectedTrafficSource = detectTrafficSource(campaign.name);
+                // FIXED: Enhanced traffic source detection
+                campaign.detectedTrafficSource = detectTrafficSourceFixed(campaign.name);
             });
             
             applyFilters();
             updateDashboardSummary();
         }
 
-        function detectTrafficSource(campaignName) {
-            const name = campaignName.toLowerCase();
-            if (name.includes('facebook') || name.includes('fb') || name.includes('meta')) return 'facebook';
-            if (name.includes('taboola')) return 'taboola';
-            if (name.includes('newsbreak') || name.includes('nb')) return 'newsbreak';
+        // FIXED: Enhanced traffic source detection that prioritizes Taboola
+        function detectTrafficSourceFixed(campaignName) {
+            if (!campaignName || typeof campaignName !== 'string') {
+                console.log('⚠️ Invalid campaign name for traffic source detection:', campaignName);
+                return 'other';
+            }
+
+            const name = campaignName.toLowerCase().trim();
+            console.log(`🔍 Detecting traffic source for: "${name}"`);
+
+            // Priority-based detection (most specific first) - TABOOLA FIRST
+            if (name.includes('taboola')) {
+                console.log('✅ Detected: taboola (found "taboola" in name)');
+                return 'taboola';
+            }
+            
+            if (name.includes('facebook') || name.includes('fb') || name.includes('meta')) {
+                console.log('✅ Detected: facebook (found facebook/fb/meta in name)');
+                return 'facebook';
+            }
+            
+            if (name.includes('newsbreak') || name.includes('nb')) {
+                console.log('✅ Detected: newsbreak (found newsbreak/nb in name)');
+                return 'newsbreak';
+            }
+            
+            if (name.includes('admaven')) {
+                console.log('✅ Detected: admaven (found "admaven" in name)');
+                return 'admaven';
+            }
+            
+            if (name.includes('google') || name.includes('gads') || name.includes('adwords')) {
+                console.log('✅ Detected: google (found google/gads/adwords in name)');
+                return 'google';
+            }
+            
+            // Check for common traffic source patterns
+            if (name.includes('native')) {
+                console.log('✅ Detected: native (found "native" pattern)');
+                return 'native';
+            }
+            
+            if (name.includes('display')) {
+                console.log('✅ Detected: display (found "display" pattern)');
+                return 'display';
+            }
+
+            console.log(`⚠️ No traffic source detected for: "${name}" -> defaulting to "other"`);
             return 'other';
         }
 
@@ -847,9 +819,10 @@
 
         function getTrafficSourceColor(source) {
             switch (source) {
-                case 'facebook': return 'background-color: #dbeafe; color: #1e40af;';
                 case 'taboola': return 'background-color: #f3e8ff; color: #7c2d12;';
+                case 'facebook': return 'background-color: #dbeafe; color: #1e40af;';
                 case 'newsbreak': return 'background-color: #fed7aa; color: #c2410c;';
+                case 'admaven': return 'background-color: #dcfce7; color: #166534;';
                 default: return 'background-color: #f3f4f6; color: #374151;';
             }
         }
@@ -872,12 +845,8 @@
             
             try {
                 // Step 1: Fetch campaign details via POST /bulk/campaign/select
-                console.log('🔄 Step 1: Fetching campaign details...');
+                console.log('📤 Step 1: Fetching campaign details...');
                 await fetchCampaignDetails(campaignId);
-                
-                // Step 2: Fetch enhanced offers with 7-day ROAS
-                console.log('🔄 Step 2: Fetching enhanced offers...');
-                await fetchEnhancedOffers(campaignId);
                 
                 showToast('Campaign details loaded successfully', 'success');
                 
@@ -893,6 +862,9 @@
                         <div style="font-size: 0.875rem; margin-bottom: 16px;">${error.message}</div>
                         <button onclick="openCampaignDetails('${campaignId}', '${campaignName}')" class="btn btn-primary">
                             <i class="fas fa-refresh" style="margin-right: 8px;"></i>Retry
+                        </button>
+                        <button onclick="debugCampaignAPI('${campaignId}')" class="btn" style="background-color: #f3f4f6; color: #374151; margin-left: 8px;">
+                            <i class="fas fa-bug" style="margin-right: 8px;"></i>Debug API
                         </button>
                     </div>
                 `;
@@ -957,7 +929,7 @@
                 console.log('✅ Campaign details loaded:', currentCampaignDetails);
                 
                 // Render campaign details
-                renderCampaignDetails(currentCampaignDetails, data.source);
+                renderCampaignDetails(currentCampaignDetails, data.dataSource);
                 
             } catch (error) {
                 console.error('❌ Campaign details error:', error);
@@ -981,7 +953,7 @@
                             <div style="font-weight: 500; color: #1e40af; margin-bottom: 8px;">Troubleshooting Steps:</div>
                             <div style="font-size: 0.875rem; color: #1e40af;">
                                 1. Check if campaignById.js file exists in /api/voluum/<br>
-                                2. Verify VOLUME_KEY and VOLUME_KEY_ID environment variables<br>
+                                2. Verify VOLUUM_AUTH_TOKEN environment variable<br>
                                 3. Ensure campaign ID exists in Voluum: <code>${campaignId}</code><br>
                                 4. Check server logs for detailed error information<br>
                                 5. Try the debug function to test API connectivity
@@ -1003,6 +975,7 @@
             }
         }
 
+        // FIXED: Enhanced offers loading with strict campaign filtering
         async function fetchEnhancedOffers(campaignId) {
             const offersContent = document.getElementById('offerTableContainer');
             
@@ -1010,15 +983,17 @@
             offersContent.innerHTML = `
                 <div style="text-align: center; padding: 32px;">
                     <div class="loading-spinner" style="width: 24px; height: 24px; margin: 0 auto 16px;"></div>
-                    <div>Loading enhanced offer data with 7-day ROAS...</div>
+                    <div>Loading campaign-specific offers with strict filtering...</div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 8px;">Campaign ID: ${campaignId}</div>
                 </div>
             `;
             
             try {
-                // Build URL with current date range settings
+                // Build URL with current date range settings and strict filtering
                 const dateRange = document.getElementById('dateRange').value;
                 const params = new URLSearchParams();
                 params.append('campaignId', campaignId);
+                params.append('strictFiltering', 'true'); // FIXED: Enable strict filtering
                 
                 if (dateRange === 'custom') {
                     const fromDate = document.getElementById('fromDate').value;
@@ -1034,38 +1009,58 @@
                 }
                 
                 const url = `/api/voluum/offersByCampaign?${params.toString()}`;
-                console.log(`📤 Making request to enhanced offers API: ${url}`);
+                console.log(`📤 Making request to FIXED offers API: ${url}`);
                 
                 const response = await fetch(url);
                 const data = await response.json();
                 
                 if (!data.success) {
-                    throw new Error(data.error || 'Failed to fetch enhanced offers');
+                    throw new Error(data.error || 'Failed to fetch campaign-specific offers');
                 }
                 
-                console.log(`✅ Enhanced offers loaded: ${data.offers.length} offers`);
+                console.log(`✅ Campaign-specific offers loaded: ${data.offers.length} offers for campaign ${campaignId}`);
+                
+                // CRITICAL: Verify offers belong to this campaign
+                const campaignSpecificOffers = data.offers.filter(offer => 
+                    offer.campaignId === campaignId || 
+                    offer.parentCampaignId === campaignId ||
+                    offer.campaign_id === campaignId
+                );
+                
+                if (campaignSpecificOffers.length !== data.offers.length) {
+                    console.warn(`⚠️ Filtering mismatch: API returned ${data.offers.length} offers, but only ${campaignSpecificOffers.length} match campaign ${campaignId}`);
+                }
                 
                 // Render enhanced offers table
-                renderEnhancedOffersTable(data.offers, data.debug_info);
+                renderEnhancedOffersTable(campaignSpecificOffers, data.metadata);
                 
                 // Update analytics tab
-                updateAnalyticsData(data.offers);
+                updateAnalyticsData(campaignSpecificOffers);
                 
             } catch (error) {
-                console.error('❌ Error fetching enhanced offers:', error);
+                console.error('❌ Error fetching campaign-specific offers:', error);
                 
                 offersContent.innerHTML = `
                     <div style="text-align: center; padding: 32px; color: #dc2626;">
                         <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
-                        <div>Failed to load enhanced offers: ${error.message}</div>
-                        <div style="font-size: 0.875rem; margin-top: 8px; color: #6b7280;">This could be due to API rate limits or connectivity issues.</div>
+                        <div>Failed to load campaign-specific offers: ${error.message}</div>
+                        <div style="font-size: 0.875rem; margin-top: 8px; color: #6b7280;">
+                            Campaign ID: ${campaignId}<br>
+                            This could be due to API rate limits, connectivity issues, or campaign filtering problems.
+                        </div>
+                        <button onclick="fetchEnhancedOffers('${campaignId}')" class="btn btn-primary" style="margin-top: 16px;">
+                            <i class="fas fa-refresh" style="margin-right: 8px;"></i>Retry
+                        </button>
                     </div>
                 `;
             }
         }
 
-        function renderCampaignDetails(campaignDetails) {
+        function renderCampaignDetails(campaignDetails, dataSource) {
             const detailsContent = document.getElementById('campaignDetailsContent');
+            
+            // FIXED: Enhanced traffic source detection in details
+            const detectedTrafficSource = detectTrafficSourceFixed(campaignDetails.name);
             
             detailsContent.innerHTML = `
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
@@ -1095,15 +1090,20 @@
                                 </div>
                                 <div>
                                     <span style="font-size: 0.875rem; color: #6b7280;">Traffic Source:</span>
-                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.trafficSourceName || 'Unknown'}</div>
+                                    <div style="font-weight: 500; color: #111827;">
+                                        <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; ${getTrafficSourceColor(detectedTrafficSource)}">
+                                            ${detectedTrafficSource.charAt(0).toUpperCase() + detectedTrafficSource.slice(1)}
+                                        </span>
+                                        ${campaignDetails.originalTrafficSource ? `<div style="font-size: 0.75rem; color: #6b7280; margin-top: 4px;">Original: ${campaignDetails.originalTrafficSource}</div>` : ''}
+                                    </div>
                                 </div>
                                 <div>
                                     <span style="font-size: 0.875rem; color: #6b7280;">Cost Model:</span>
-                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.costModel || 'CPC'}</div>
+                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.costModel || 'AUTO'}</div>
                                 </div>
                                 <div>
                                     <span style="font-size: 0.875rem; color: #6b7280;">Created:</span>
-                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.createDate ? new Date(campaignDetails.createDate).toLocaleDateString() : 'N/A'}</div>
+                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.created || 'N/A'}</div>
                                 </div>
                             </div>
                         </div>
@@ -1119,16 +1119,16 @@
                             <div style="display: grid; gap: 12px;">
                                 <div>
                                     <span style="font-size: 0.875rem; color: #6b7280;">Total Revenue:</span>
-                                    <div style="font-weight: 600; color: #059669; font-size: 1.125rem;">${(campaignDetails.revenue || 0).toFixed(2)}</div>
+                                    <div style="font-weight: 600; color: #059669; font-size: 1.125rem;">$${(campaignDetails.revenue || 0).toFixed(2)}</div>
                                 </div>
                                 <div>
                                     <span style="font-size: 0.875rem; color: #6b7280;">Total Spend:</span>
-                                    <div style="font-weight: 600; color: #dc2626; font-size: 1.125rem;">${(campaignDetails.cost || 0).toFixed(2)}</div>
+                                    <div style="font-weight: 600; color: #dc2626; font-size: 1.125rem;">$${(campaignDetails.cost || 0).toFixed(2)}</div>
                                 </div>
                                 <div>
                                     <span style="font-size: 0.875rem; color: #6b7280;">Total Profit:</span>
                                     <div style="font-weight: 600; color: ${(campaignDetails.profit || 0) >= 0 ? '#059669' : '#dc2626'}; font-size: 1.125rem;">
-                                        ${(campaignDetails.profit || 0).toFixed(2)}
+                                        $${(campaignDetails.profit || 0).toFixed(2)}
                                     </div>
                                 </div>
                                 <div>
@@ -1154,22 +1154,26 @@
                 <div style="margin-top: 24px; padding: 16px; background-color: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 8px;">
                     <div style="font-size: 0.875rem; color: #1e40af;">
                         <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
-                        <strong>Data Source:</strong> Retrieved via Voluum POST /bulk/campaign/select API
-                        ${campaignDetails.source ? ` (${campaignDetails.source})` : ''}
+                        <strong>Data Source:</strong> ${dataSource || 'Voluum API'}
+                        | <strong>Traffic Source Detection:</strong> ${detectedTrafficSource} (FIXED)
+                        | <strong>Last Updated:</strong> ${new Date().toLocaleString()}
                     </div>
                 </div>
             `;
         }
 
-        function renderEnhancedOffersTable(offers, debugInfo) {
+        function renderEnhancedOffersTable(offers, metadata) {
             const container = document.getElementById('offerTableContainer');
             
             if (!offers || offers.length === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; padding: 32px; color: #6b7280;">
                         <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 16px;"></i>
-                        <div style="font-size: 1.125rem; font-weight: 500; color: #374151; margin-bottom: 8px;">No offers found</div>
+                        <div style="font-size: 1.125rem; font-weight: 500; color: #374151; margin-bottom: 8px;">No Campaign-Specific Offers Found</div>
                         <div style="font-size: 0.875rem;">This campaign may use direct linking or have no active offers in the selected date range.</div>
+                        <div style="font-size: 0.875rem; color: #dc2626; margin-top: 8px;">
+                            <strong>Campaign ID:</strong> ${metadata?.campaignId || 'Unknown'}
+                        </div>
                     </div>
                 `;
                 return;
@@ -1179,10 +1183,11 @@
                 <div style="margin-bottom: 16px;">
                     <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin-bottom: 8px;">
                         <i class="fas fa-layer-group" style="margin-right: 8px; color: #7c3aed;"></i>
-                        Enhanced Offer Performance
+                        Campaign-Specific Offer Performance (FIXED)
                     </h3>
                     <div style="font-size: 0.875rem; color: #6b7280;">
-                        Found ${offers.length} offers with dual ROAS metrics (Current Range vs Last 7 Days)
+                        Found ${offers.length} offers for Campaign ID: ${metadata?.campaignId || 'Unknown'}
+                        ${metadata?.strictFiltering ? ' (Strict Campaign Filtering Applied)' : ''}
                     </div>
                 </div>
 
@@ -1208,22 +1213,22 @@
 
             offers.forEach(offer => {
                 const roasCurrentColor = (offer.roas || 0) >= 2.0 ? '#059669' : (offer.roas || 0) >= 1.0 ? '#d97706' : '#dc2626';
-                const roas7DColor = (offer.roas_7d || 0) >= 2.0 ? '#059669' : (offer.roas_7d || 0) >= 1.0 ? '#d97706' : '#dc2626';
+                const roas7DColor = (offer.roas7d || 0) >= 2.0 ? '#059669' : (offer.roas7d || 0) >= 1.0 ? '#d97706' : '#dc2626';
                 
                 html += `
                     <tr>
                         <td style="font-weight: 500;">
                             ${offer.name}
-                            ${offer.onlyInLast7Days ? '<span style="font-size: 0.75rem; color: #d97706; margin-left: 8px;">(7D Only)</span>' : ''}
+                            <div style="font-size: 0.75rem; color: #6b7280;">ID: ${offer.id}</div>
                         </td>
                         <td>${(offer.revenue || 0).toFixed(2)}</td>
-                        <td style="background-color: #f8fafc;">${(offer.revenue_7d || 0).toFixed(2)}</td>
+                        <td style="background-color: #f8fafc;">${(offer.revenue7d || 0).toFixed(2)}</td>
                         <td>${(offer.cost || 0).toFixed(2)}</td>
-                        <td style="background-color: #f8fafc;">${(offer.cost_7d || 0).toFixed(2)}</td>
+                        <td style="background-color: #f8fafc;">${(offer.cost7d || 0).toFixed(2)}</td>
                         <td style="font-weight: 600; color: ${roasCurrentColor};">${(offer.roas || 0).toFixed(2)}x</td>
-                        <td style="font-weight: 600; color: ${roas7DColor}; background-color: #f8fafc;">${(offer.roas_7d || 0).toFixed(2)}x</td>
+                        <td style="font-weight: 600; color: ${roas7DColor}; background-color: #f8fafc;">${(offer.roas7d || 0).toFixed(2)}x</td>
                         <td>${(offer.cvr || 0).toFixed(2)}%</td>
-                        <td style="background-color: #f8fafc;">${(offer.cvr_7d || 0).toFixed(2)}%</td>
+                        <td style="background-color: #f8fafc;">${(offer.cvr7d || 0).toFixed(2)}%</td>
                         <td>${offer.conversions || 0}</td>
                         <td>${(offer.averagePayout || 0).toFixed(2)}</td>
                     </tr>
@@ -1235,14 +1240,18 @@
                     </table>
                 </div>
 
-                <!-- Debug Information -->
+                <!-- Enhanced Debug Information -->
                 <div style="margin-top: 24px; padding: 16px; background-color: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 8px;">
                     <div style="font-size: 0.875rem; color: #1e40af;">
                         <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
-                        <strong>Enhanced Data Source:</strong> ${debugInfo?.api_calls_made || 1} API call(s) made
-                        ${debugInfo?.separate_7day_call_made ? ' (Separate 7-day ROAS call)' : ' (Same range data used)'}
+                        <strong>FIXED Offers API:</strong> Campaign-specific filtering applied
                         <br>
-                        <strong>Date Ranges:</strong> UI Range: ${debugInfo?.ui_range || 'N/A'} | Last 7 Days: ${debugInfo?.last_7_days_range || 'N/A'}
+                        <strong>Campaign ID:</strong> ${metadata?.campaignId || 'Unknown'}
+                        | <strong>Total Offers:</strong> ${metadata?.totalOffers || offers.length}
+                        | <strong>API Version:</strong> ${metadata?.apiVersion || 'fixed_campaign_filtering_v2'}
+                        <br>
+                        <strong>Date Range:</strong> ${metadata?.dateRange?.startDate || 'N/A'} to ${metadata?.dateRange?.endDate || 'N/A'}
+                        | <strong>Last Updated:</strong> ${metadata?.lastUpdated || new Date().toISOString()}
                     </div>
                 </div>
             `;
@@ -1262,8 +1271,8 @@
             offers.forEach(offer => {
                 totalRevenue += offer.revenue || 0;
                 totalCost += offer.cost || 0;
-                totalRevenue7D += offer.revenue_7d || 0;
-                totalCost7D += offer.cost_7d || 0;
+                totalRevenue7D += offer.revenue7d || 0;
+                totalCost7D += offer.cost7d || 0;
                 totalConversions += offer.conversions || 0;
                 totalVisits += offer.visits || 0;
             });
@@ -1290,10 +1299,16 @@
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
             // Add active class to selected tab
-            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            event.target.classList.add('border-blue-500', 'text-blue-600');
+            event.target.classList.remove('text-gray-500');
             document.getElementById(`${tabName}Tab`).classList.add('active');
             
             activeTab = tabName;
+            
+            // Load offers when switching to offers tab
+            if (tabName === 'offers' && currentCampaignDetails) {
+                fetchEnhancedOffers(currentCampaignDetails.id);
+            }
         }
 
         function closeCampaignDetailsModal() {
@@ -1368,7 +1383,7 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `enhanced-campaigns-${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `enhanced-campaigns-fixed-${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
             
@@ -1417,6 +1432,79 @@
             }, 3000);
         }
 
+        // Debug function to test API endpoint
+        async function debugCampaignAPI(campaignId) {
+            console.log('🐛 Starting API debug for campaign:', campaignId);
+            
+            const detailsContent = document.getElementById('campaignDetailsContent');
+            detailsContent.innerHTML = `
+                <div style="padding: 24px;">
+                    <h3 style="color: #374151; margin-bottom: 16px;">
+                        <i class="fas fa-bug" style="margin-right: 8px;"></i>API Debug Information
+                    </h3>
+                    <div id="debugOutput" style="font-family: monospace; font-size: 0.875rem; background-color: #f3f4f6; padding: 16px; border-radius: 6px; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">
+                        Testing API endpoint...
+                    </div>
+                    <div style="margin-top: 16px;">
+                        <button onclick="fetchCampaignDetails('${campaignId}')" class="btn btn-primary">
+                            <i class="fas fa-arrow-left" style="margin-right: 8px;"></i>Back to Campaign Details
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            const debugOutput = document.getElementById('debugOutput');
+            
+            try {
+                debugOutput.textContent = 'Step 1: Testing API endpoint availability...\n';
+                
+                // Test 1: Check if API endpoint exists
+                const testResponse = await fetch('/api/voluum/campaignById', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        campaignId: 'test-id'
+                    })
+                });
+                
+                debugOutput.textContent += `Response status: ${testResponse.status}\n`;
+                debugOutput.textContent += `Response headers: ${JSON.stringify(Object.fromEntries(testResponse.headers.entries()), null, 2)}\n\n`;
+                
+                // Test 2: Check response content
+                const responseText = await testResponse.text();
+                debugOutput.textContent += `Step 2: Raw response content:\n${responseText.substring(0, 500)}...\n\n`;
+                
+                // Test 3: Environment check
+                debugOutput.textContent += `Step 3: Environment check:\n`;
+                debugOutput.textContent += `Current URL: ${window.location.href}\n`;
+                debugOutput.textContent += `API URL: ${window.location.origin}/api/voluum/campaignById\n\n`;
+                
+                // Test 4: Try alternative endpoint
+                debugOutput.textContent += `Step 4: Testing base campaigns endpoint...\n`;
+                const campaignsResponse = await fetch('/api/voluum/campaigns?range=last_7_days');
+                debugOutput.textContent += `Campaigns endpoint status: ${campaignsResponse.status}\n`;
+                
+                if (campaignsResponse.ok) {
+                    const campaignsData = await campaignsResponse.json();
+                    debugOutput.textContent += `Campaigns loaded: ${campaignsData.campaigns?.length || 0}\n`;
+                    
+                    if (campaignsData.campaigns && campaignsData.campaigns.length > 0) {
+                        debugOutput.textContent += `Sample campaign ID: ${campaignsData.campaigns[0].id}\n`;
+                    }
+                } else {
+                    debugOutput.textContent += `Campaigns endpoint failed: ${await campaignsResponse.text()}\n`;
+                }
+                
+                debugOutput.textContent += '\n✅ Debug completed. Check the information above to identify the issue.';
+                
+            } catch (error) {
+                debugOutput.textContent += `\n❌ Debug error: ${error.message}\n`;
+                debugOutput.textContent += `Error stack: ${error.stack}`;
+            }
+        }
+
         // Add CSS animation for pulse effect
         const style = document.createElement('style');
         style.textContent = `
@@ -1426,6 +1514,9 @@
             }
         `;
         document.head.appendChild(style);
+
+        // Make debug function globally available
+        window.debugCampaignAPI = debugCampaignAPI;
     </script>
 </body>
 </html>
