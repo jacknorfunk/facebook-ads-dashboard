@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { campaignId } = req.query;
+        const { campaignId, range = 'last_7_days', from, to } = req.query;
         
         if (!campaignId) {
             return res.status(400).json({
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
             });
         }
 
-        console.log(`🎯 Fetching offers for campaign ID: ${campaignId}`);
+        console.log(`🎯 Fetching offers for campaign ID: ${campaignId}, range: ${range}`);
 
         // Get Voluum API credentials
         const VOLUME_KEY = process.env.VOLUME_KEY;
@@ -55,18 +55,48 @@ export default async function handler(req, res) {
         console.log('✅ Voluum session created successfully');
 
         // Step 2: Use reports API following the same pattern as campaigns.js
-        // Calculate date range (last 7 days) 
-        const endDate = new Date();
-        const startDate = new Date(endDate.getTime() - (7 * 24 * 60 * 60 * 1000));
+        // Calculate date range based on the dashboard selection
+        let startDate, endDate;
         
-        const startDateStr = startDate.toISOString().split('T')[0];
-        const endDateStr = endDate.toISOString().split('T')[0];
+        if (from && to) {
+            // Custom date range
+            startDate = from;
+            endDate = to;
+            console.log(`📅 Using custom date range: ${startDate} to ${endDate}`);
+        } else {
+            // Calculate based on range parameter
+            const now = new Date();
+            endDate = now.toISOString().split('T')[0];
+            
+            switch (range) {
+                case 'today':
+                    startDate = endDate;
+                    break;
+                case 'yesterday':
+                    const yesterday = new Date(now);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    startDate = yesterday.toISOString().split('T')[0];
+                    endDate = startDate;
+                    break;
+                case 'last_7_days':
+                case 'last7days':
+                    startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+                    break;
+                case 'last_30_days':
+                case 'last30days':
+                    startDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+                    break;
+                default:
+                    startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+            }
+            console.log(`📅 Using preset range (${range}): ${startDate} to ${endDate}`);
+        }
         
-        console.log(`📊 Fetching offers for campaign ${campaignId} from ${startDateStr} to ${endDateStr}`);
+        console.log(`📊 Fetching offers for campaign ${campaignId} from ${startDate} to ${endDate}`);
         
         // Build report URL following the same pattern as campaigns.js
         // Group by offer and filter by campaign
-        const reportUrl = `https://api.voluum.com/report?from=${startDateStr}T00:00:00Z&to=${endDateStr}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
+        const reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
         
         console.log(`🎯 Fetching offers using official API structure:`, reportUrl);
 
@@ -104,8 +134,8 @@ export default async function handler(req, res) {
                     fetchTime: new Date().toISOString(),
                     source: 'voluum_reports_api',
                     dateRange: {
-                        from: startDateStr,
-                        to: endDateStr
+                        from: startDate,
+                        to: endDate
                     }
                 }
             });

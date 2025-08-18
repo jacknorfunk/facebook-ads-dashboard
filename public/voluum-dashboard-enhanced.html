@@ -1412,8 +1412,21 @@
             console.log('🔍 Fetching Voluum offers for campaign:', campaignId);
             
             try {
-                // Method 1: Try to get offers specifically for this campaign
-                let offersResponse = await fetch(`/api/voluum/campaign/${campaignId}/offers`);
+                // Get the selected date range from the dashboard
+                const dateRange = document.getElementById('dateRange') ? document.getElementById('dateRange').value : 'last_7_days';
+                const fromDate = document.getElementById('fromDate') ? document.getElementById('fromDate').value : '';
+                const toDate = document.getElementById('toDate') ? document.getElementById('toDate').value : '';
+                
+                // Build URL with date range parameters to match dashboard time period
+                let url = `/api/voluum/campaign/${campaignId}/offers?range=${dateRange}`;
+                if (dateRange === 'custom' && fromDate && toDate) {
+                    url += `&from=${fromDate}&to=${toDate}`;
+                }
+                
+                console.log('📅 Using date range from dashboard:', dateRange, fromDate ? `(${fromDate} to ${toDate})` : '');
+                
+                // Method 1: Try to get offers specifically for this campaign with date filtering
+                let offersResponse = await fetch(url);
                 let offersData = null;
                 
                 if (offersResponse.ok) {
