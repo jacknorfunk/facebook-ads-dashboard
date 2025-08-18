@@ -1484,7 +1484,7 @@
                     const isAssignedOffer = assignedOfferNames.includes(offer.name);
                     const hasActivity = offer.conversions > 0 || offer.revenue >= 50;
                     
-                    if (isAssignedOffer && hasActivity) {
+                    if (exactOfferIds.includes(offer.id)) {
                         offers.push({
                             id: offer.id,
                             name: offer.name || `Offer ${offer.id}`,
