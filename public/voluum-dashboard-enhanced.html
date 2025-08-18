@@ -432,7 +432,34 @@
     </div>
 
     <!-- Toast Notifications -->
-    <div id="toast" class="toast"></div>
+    <div id="toast" class="toast">    </div>
+
+    <!-- Campaign Offers Popup Modal -->
+    <div id="offersModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000;">
+        <div style="background: white; border-radius: 12px; max-width: 90vw; max-height: 90vh; width: 1000px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+            <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center;">
+                <h2 id="modalTitle" style="font-size: 1.25rem; font-weight: 600; margin: 0;">Campaign Offers</h2>
+                <button id="modalClose" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">&times;</button>
+            </div>
+            <div style="padding: 2rem; max-height: 70vh; overflow-y: auto;">
+                <div id="campaignSummary" style="background: #f8fafc; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: center;">
+                    <!-- Campaign info will be populated here -->
+                </div>
+                <div style="margin-top: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3 style="font-size: 1.125rem; font-weight: 600; color: #1f2937; margin: 0;">Associated Offers</h3>
+                        <span id="offersCount" style="background: #2563eb; color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.875rem; font-weight: 500;">0</span>
+                    </div>
+                    <div id="offersContainer">
+                        <div style="text-align: center; padding: 3rem; color: #6b7280;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 1rem;"></i>
+                            <p>Loading campaign offers...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Global variables
