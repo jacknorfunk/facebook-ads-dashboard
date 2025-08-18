@@ -170,8 +170,8 @@ export default async function handler(req, res) {
                 fetchTime: new Date().toISOString(),
                 source: 'voluum_reports_api',
                 dateRange: {
-                    from: startDateStr,
-                    to: endDateStr
+                    from: startDate,
+                    to: endDate
                 }
             }
         });
