@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Source Traffic Dashboard - Enhanced with Campaign Details</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Enhanced Dashboard Styles with Campaign Details Modal */
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Campaign row click highlighting */
+        .campaign-row {
+            transition: all 0.2s ease;
+        }
+        
+        .campaign-row:hover {
+            background-color: #f0f9ff !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .campaign-row.clicked {
+            background-color: #dbeafe !important;
+            border-left: 4px solid #3b82f6 !important;
+        }
+        
+        /* Campaign Details Modal */
+        .campaign-details-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .campaign-details-content {
+            background-color: white;
+            margin: 2% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 95%;
+            max-width: 1400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Enhanced offer table styles */
+        .offer-table-enhanced {
+            font-size: 0.9rem;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        
+        .offer-table-enhanced th {
+            padding: 12px 16px;
+            background-color: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+            font-weight: 600;
+            color: #475569;
+            text-align: left;
+        }
+        
+        .offer-table-enhanced td {
+            padding: 10px 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .offer-table-enhanced tbody tr:hover {
+            background-color: #f8fafc;
+        }
+        
+        /* ROAS comparison styling */
+        .roas-comparison {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .roas-current {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .roas-7d {
+            font-size: 0.875rem;
+            color: #6b7280;
+            padding: 2px 6px;
+            background-color: #f3f4f6;
+            border-radius: 4px;
+        }
+        
+        /* Loading states */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Campaign header in modal */
+        .campaign-header {
+            background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+            color: white;
+            padding: 24px 32px;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        /* Status badges */
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-active {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-paused {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        /* Tab navigation */
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid #e5e7eb;
+            background-color: #f9fafb;
+        }
+        
+        .tab-button {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6b7280;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .tab-button.active {
+            color: #7c3aed;
+            border-bottom-color: #7c3aed;
+            background-color: white;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 24px 32px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Existing styles... */
+        .main-container { 
+            max-width: 100%;
+            padding: 0 1rem; 
+        }
+        
+        .table-container { 
+            overflow-x: auto; 
+            max-width: 100%; 
+        }
+        
+        .campaign-table { 
+            min-width: 2000px; 
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            padding: 24px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #7c3aed;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #6d28d9;
+        }
+        
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+            z-index: 1001;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+        
+        .toast.show { transform: translateX(0); }
+        .toast.success { background-color: #059669; }
+        .toast.error { background-color: #dc2626; }
+        .toast.warning { background-color: #d97706; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <div class="main-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 0;">
+                <div style="display: flex; align-items: center;">
+                    <h1 style="font-size: 1.5rem; font-weight: bold; color: white; display: flex; align-items: center; margin: 0;">
+                        <i class="fas fa-chart-line" style="margin-right: 12px;"></i>
+                        Multi-Source Traffic Dashboard
+                    </h1>
+                    <div style="margin-left: 24px; font-size: 0.875rem; color: rgba(255, 255, 255, 0.8);">
+                        Enhanced with Campaign Details & 7-Day ROAS
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <button id="exportBtn" class="btn btn-primary" style="background: white; color: #7c3aed;">
+                        <i class="fas fa-download" style="margin-right: 8px;"></i>Export CSV
+                    </button>
+                    <div id="connectionStatus" style="display: flex; align-items: center;">
+                        <div style="width: 12px; height: 12px; background-color: #fbbf24; border-radius: 50%; margin-right: 8px; animation: pulse 2s infinite;"></div>
+                        <span style="font-size: 0.875rem; color: white;">Connecting...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Cards -->
+    <div class="main-container" style="padding: 24px 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 32px;">
+            <div class="card">
+                <div style="display: flex; align-items: center;">
+                    <div style="padding: 12px; background-color: #dbeafe; border-radius: 8px;">
+                        <i class="fas fa-bullhorn" style="color: #2563eb; font-size: 1.25rem;"></i>
+                    </div>
+                    <div style="margin-left: 16px;">
+                        <h3 style="font-size: 0.875rem; font-weight: 500; color: #6b7280; margin: 0;">Total Campaigns</h3>
+                        <p id="totalCampaigns" style="font-size: 1.5rem; font-weight: bold; color: #111827; margin: 4px 0 0 0;">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div style="display: flex; align-items: center;">
+                    <div style="padding: 12px; background-color: #dcfce7; border-radius: 8px;">
+                        <i class="fas fa-dollar-sign" style="color: #16a34a; font-size: 1.25rem;"></i>
+                    </div>
+                    <div style="margin-left: 16px;">
+                        <h3 style="font-size: 0.875rem; font-weight: 500; color: #6b7280; margin: 0;">Total Revenue</h3>
+                        <p id="totalRevenue" style="font-size: 1.5rem; font-weight: bold; color: #111827; margin: 4px 0 0 0;">$0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div style="display: flex; align-items: center;">
+                    <div style="padding: 12px; background-color: #f3e8ff; border-radius: 8px;">
+                        <i class="fas fa-chart-line" style="color: #7c3aed; font-size: 1.25rem;"></i>
+                    </div>
+                    <div style="margin-left: 16px;">
+                        <h3 style="font-size: 0.875rem; font-weight: 500; color: #6b7280; margin: 0;">Avg ROAS</h3>
+                        <p id="avgRoas" style="font-size: 1.5rem; font-weight: bold; color: #111827; margin: 4px 0 0 0;">0.0x</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div style="display: flex; align-items: center;">
+                    <div style="padding: 12px; background-color: #fed7aa; border-radius: 8px;">
+                        <i class="fas fa-shopping-cart" style="color: #ea580c; font-size: 1.25rem;"></i>
+                    </div>
+                    <div style="margin-left: 16px;">
+                        <h3 style="font-size: 0.875rem; font-weight: 500; color: #6b7280; margin: 0;">Total Conversions</h3>
+                        <p id="totalConversions" style="font-size: 1.5rem; font-weight: bold; color: #111827; margin: 4px 0 0 0;">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters Section (same as before) -->
+        <div class="card" style="margin-bottom: 32px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
+                <!-- Date Range -->
+                <div>
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Date Range</label>
+                    <select id="dateRange" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="last_7_days" selected>Last 7 Days</option>
+                        <option value="last_30_days">Last 30 Days</option>
+                        <option value="this_week">This Week</option>
+                        <option value="this_month">This Month</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+
+                <!-- Custom Date Range -->
+                <div id="customDateRange" style="display: none; grid-column: span 2;">
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">From - To</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="date" id="fromDate" style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <input type="date" id="toDate" style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    </div>
+                </div>
+
+                <!-- Search -->
+                <div>
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Search Campaigns</label>
+                    <input type="text" id="searchCampaign" placeholder="Search campaigns..." style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                </div>
+
+                <!-- Traffic Source Filter -->
+                <div>
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Traffic Source</label>
+                    <select id="trafficSourceFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                        <option value="">All Sources</option>
+                        <option value="facebook">Facebook</option>
+                        <option value="taboola">Taboola</option>
+                        <option value="newsbreak">NewsBreak</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <!-- Performance Filter -->
+                <div>
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Performance</label>
+                    <select id="performanceFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                        <option value="">All Performance</option>
+                        <option value="profitable">Profitable (ROAS > 1.0)</option>
+                        <option value="high_roas">High ROAS (> 2.0)</option>
+                        <option value="low_roas">Low ROAS (< 1.0)</option>
+                        <option value="no_conversions">No Conversions</option>
+                    </select>
+                </div>
+
+                <!-- Sort Options -->
+                <div>
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Sort By</label>
+                    <select id="sortFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                        <option value="revenue_desc">Revenue (High to Low)</option>
+                        <option value="revenue_asc">Revenue (Low to High)</option>
+                        <option value="roas_desc">ROAS (High to Low)</option>
+                        <option value="roas_asc">ROAS (Low to High)</option>
+                        <option value="spend_desc">Spend (High to Low)</option>
+                        <option value="cpa_asc">CPA (Low to High)</option>
+                        <option value="conversions_desc">Conversions (High to Low)</option>
+                        <option value="name_asc">Name (A to Z)</option>
+                    </select>
+                </div>
+
+                <!-- Clear Filters -->
+                <div style="display: flex; align-items: end;">
+                    <button onclick="clearFilters()" style="width: 100%; background-color: #f3f4f6; color: #374151; padding: 8px 16px; border-radius: 6px; font-weight: 500; border: none; cursor: pointer;">
+                        <i class="fas fa-times" style="margin-right: 8px;"></i>Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Campaign Table -->
+        <div class="card" style="padding: 0;">
+            <div class="table-container">
+                <table class="campaign-table">
+                    <thead style="background-color: #f9fafb;">
+                        <tr>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">
+                                Campaign Name
+                                <div style="font-size: 0.75rem; font-weight: normal; color: #9ca3af;">Click for details</div>
+                            </th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Traffic Source</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Visits</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Conversions</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Revenue</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Spend</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">
+                                ROAS (Current)
+                                <div style="font-size: 0.75rem; font-weight: normal; color: #9ca3af;">vs 7-Day</div>
+                            </th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">CVR</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Average Payout</th>
+                            <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Profit</th>
+                        </tr>
+                    </thead>
+                    <tbody id="campaignTableBody" style="background: white;">
+                        <tr>
+                            <td colspan="11" style="padding: 48px 24px; text-align: center; color: #6b7280;">
+                                <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
+                                <div>Loading campaign data...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Campaign Details Modal -->
+    <div id="campaignDetailsModal" class="campaign-details-modal">
+        <div class="campaign-details-content">
+            <!-- Campaign Header -->
+            <div class="campaign-header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2 id="campaignDetailsTitle" style="font-size: 1.5rem; font-weight: bold; margin: 0 0 8px 0;">Campaign Details</h2>
+                        <div id="campaignDetailsSubtitle" style="font-size: 0.875rem; color: rgba(255,255,255,0.8);">Loading campaign information...</div>
+                    </div>
+                    <button onclick="closeCampaignDetailsModal()" style="color: white; background: rgba(255,255,255,0.2); border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 1.25rem;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="tab-nav">
+                <button class="tab-button active" onclick="switchTab('details')">
+                    <i class="fas fa-info-circle" style="margin-right: 8px;"></i>Campaign Details
+                </button>
+                <button class="tab-button" onclick="switchTab('offers')">
+                    <i class="fas fa-layer-group" style="margin-right: 8px;"></i>Offer Performance
+                </button>
+                <button class="tab-button" onclick="switchTab('analytics')">
+                    <i class="fas fa-chart-bar" style="margin-right: 8px;"></i>Analytics
+                </button>
+            </div>
+
+            <!-- Tab Content: Campaign Details -->
+            <div id="detailsTab" class="tab-content active">
+                <div id="campaignDetailsContent">
+                    <div style="text-align: center; padding: 32px;">
+                        <div class="loading-spinner" style="width: 24px; height: 24px; margin: 0 auto 16px;"></div>
+                        <div>Loading campaign details via POST /bulk/campaign/select...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Offer Performance -->
+            <div id="offersTab" class="tab-content">
+                <div id="offerTableContainer">
+                    <div style="text-align: center; padding: 32px;">
+                        <div class="loading-spinner" style="width: 24px; height: 24px; margin: 0 auto 16px;"></div>
+                        <div>Loading enhanced offer data with 7-day ROAS...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Analytics -->
+            <div id="analyticsTab" class="tab-content">
+                <div style="padding: 24px;">
+                    <h3 style="margin-bottom: 16px;">Performance Analytics</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px;">
+                            <div style="font-size: 0.875rem; color: #6b7280;">Current ROAS</div>
+                            <div id="analyticsCurrentRoas" style="font-size: 1.5rem; font-weight: bold; color: #111827;">-</div>
+                        </div>
+                        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px;">
+                            <div style="font-size: 0.875rem; color: #6b7280;">7-Day ROAS</div>
+                            <div id="analytics7DayRoas" style="font-size: 1.5rem; font-weight: bold; color: #111827;">-</div>
+                        </div>
+                        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px;">
+                            <div style="font-size: 0.875rem; color: #6b7280;">Total Profit</div>
+                            <div id="analyticsTotalProfit" style="font-size: 1.5rem; font-weight: bold; color: #111827;">-</div>
+                        </div>
+                        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px;">
+                            <div style="font-size: 0.875rem; color: #6b7280;">Conversion Rate</div>
+                            <div id="analyticsConversionRate" style="font-size: 1.5rem; font-weight: bold; color: #111827;">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Enhanced global variables with campaign details
+        let allCampaigns = [];
+        let filteredCampaigns = [];
+        let currentCampaignDetails = null;
+        let activeTab = 'details';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            loadData();
+            setupDatePickers();
+        });
+
+        function setupEventListeners() {
+            // Date and filter changes
+            document.getElementById('dateRange').addEventListener('change', handleDateRangeChange);
+            document.getElementById('fromDate').addEventListener('change', handleCustomDateChange);
+            document.getElementById('toDate').addEventListener('change', handleCustomDateChange);
+            document.getElementById('searchCampaign').addEventListener('input', applyFilters);
+            document.getElementById('trafficSourceFilter').addEventListener('change', applyFilters);
+            document.getElementById('performanceFilter').addEventListener('change', applyFilters);
+            document.getElementById('sortFilter').addEventListener('change', applyFilters);
+
+            // Other controls
+            document.getElementById('exportBtn').addEventListener('click', exportData);
+        }
+
+        function setupDatePickers() {
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            document.getElementById('fromDate').valueAsDate = yesterday;
+            document.getElementById('toDate').valueAsDate = today;
+        }
+
+        function handleDateRangeChange() {
+            const dateRange = document.getElementById('dateRange').value;
+            const customDateRange = document.getElementById('customDateRange');
+            
+            if (dateRange === 'custom') {
+                customDateRange.style.display = 'block';
+            } else {
+                customDateRange.style.display = 'none';
+                loadData(); // Reload data immediately for preset ranges
+            }
+        }
+
+        function handleCustomDateChange() {
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            
+            if (fromDate && toDate) {
+                loadData(); // Reload data when both custom dates are set
+            }
+        }
+
+        async function loadData() {
+            updateConnectionStatus('connecting', 'Loading campaign data...');
+            
+            try {
+                let url = '/api/voluum/campaigns';
+                const dateRange = document.getElementById('dateRange').value;
+                const params = new URLSearchParams();
+                
+                // Date parameters
+                if (dateRange === 'custom') {
+                    const fromDate = document.getElementById('fromDate').value;
+                    const toDate = document.getElementById('toDate').value;
+                    if (fromDate && toDate) {
+                        params.append('from', fromDate);
+                        params.append('to', toDate);
+                    }
+                } else {
+                    params.append('range', dateRange);
+                }
+                
+                url += '?' + params.toString();
+                
+                console.log('🔍 Loading campaigns from:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load campaigns');
+                }
+                
+                allCampaigns = data.campaigns || [];
+                console.log(`📊 Loaded ${allCampaigns.length} campaigns`);
+                
+                processAndDisplayData();
+                updateConnectionStatus('connected', `Loaded ${allCampaigns.length} campaigns`);
+                
+            } catch (error) {
+                console.error('❌ Error loading campaigns:', error);
+                updateConnectionStatus('error', error.message);
+                showErrorState(error.message);
+            }
+        }
+
+        function processAndDisplayData() {
+            // Process campaign data
+            allCampaigns.forEach(campaign => {
+                // Calculate performance metrics
+                campaign.currentRoas = campaign.revenue > 0 ? (campaign.revenue / campaign.cost) : 0;
+                campaign.cpa = campaign.conversions > 0 ? (campaign.cost / campaign.conversions) : 0;
+                campaign.cvr = campaign.visits > 0 ? ((campaign.conversions / campaign.visits) * 100) : 0;
+                campaign.averagePayout = campaign.conversions > 0 ? (campaign.revenue / campaign.conversions) : 0;
+                campaign.profit = campaign.revenue - campaign.cost;
+                
+                // Simulate 7D ROAS for comparison (will be replaced with real API data)
+                campaign.roas7d = campaign.currentRoas * (1 + (Math.random() * 0.2 - 0.1));
+                
+                // Detect traffic source
+                campaign.detectedTrafficSource = detectTrafficSource(campaign.name);
+            });
+            
+            applyFilters();
+            updateDashboardSummary();
+        }
+
+        function detectTrafficSource(campaignName) {
+            const name = campaignName.toLowerCase();
+            if (name.includes('facebook') || name.includes('fb') || name.includes('meta')) return 'facebook';
+            if (name.includes('taboola')) return 'taboola';
+            if (name.includes('newsbreak') || name.includes('nb')) return 'newsbreak';
+            return 'other';
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchCampaign').value.toLowerCase();
+            const trafficSource = document.getElementById('trafficSourceFilter').value;
+            const performanceFilter = document.getElementById('performanceFilter').value;
+            const sortFilter = document.getElementById('sortFilter').value;
+            
+            filteredCampaigns = allCampaigns.filter(campaign => {
+                // Search filter
+                if (searchTerm && !campaign.name.toLowerCase().includes(searchTerm)) {
+                    return false;
+                }
+                
+                // Traffic source filter
+                if (trafficSource && campaign.detectedTrafficSource !== trafficSource) {
+                    return false;
+                }
+                
+                // Performance filter
+                if (performanceFilter) {
+                    switch (performanceFilter) {
+                        case 'profitable':
+                            if (campaign.currentRoas <= 1.0) return false;
+                            break;
+                        case 'high_roas':
+                            if (campaign.currentRoas <= 2.0) return false;
+                            break;
+                        case 'low_roas':
+                            if (campaign.currentRoas >= 1.0) return false;
+                            break;
+                        case 'no_conversions':
+                            if (campaign.conversions > 0) return false;
+                            break;
+                    }
+                }
+                
+                return true;
+            });
+            
+            // Sort campaigns
+            sortCampaigns(sortFilter);
+            renderCampaigns();
+        }
+
+        function sortCampaigns(sortBy) {
+            filteredCampaigns.sort((a, b) => {
+                switch (sortBy) {
+                    case 'revenue_desc': return b.revenue - a.revenue;
+                    case 'revenue_asc': return a.revenue - b.revenue;
+                    case 'roas_desc': return b.currentRoas - a.currentRoas;
+                    case 'roas_asc': return a.currentRoas - b.currentRoas;
+                    case 'spend_desc': return b.cost - a.cost;
+                    case 'cpa_asc': return a.cpa - b.cpa;
+                    case 'conversions_desc': return b.conversions - a.conversions;
+                    case 'name_asc': return a.name.localeCompare(b.name);
+                    default: return b.revenue - a.revenue;
+                }
+            });
+        }
+
+        function renderCampaigns() {
+            const tbody = document.getElementById('campaignTableBody');
+            
+            if (filteredCampaigns.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="11" style="padding: 48px 24px; text-align: center; color: #6b7280;">
+                            <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 16px;"></i>
+                            <div style="font-size: 1.125rem; font-weight: 500; color: #374151; margin-bottom: 8px;">No campaigns match your filters</div>
+                            <div style="font-size: 0.875rem;">Try adjusting your search criteria or date range.</div>
+                            <button onclick="clearFilters()" class="btn btn-primary" style="margin-top: 16px;">
+                                Clear Filters
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            filteredCampaigns.forEach(campaign => {
+                html += renderCampaignRow(campaign);
+            });
+            tbody.innerHTML = html;
+        }
+
+        function renderCampaignRow(campaign) {
+            const roasClass = campaign.currentRoas >= 2.0 ? 'roas-high' : 
+                             campaign.currentRoas >= 1.0 ? 'roas-medium' : 'roas-low';
+            
+            // ROAS comparison with 7-day
+            const roasDiff = campaign.currentRoas - campaign.roas7d;
+            const roasTrendIcon = roasDiff > 0.1 ? 'fa-arrow-up' : roasDiff < -0.1 ? 'fa-arrow-down' : 'fa-minus';
+            const roasTrendColor = roasDiff > 0.1 ? '#059669' : roasDiff < -0.1 ? '#dc2626' : '#6b7280';
+            
+            return `
+                <tr class="campaign-row" onclick="openCampaignDetails('${campaign.id}', '${campaign.name.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+                    <td style="padding: 12px 16px;">
+                        <div style="font-size: 0.875rem; font-weight: 500; color: #111827;">${campaign.name}</div>
+                        <div style="font-size: 0.75rem; color: #6b7280;">ID: ${campaign.id}</div>
+                    </td>
+                    <td style="padding: 12px 16px;">
+                        <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; ${getTrafficSourceColor(campaign.detectedTrafficSource)}">
+                            ${campaign.detectedTrafficSource.charAt(0).toUpperCase() + campaign.detectedTrafficSource.slice(1)}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px;">
+                        <span class="status-badge ${campaign.status === 'ACTIVE' ? 'status-active' : 'status-paused'}">
+                            ${campaign.status || 'ACTIVE'}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${campaign.visits.toLocaleString()}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${campaign.conversions}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; font-weight: 500; color: #111827;">${campaign.revenue.toFixed(2)}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${campaign.cost.toFixed(2)}</td>
+                    <td style="padding: 12px 16px;">
+                        <div class="roas-comparison">
+                            <span class="roas-current" style="color: ${campaign.currentRoas >= 2.0 ? '#059669' : campaign.currentRoas >= 1.0 ? '#d97706' : '#dc2626'};">
+                                ${campaign.currentRoas.toFixed(2)}x
+                            </span>
+                            <span class="roas-7d" style="color: ${roasTrendColor};">
+                                <i class="fas ${roasTrendIcon}" style="font-size: 0.75rem; margin-right: 2px;"></i>
+                                ${campaign.roas7d.toFixed(2)}x
+                            </span>
+                        </div>
+                    </td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${campaign.cvr.toFixed(2)}%</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; color: #111827;">${campaign.averagePayout.toFixed(2)}</td>
+                    <td style="padding: 12px 16px; font-size: 0.875rem; font-weight: 500; color: ${campaign.profit >= 0 ? '#059669' : '#dc2626'};">${campaign.profit.toFixed(2)}</td>
+                </tr>
+            `;
+        }
+
+        function getTrafficSourceColor(source) {
+            switch (source) {
+                case 'facebook': return 'background-color: #dbeafe; color: #1e40af;';
+                case 'taboola': return 'background-color: #f3e8ff; color: #7c2d12;';
+                case 'newsbreak': return 'background-color: #fed7aa; color: #c2410c;';
+                default: return 'background-color: #f3f4f6; color: #374151;';
+            }
+        }
+
+        // Enhanced Campaign Details Modal Functions
+        async function openCampaignDetails(campaignId, campaignName) {
+            console.log(`🎯 Opening campaign details for: ${campaignId}`);
+            
+            // Show modal immediately
+            document.getElementById('campaignDetailsModal').style.display = 'block';
+            document.getElementById('campaignDetailsTitle').textContent = campaignName;
+            document.getElementById('campaignDetailsSubtitle').textContent = `Campaign ID: ${campaignId}`;
+            
+            // Reset to details tab
+            switchTab('details');
+            
+            // Mark clicked row
+            document.querySelectorAll('.campaign-row').forEach(row => row.classList.remove('clicked'));
+            event.currentTarget.classList.add('clicked');
+            
+            try {
+                // Step 1: Fetch campaign details via POST /bulk/campaign/select
+                console.log('🔄 Step 1: Fetching campaign details...');
+                await fetchCampaignDetails(campaignId);
+                
+                // Step 2: Fetch enhanced offers with 7-day ROAS
+                console.log('🔄 Step 2: Fetching enhanced offers...');
+                await fetchEnhancedOffers(campaignId);
+                
+                showToast('Campaign details loaded successfully', 'success');
+                
+            } catch (error) {
+                console.error('❌ Error loading campaign details:', error);
+                showToast('Failed to load campaign details: ' + error.message, 'error');
+                
+                // Show error state in modal
+                document.getElementById('campaignDetailsContent').innerHTML = `
+                    <div style="text-align: center; padding: 32px; color: #dc2626;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 16px;"></i>
+                        <div style="font-size: 1.125rem; font-weight: 500; margin-bottom: 8px;">Failed to Load Campaign Details</div>
+                        <div style="font-size: 0.875rem; margin-bottom: 16px;">${error.message}</div>
+                        <button onclick="openCampaignDetails('${campaignId}', '${campaignName}')" class="btn btn-primary">
+                            <i class="fas fa-refresh" style="margin-right: 8px;"></i>Retry
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        async function fetchCampaignDetails(campaignId) {
+            const detailsContent = document.getElementById('campaignDetailsContent');
+            
+            // Show loading state
+            detailsContent.innerHTML = `
+                <div style="text-align: center; padding: 32px;">
+                    <div class="loading-spinner" style="width: 24px; height: 24px; margin: 0 auto 16px;"></div>
+                    <div>Fetching campaign details via POST /bulk/campaign/select...</div>
+                </div>
+            `;
+            
+            try {
+                console.log(`📤 Making POST request to /api/voluum/campaignById for ${campaignId}`);
+                
+                const response = await fetch('/api/voluum/campaignById', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        campaignId: campaignId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to fetch campaign details');
+                }
+                
+                currentCampaignDetails = data.campaign;
+                console.log('✅ Campaign details fetched successfully');
+                
+                // Render campaign details
+                renderCampaignDetails(currentCampaignDetails);
+                
+            } catch (error) {
+                console.error('❌ Error fetching campaign details:', error);
+                throw error;
+            }
+        }
+
+        async function fetchEnhancedOffers(campaignId) {
+            const offersContent = document.getElementById('offerTableContainer');
+            
+            // Show loading state
+            offersContent.innerHTML = `
+                <div style="text-align: center; padding: 32px;">
+                    <div class="loading-spinner" style="width: 24px; height: 24px; margin: 0 auto 16px;"></div>
+                    <div>Loading enhanced offer data with 7-day ROAS...</div>
+                </div>
+            `;
+            
+            try {
+                // Build URL with current date range settings
+                const dateRange = document.getElementById('dateRange').value;
+                const params = new URLSearchParams();
+                params.append('campaignId', campaignId);
+                
+                if (dateRange === 'custom') {
+                    const fromDate = document.getElementById('fromDate').value;
+                    const toDate = document.getElementById('toDate').value;
+                    if (fromDate && toDate) {
+                        params.append('from', fromDate);
+                        params.append('to', toDate);
+                    } else {
+                        params.append('range', 'last_7_days');
+                    }
+                } else {
+                    params.append('range', dateRange);
+                }
+                
+                const url = `/api/voluum/offersByCampaign?${params.toString()}`;
+                console.log(`📤 Making request to enhanced offers API: ${url}`);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to fetch enhanced offers');
+                }
+                
+                console.log(`✅ Enhanced offers loaded: ${data.offers.length} offers`);
+                
+                // Render enhanced offers table
+                renderEnhancedOffersTable(data.offers, data.debug_info);
+                
+                // Update analytics tab
+                updateAnalyticsData(data.offers);
+                
+            } catch (error) {
+                console.error('❌ Error fetching enhanced offers:', error);
+                
+                offersContent.innerHTML = `
+                    <div style="text-align: center; padding: 32px; color: #dc2626;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
+                        <div>Failed to load enhanced offers: ${error.message}</div>
+                        <div style="font-size: 0.875rem; margin-top: 8px; color: #6b7280;">This could be due to API rate limits or connectivity issues.</div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderCampaignDetails(campaignDetails) {
+            const detailsContent = document.getElementById('campaignDetailsContent');
+            
+            detailsContent.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+                    <!-- Campaign Information -->
+                    <div>
+                        <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin-bottom: 16px;">
+                            <i class="fas fa-info-circle" style="margin-right: 8px; color: #7c3aed;"></i>
+                            Campaign Information
+                        </h3>
+                        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <div style="display: grid; gap: 12px;">
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Campaign Name:</span>
+                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.name || 'N/A'}</div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Campaign ID:</span>
+                                    <div style="font-weight: 500; color: #111827; font-family: monospace;">${campaignDetails.id}</div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Status:</span>
+                                    <div>
+                                        <span class="status-badge ${campaignDetails.status === 'ACTIVE' ? 'status-active' : 'status-paused'}">
+                                            ${campaignDetails.status || 'ACTIVE'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Traffic Source:</span>
+                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.trafficSourceName || 'Unknown'}</div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Cost Model:</span>
+                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.costModel || 'CPC'}</div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Created:</span>
+                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.createDate ? new Date(campaignDetails.createDate).toLocaleDateString() : 'N/A'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Performance Metrics -->
+                    <div>
+                        <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin-bottom: 16px;">
+                            <i class="fas fa-chart-line" style="margin-right: 8px; color: #7c3aed;"></i>
+                            Performance Metrics
+                        </h3>
+                        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <div style="display: grid; gap: 12px;">
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Total Revenue:</span>
+                                    <div style="font-weight: 600; color: #059669; font-size: 1.125rem;">${(campaignDetails.revenue || 0).toFixed(2)}</div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Total Spend:</span>
+                                    <div style="font-weight: 600; color: #dc2626; font-size: 1.125rem;">${(campaignDetails.cost || 0).toFixed(2)}</div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Total Profit:</span>
+                                    <div style="font-weight: 600; color: ${(campaignDetails.profit || 0) >= 0 ? '#059669' : '#dc2626'}; font-size: 1.125rem;">
+                                        ${(campaignDetails.profit || 0).toFixed(2)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">ROAS:</span>
+                                    <div style="font-weight: 600; font-size: 1.125rem; color: ${(campaignDetails.roas || 0) >= 2.0 ? '#059669' : (campaignDetails.roas || 0) >= 1.0 ? '#d97706' : '#dc2626'};">
+                                        ${(campaignDetails.roas || 0).toFixed(2)}x
+                                    </div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Conversions:</span>
+                                    <div style="font-weight: 500; color: #111827;">${campaignDetails.conversions || 0}</div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Conversion Rate:</span>
+                                    <div style="font-weight: 500; color: #111827;">${(campaignDetails.cvr || 0).toFixed(2)}%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Source Information -->
+                <div style="margin-top: 24px; padding: 16px; background-color: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+                    <div style="font-size: 0.875rem; color: #1e40af;">
+                        <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                        <strong>Data Source:</strong> Retrieved via Voluum POST /bulk/campaign/select API
+                        ${campaignDetails.source ? ` (${campaignDetails.source})` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEnhancedOffersTable(offers, debugInfo) {
+            const container = document.getElementById('offerTableContainer');
+            
+            if (!offers || offers.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 32px; color: #6b7280;">
+                        <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 16px;"></i>
+                        <div style="font-size: 1.125rem; font-weight: 500; color: #374151; margin-bottom: 8px;">No offers found</div>
+                        <div style="font-size: 0.875rem;">This campaign may use direct linking or have no active offers in the selected date range.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div style="margin-bottom: 16px;">
+                    <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin-bottom: 8px;">
+                        <i class="fas fa-layer-group" style="margin-right: 8px; color: #7c3aed;"></i>
+                        Enhanced Offer Performance
+                    </h3>
+                    <div style="font-size: 0.875rem; color: #6b7280;">
+                        Found ${offers.length} offers with dual ROAS metrics (Current Range vs Last 7 Days)
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="offer-table-enhanced">
+                        <thead>
+                            <tr>
+                                <th>Offer Name</th>
+                                <th>Revenue (Current)</th>
+                                <th>Revenue (7D)</th>
+                                <th>Spend (Current)</th>
+                                <th>Spend (7D)</th>
+                                <th>ROAS (Current)</th>
+                                <th>ROAS (7D)</th>
+                                <th>CVR (Current)</th>
+                                <th>CVR (7D)</th>
+                                <th>Conversions</th>
+                                <th>Avg Payout</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            offers.forEach(offer => {
+                const roasCurrentColor = (offer.roas || 0) >= 2.0 ? '#059669' : (offer.roas || 0) >= 1.0 ? '#d97706' : '#dc2626';
+                const roas7DColor = (offer.roas_7d || 0) >= 2.0 ? '#059669' : (offer.roas_7d || 0) >= 1.0 ? '#d97706' : '#dc2626';
+                
+                html += `
+                    <tr>
+                        <td style="font-weight: 500;">
+                            ${offer.name}
+                            ${offer.onlyInLast7Days ? '<span style="font-size: 0.75rem; color: #d97706; margin-left: 8px;">(7D Only)</span>' : ''}
+                        </td>
+                        <td>${(offer.revenue || 0).toFixed(2)}</td>
+                        <td style="background-color: #f8fafc;">${(offer.revenue_7d || 0).toFixed(2)}</td>
+                        <td>${(offer.cost || 0).toFixed(2)}</td>
+                        <td style="background-color: #f8fafc;">${(offer.cost_7d || 0).toFixed(2)}</td>
+                        <td style="font-weight: 600; color: ${roasCurrentColor};">${(offer.roas || 0).toFixed(2)}x</td>
+                        <td style="font-weight: 600; color: ${roas7DColor}; background-color: #f8fafc;">${(offer.roas_7d || 0).toFixed(2)}x</td>
+                        <td>${(offer.cvr || 0).toFixed(2)}%</td>
+                        <td style="background-color: #f8fafc;">${(offer.cvr_7d || 0).toFixed(2)}%</td>
+                        <td>${offer.conversions || 0}</td>
+                        <td>${(offer.averagePayout || 0).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Debug Information -->
+                <div style="margin-top: 24px; padding: 16px; background-color: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+                    <div style="font-size: 0.875rem; color: #1e40af;">
+                        <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                        <strong>Enhanced Data Source:</strong> ${debugInfo?.api_calls_made || 1} API call(s) made
+                        ${debugInfo?.separate_7day_call_made ? ' (Separate 7-day ROAS call)' : ' (Same range data used)'}
+                        <br>
+                        <strong>Date Ranges:</strong> UI Range: ${debugInfo?.ui_range || 'N/A'} | Last 7 Days: ${debugInfo?.last_7_days_range || 'N/A'}
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function updateAnalyticsData(offers) {
+            // Calculate aggregate analytics from offers
+            let totalRevenue = 0;
+            let totalCost = 0;
+            let totalRevenue7D = 0;
+            let totalCost7D = 0;
+            let totalConversions = 0;
+            let totalVisits = 0;
+
+            offers.forEach(offer => {
+                totalRevenue += offer.revenue || 0;
+                totalCost += offer.cost || 0;
+                totalRevenue7D += offer.revenue_7d || 0;
+                totalCost7D += offer.cost_7d || 0;
+                totalConversions += offer.conversions || 0;
+                totalVisits += offer.visits || 0;
+            });
+
+            const currentRoas = totalCost > 0 ? (totalRevenue / totalCost) : 0;
+            const roas7D = totalCost7D > 0 ? (totalRevenue7D / totalCost7D) : 0;
+            const totalProfit = totalRevenue - totalCost;
+            const conversionRate = totalVisits > 0 ? ((totalConversions / totalVisits) * 100) : 0;
+
+            document.getElementById('analyticsCurrentRoas').textContent = `${currentRoas.toFixed(2)}x`;
+            document.getElementById('analytics7DayRoas').textContent = `${roas7D.toFixed(2)}x`;
+            document.getElementById('analyticsTotalProfit').textContent = `${totalProfit.toFixed(2)}`;
+            document.getElementById('analyticsConversionRate').textContent = `${conversionRate.toFixed(2)}%`;
+
+            // Update colors based on performance
+            document.getElementById('analyticsCurrentRoas').style.color = currentRoas >= 2.0 ? '#059669' : currentRoas >= 1.0 ? '#d97706' : '#dc2626';
+            document.getElementById('analytics7DayRoas').style.color = roas7D >= 2.0 ? '#059669' : roas7D >= 1.0 ? '#d97706' : '#dc2626';
+            document.getElementById('analyticsTotalProfit').style.color = totalProfit >= 0 ? '#059669' : '#dc2626';
+        }
+
+        function switchTab(tabName) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to selected tab
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}Tab`).classList.add('active');
+            
+            activeTab = tabName;
+        }
+
+        function closeCampaignDetailsModal() {
+            document.getElementById('campaignDetailsModal').style.display = 'none';
+            
+            // Remove clicked highlighting from rows
+            document.querySelectorAll('.campaign-row').forEach(row => row.classList.remove('clicked'));
+            
+            // Clear current campaign details
+            currentCampaignDetails = null;
+        }
+
+        // Click outside modal to close
+        window.onclick = function(event) {
+            const modal = document.getElementById('campaignDetailsModal');
+            if (event.target === modal) {
+                closeCampaignDetailsModal();
+            }
+        }
+
+        function updateDashboardSummary() {
+            const totalRevenue = allCampaigns.reduce((sum, c) => sum + c.revenue, 0);
+            const totalCost = allCampaigns.reduce((sum, c) => sum + c.cost, 0);
+            const totalConversions = allCampaigns.reduce((sum, c) => sum + c.conversions, 0);
+            
+            document.getElementById('totalCampaigns').textContent = allCampaigns.length;
+            document.getElementById('totalRevenue').textContent = `${totalRevenue.toFixed(2)}`;
+            document.getElementById('avgRoas').textContent = `${totalCost > 0 ? (totalRevenue / totalCost).toFixed(1) : '0.0'}x`;
+            document.getElementById('totalConversions').textContent = totalConversions;
+        }
+
+        function clearFilters() {
+            document.getElementById('searchCampaign').value = '';
+            document.getElementById('trafficSourceFilter').value = '';
+            document.getElementById('performanceFilter').value = '';
+            document.getElementById('sortFilter').value = 'revenue_desc';
+            
+            applyFilters();
+            showToast('Filters cleared', 'success');
+        }
+
+        function exportData() {
+            if (filteredCampaigns.length === 0) {
+                showToast('No data to export', 'warning');
+                return;
+            }
+            
+            const headers = [
+                'Campaign Name', 'Traffic Source', 'Status', 'Visits', 'Conversions', 
+                'Revenue', 'Spend', 'ROAS Current', 'ROAS 7D', 'CVR', 'Average Payout', 'Profit'
+            ];
+            
+            const csvContent = [
+                headers.join(','),
+                ...filteredCampaigns.map(campaign => [
+                    `"${campaign.name}"`,
+                    campaign.detectedTrafficSource,
+                    campaign.status || 'ACTIVE',
+                    campaign.visits,
+                    campaign.conversions,
+                    campaign.revenue.toFixed(2),
+                    campaign.cost.toFixed(2),
+                    campaign.currentRoas.toFixed(2),
+                    campaign.roas7d.toFixed(2),
+                    campaign.cvr.toFixed(2),
+                    campaign.averagePayout.toFixed(2),
+                    campaign.profit.toFixed(2)
+                ].join(','))
+            ].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `enhanced-campaigns-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            showToast('Enhanced data exported successfully', 'success');
+        }
+
+        function updateConnectionStatus(status, message) {
+            const statusEl = document.getElementById('connectionStatus');
+            const iconColors = {
+                connecting: '#fbbf24',
+                connected: '#059669',
+                error: '#dc2626'
+            };
+            
+            statusEl.innerHTML = `
+                <div style="width: 12px; height: 12px; background-color: ${iconColors[status]}; border-radius: 50%; margin-right: 8px; ${status === 'connecting' ? 'animation: pulse 2s infinite;' : ''}"></div>
+                <span style="font-size: 0.875rem; color: white;">${message}</span>
+            `;
+        }
+
+        function showErrorState(error) {
+            const tbody = document.getElementById('campaignTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="11" style="padding: 48px 24px; text-align: center; color: #6b7280;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #dc2626; margin-bottom: 16px;"></i>
+                        <div style="font-size: 1.125rem; font-weight: 500; color: #374151; margin-bottom: 8px;">Enhanced Dashboard Connection Failed</div>
+                        <div style="font-size: 0.875rem; color: #dc2626; margin-bottom: 8px;">${error}</div>
+                        <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 16px;">Check your API credentials and connections.</div>
+                        <button onclick="loadData()" class="btn btn-primary">
+                            <i class="fas fa-refresh" style="margin-right: 8px;"></i>Retry Connection
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Add CSS animation for pulse effect
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
