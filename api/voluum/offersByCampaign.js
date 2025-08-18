@@ -131,9 +131,12 @@ export default async function handler(req, res) {
 
 // Helper function to get offers for a specific date range
 async function getOffersForDateRange(authToken, campaignId, startDate, endDate, rangeName) {
-    console.log(`📊 Fetching offers for ${rangeName}: ${startDate} to ${endDate}`);
+    console.log(`📊 Fetching offers for ${rangeName}: ${startDate} to ${endDate}, campaign: ${campaignId}`);
     
+    // CRITICAL FIX: Use campaignId parameter to filter offers for this specific campaign only
     const reportUrl = `https://api.voluum.com/report?campaignId=${campaignId}&from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&limit=1000`;
+    
+    console.log(`🔗 Offers API URL: ${reportUrl}`);
     
     const reportResponse = await fetch(reportUrl, {
         headers: {
@@ -176,14 +179,14 @@ async function getOffersForDateRange(authToken, campaignId, startDate, endDate, 
 
 // Process offer data from Voluum API response
 function processOfferData(reportData, campaignId, rangeName) {
-    console.log(`📊 Processing ${rangeName} offer data:`, {
+    console.log(`📊 Processing ${rangeName} offer data for campaign ${campaignId}:`, {
         hasRows: !!reportData.rows,
         rowCount: reportData.rows?.length || 0,
         hasColumns: !!reportData.columns && reportData.columns.length > 0
     });
 
     if (!reportData.rows || reportData.rows.length === 0) {
-        console.log(`ℹ️ No offer data found for ${rangeName}`);
+        console.log(`ℹ️ No offer data found for ${rangeName} in campaign ${campaignId}`);
         return [];
     }
 
@@ -205,24 +208,27 @@ function processOfferData(reportData, campaignId, rangeName) {
                 offerData = rowData;
             }
             
-            // Filter out deleted offers and offers with no visits
+            // CRITICAL FIX: Filter out deleted offers and offers with no visits
             const isNotDeleted = !offerData.deleted && offerData.deleted !== true;
             const hasVisits = (offerData.visits || 0) > 0;
             
             if (!isNotDeleted || !hasVisits) {
+                console.log(`⚠️ Skipping offer ${index}: deleted=${offerData.deleted}, visits=${offerData.visits}`);
                 return; // Skip this offer
             }
             
-            // Ensure the offer belongs to this campaign
-            if (offerData.campaignId && offerData.campaignId !== campaignId) {
+            // CRITICAL FIX: Double-check campaign ID match
+            const offerCampaignId = offerData.campaignId || offerData.campaign_id || offerData.campaign;
+            if (offerCampaignId && offerCampaignId !== campaignId) {
+                console.log(`⚠️ Skipping offer ${index}: belongs to campaign ${offerCampaignId}, not ${campaignId}`);
                 return; // Skip offers from other campaigns
             }
             
             // Normalize offer data structure
             const normalizedOffer = {
-                id: offerData.id || offerData.offerId || `offer_${index}`,
-                name: offerData.name || offerData.offerName || `Offer ${index + 1}`,
-                campaignId: campaignId,
+                id: offerData.id || offerData.offerId || offerData.offer_id || `offer_${index}`,
+                name: offerData.name || offerData.offerName || offerData.offer_name || `Offer ${index + 1}`,
+                campaignId: campaignId, // Ensure campaign ID is set
                 visits: parseInt(offerData.visits || 0),
                 conversions: parseInt(offerData.conversions || 0),
                 revenue: parseFloat(offerData.revenue || 0),
@@ -244,6 +250,7 @@ function processOfferData(reportData, campaignId, rangeName) {
             normalizedOffer.cvr = normalizedOffer.visits > 0 ? ((normalizedOffer.conversions / normalizedOffer.visits) * 100) : 0;
             normalizedOffer.averagePayout = normalizedOffer.conversions > 0 ? (normalizedOffer.revenue / normalizedOffer.conversions) : 0;
             
+            console.log(`✅ Processed offer: ${normalizedOffer.name} (${normalizedOffer.visits} visits, ${normalizedOffer.conversions} conversions)`);
             offers.push(normalizedOffer);
             
         } catch (offerError) {
@@ -251,7 +258,7 @@ function processOfferData(reportData, campaignId, rangeName) {
         }
     });
 
-    console.log(`✅ Processed ${offers.length} valid offers for ${rangeName}`);
+    console.log(`✅ Processed ${offers.length} valid offers for ${rangeName} in campaign ${campaignId}`);
     return offers;
 }
 
