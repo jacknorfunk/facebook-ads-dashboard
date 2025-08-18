@@ -433,6 +433,247 @@
             margin-top: 0.25rem;
         }
 
+        /* Campaign Offers Popup Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 12px;
+            max-width: 90vw;
+            max-height: 90vh;
+            width: 1000px;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1d4ed8 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-body {
+            padding: 2rem;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .campaign-summary {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .campaign-info h3 {
+            color: var(--primary-color);
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .campaign-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-item {
+            text-align: center;
+            padding: 1rem;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .metric-value.positive {
+            color: var(--success-color);
+        }
+
+        .metric-value.negative {
+            color: var(--danger-color);
+        }
+
+        .offers-section {
+            margin-top: 2rem;
+        }
+
+        .offers-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .offers-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .offers-count {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .offers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .offer-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .offer-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary-color);
+        }
+
+        .offer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .offer-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+            margin-right: 1rem;
+        }
+
+        .offer-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .offer-status.active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .offer-status.paused {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .offer-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .offer-metric {
+            text-align: center;
+        }
+
+        .offer-metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .offer-metric-value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .loading-offers {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .no-offers {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 2px dashed var(--border-color);
+        }
+
+        .clickable-row {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .clickable-row:hover {
+            background: #f0f9ff !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
         @media (max-width: 768px) {
             .main-container {
                 padding: 1rem;
@@ -458,6 +699,24 @@
             .nav-tab {
                 font-size: 0.75rem;
                 padding: 0.5rem 1rem;
+            }
+
+            .modal-content {
+                width: 95vw;
+                max-height: 95vh;
+            }
+
+            .modal-body {
+                padding: 1rem;
+            }
+
+            .campaign-summary {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .offers-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -662,11 +921,39 @@
         </div>
     </main>
 
+    <!-- Campaign Offers Popup Modal -->
+    <div class="modal-overlay" id="offersModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Campaign Offers</h2>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="campaign-summary" id="campaignSummary">
+                    <!-- Campaign info will be populated here -->
+                </div>
+                <div class="offers-section">
+                    <div class="offers-header">
+                        <h3 class="offers-title">Associated Offers</h3>
+                        <span class="offers-count" id="offersCount">0</span>
+                    </div>
+                    <div id="offersContainer">
+                        <div class="loading-offers">
+                            <div class="spinner"></div>
+                            <p>Loading campaign offers...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global variables
         let creativesData = [];
         let currentTab = 'ad-data';
         let analysisInProgress = false;
+        let currentCampaign = null;
         
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
@@ -689,10 +976,300 @@
             document.getElementById('runAnalysis').addEventListener('click', runComprehensiveAnalysis);
             document.getElementById('generateTests').addEventListener('click', loadABTests);
 
+            // Modal event handlers
+            document.getElementById('modalClose').addEventListener('click', closeOffersModal);
+            document.getElementById('offersModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeOffersModal();
+                }
+            });
+
             // Traffic source change
             document.getElementById('trafficSource').addEventListener('change', function() {
                 loadCreativeData();
             });
+        }
+
+        // Campaign Offers Modal Functions
+        async function showCampaignOffers(creativeId, campaignId) {
+            console.log('🎯 Showing offers for campaign:', campaignId, 'creative:', creativeId);
+            
+            // Find the selected campaign/creative
+            const selectedCampaign = creativesData.find(c => c.id === creativeId);
+            if (!selectedCampaign) {
+                console.error('Campaign not found:', creativeId);
+                return;
+            }
+            
+            currentCampaign = selectedCampaign;
+            
+            // Show modal
+            document.getElementById('offersModal').classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            
+            // Update modal title
+            document.getElementById('modalTitle').textContent = `Campaign: ${selectedCampaign.name}`;
+            
+            // Populate campaign summary
+            populateCampaignSummary(selectedCampaign);
+            
+            // Load offers data
+            await loadCampaignOffers(campaignId || selectedCampaign.campaignId);
+        }
+
+        function closeOffersModal() {
+            document.getElementById('offersModal').classList.remove('active');
+            document.body.style.overflow = ''; // Restore scrolling
+            currentCampaign = null;
+        }
+
+        function populateCampaignSummary(campaign) {
+            const summaryContainer = document.getElementById('campaignSummary');
+            
+            summaryContainer.innerHTML = `
+                <div class="campaign-info">
+                    <h3>${campaign.name}</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">Campaign ID: ${campaign.campaignId || campaign.id}</p>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">${campaign.description || campaign.headline}</p>
+                </div>
+                <div class="campaign-metrics">
+                    <div class="metric-item">
+                        <div class="metric-label">ROAS</div>
+                        <div class="metric-value ${campaign.roas >= 2 ? 'positive' : campaign.roas < 1 ? 'negative' : ''}">${campaign.roas.toFixed(2)}x</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Revenue</div>
+                        <div class="metric-value positive">$${(campaign.spend * campaign.roas).toFixed(2)}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Spend</div>
+                        <div class="metric-value">$${campaign.spend.toFixed(2)}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">CTR</div>
+                        <div class="metric-value ${campaign.ctr >= 0.02 ? 'positive' : campaign.ctr < 0.01 ? 'negative' : ''}">${(campaign.ctr * 100).toFixed(2)}%</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Conversions</div>
+                        <div class="metric-value">${campaign.conversions}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">CPA</div>
+                        <div class="metric-value ${campaign.cpa <= 50 ? 'positive' : 'negative'}">$${campaign.cpa.toFixed(2)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadCampaignOffers(campaignId) {
+            const offersContainer = document.getElementById('offersContainer');
+            const offersCount = document.getElementById('offersCount');
+            
+            // Show loading state
+            offersContainer.innerHTML = `
+                <div class="loading-offers">
+                    <div class="spinner"></div>
+                    <p>Loading campaign offers from Voluum...</p>
+                </div>
+            `;
+            
+            try {
+                const trafficSource = document.getElementById('trafficSource').value;
+                
+                if (trafficSource === 'voluum') {
+                    // Use Voluum API to get offers for this campaign
+                    const offers = await fetchVoluumCampaignOffers(campaignId);
+                    displayCampaignOffers(offers);
+                } else {
+                    // For other traffic sources, show simulated offers based on campaign data
+                    const simulatedOffers = generateSimulatedOffers(currentCampaign);
+                    displayCampaignOffers(simulatedOffers);
+                }
+                
+            } catch (error) {
+                console.error('Error loading campaign offers:', error);
+                offersContainer.innerHTML = `
+                    <div class="no-offers">
+                        <h4>⚠️ Error Loading Offers</h4>
+                        <p>Failed to load offers for this campaign: ${error.message}</p>
+                        <p style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary);">
+                            This may be due to API limitations or network issues. Please try again later.
+                        </p>
+                    </div>
+                `;
+                offersCount.textContent = '0';
+            }
+        }
+
+        async function fetchVoluumCampaignOffers(campaignId) {
+            console.log('🔍 Fetching Voluum offers for campaign:', campaignId);
+            
+            try {
+                // First, get campaign details to find associated offers
+                const campaignResponse = await fetch(`/api/voluum/campaign/${campaignId}`);
+                if (!campaignResponse.ok) {
+                    throw new Error('Failed to fetch campaign details');
+                }
+                
+                const campaignData = await campaignResponse.json();
+                
+                // Get offers associated with this campaign
+                const offersResponse = await fetch(`/api/voluum/campaign/${campaignId}/offers`);
+                if (!offersResponse.ok) {
+                    throw new Error('Failed to fetch campaign offers');
+                }
+                
+                const offersData = await offersResponse.json();
+                
+                // Get performance metrics for each offer
+                const offers = [];
+                for (const offer of offersData.offers || []) {
+                    try {
+                        const metricsResponse = await fetch(`/api/voluum/reports/offer/${offer.id}?campaignId=${campaignId}&range=last7days`);
+                        const metrics = metricsResponse.ok ? await metricsResponse.json() : {};
+                        
+                        offers.push({
+                            id: offer.id,
+                            name: offer.name || `Offer ${offer.id}`,
+                            url: offer.url,
+                            status: offer.status || 'active',
+                            revenue: metrics.revenue || 0,
+                            cost: metrics.cost || 0,
+                            roas: metrics.cost > 0 ? (metrics.revenue / metrics.cost) : 0,
+                            conversions: metrics.conversions || 0,
+                            clicks: metrics.clicks || 0,
+                            ctr: metrics.visits > 0 ? (metrics.clicks / metrics.visits) : 0,
+                            conversionRate: metrics.clicks > 0 ? (metrics.conversions / metrics.clicks) : 0
+                        });
+                    } catch (offerError) {
+                        console.warn('Error fetching metrics for offer', offer.id, offerError);
+                        // Add offer without detailed metrics
+                        offers.push({
+                            id: offer.id,
+                            name: offer.name || `Offer ${offer.id}`,
+                            url: offer.url,
+                            status: offer.status || 'active',
+                            revenue: 0,
+                            cost: 0,
+                            roas: 0,
+                            conversions: 0,
+                            clicks: 0,
+                            ctr: 0,
+                            conversionRate: 0
+                        });
+                    }
+                }
+                
+                return offers;
+                
+            } catch (error) {
+                console.error('Error fetching Voluum campaign offers:', error);
+                throw error;
+            }
+        }
+
+        function generateSimulatedOffers(campaign) {
+            // Generate realistic offers based on campaign performance
+            const numOffers = Math.floor(Math.random() * 4) + 2; // 2-5 offers
+            const offers = [];
+            
+            const offerTypes = [
+                'Insurance Quote',
+                'Financial Product',
+                'Lead Generation',
+                'E-commerce Product',
+                'Service Signup',
+                'App Download'
+            ];
+            
+            const totalRevenue = campaign.spend * campaign.roas;
+            const totalConversions = campaign.conversions;
+            
+            for (let i = 0; i < numOffers; i++) {
+                const offerShare = Math.random() * 0.6 + 0.2; // 20-80% share
+                const offerRevenue = totalRevenue * offerShare;
+                const offerConversions = Math.floor(totalConversions * offerShare);
+                const offerCost = campaign.spend * offerShare;
+                
+                offers.push({
+                    id: `offer_${campaign.id}_${i + 1}`,
+                    name: `${offerTypes[i % offerTypes.length]} ${i + 1}`,
+                    url: `https://example.com/offer/${i + 1}`,
+                    status: Math.random() > 0.8 ? 'paused' : 'active',
+                    revenue: offerRevenue,
+                    cost: offerCost,
+                    roas: offerCost > 0 ? (offerRevenue / offerCost) : 0,
+                    conversions: offerConversions,
+                    clicks: Math.floor(campaign.impressions * 0.02 * offerShare), // Simulate clicks
+                    ctr: campaign.ctr * (0.8 + Math.random() * 0.4), // Vary CTR
+                    conversionRate: offerConversions > 0 ? (offerConversions / Math.floor(campaign.impressions * 0.02 * offerShare)) : 0
+                });
+            }
+            
+            return offers.sort((a, b) => b.revenue - a.revenue);
+        }
+
+        function displayCampaignOffers(offers) {
+            const offersContainer = document.getElementById('offersContainer');
+            const offersCount = document.getElementById('offersCount');
+            
+            offersCount.textContent = offers.length;
+            
+            if (offers.length === 0) {
+                offersContainer.innerHTML = `
+                    <div class="no-offers">
+                        <h4>📭 No Offers Found</h4>
+                        <p>This campaign doesn't have any associated offers yet.</p>
+                        <p style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary);">
+                            Offers may not be configured or visible through the current API access level.
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const offersHTML = `
+                <div class="offers-grid">
+                    ${offers.map(offer => `
+                        <div class="offer-card">
+                            <div class="offer-header">
+                                <div class="offer-name">${offer.name}</div>
+                                <span class="offer-status ${offer.status}">${offer.status}</span>
+                            </div>
+                            
+                            <div class="offer-metrics">
+                                <div class="offer-metric">
+                                    <div class="offer-metric-label">Revenue</div>
+                                    <div class="offer-metric-value" style="color: var(--success-color);">$${offer.revenue.toFixed(2)}</div>
+                                </div>
+                                <div class="offer-metric">
+                                    <div class="offer-metric-label">ROAS</div>
+                                    <div class="offer-metric-value" style="color: ${offer.roas >= 2 ? 'var(--success-color)' : offer.roas >= 1 ? 'var(--warning-color)' : 'var(--danger-color)'};">${offer.roas.toFixed(2)}x</div>
+                                </div>
+                                <div class="offer-metric">
+                                    <div class="offer-metric-label">Conversions</div>
+                                    <div class="offer-metric-value">${offer.conversions}</div>
+                                </div>
+                                <div class="offer-metric">
+                                    <div class="offer-metric-label">Conv Rate</div>
+                                    <div class="offer-metric-value">${(offer.conversionRate * 100).toFixed(2)}%</div>
+                                </div>
+                            </div>
+                            
+                            ${offer.url ? `
+                                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Offer URL</div>
+                                    <div style="font-size: 0.75rem; word-break: break-all; color: var(--primary-color);">
+                                        <a href="${offer.url}" target="_blank" style="color: inherit; text-decoration: none;">${offer.url}</a>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            offersContainer.innerHTML = offersHTML;
         }
 
         function switchTab(tabId) {
@@ -1069,7 +1646,7 @@ IMPORTANT: The data you see is NOT REAL campaign data.`;
                     </thead>
                     <tbody>
                         ${creatives.map(creative => `
-                            <tr onclick="analyzeCreative('${creative.id}')">
+                            <tr class="clickable-row" onclick="showCampaignOffers('${creative.id}', '${creative.campaignId}')">
                                 <td>
                                     <div class="creative-preview">
                                         ${creative.imageUrl ? 
@@ -1778,6 +2355,7 @@ Check console for detailed logs and error information.`;
         window.runEnhancedDiagnostics = runEnhancedDiagnostics;
         window.runComprehensiveAnalysis = runComprehensiveAnalysis;
         window.analyzeCreative = analyzeCreative;
+        window.showCampaignOffers = showCampaignOffers;
 
         console.log('✅ NewsBreak Creative Intelligence Dashboard loaded successfully');
         console.log('🎯 Features: REAL NewsBreak API integration, No Mock Data, Production ready');
