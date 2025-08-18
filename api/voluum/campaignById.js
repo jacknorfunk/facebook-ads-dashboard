@@ -97,57 +97,82 @@ export default async function handler(req, res) {
             // If bulk select fails, try fallback method using report API
             console.log(`⚠️ Bulk select failed (${bulkResponse.status}), trying fallback...`);
             
-            const endDate = new Date().toISOString().split('T')[0];
-            const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            // Try progressively wider date ranges to find campaign data
+            const dateRanges = [
+                { days: 7, name: "last 7 days" },
+                { days: 30, name: "last 30 days" },
+                { days: 90, name: "last 90 days" },
+                { days: 365, name: "last year" }
+            ];
             
-            const reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&campaignId=${campaignId}&limit=1`;
+            let campaignFound = false;
+            let campaignDetails = null;
             
-            const reportResponse = await fetch(reportUrl, {
-                headers: {
-                    'cwauth-token': authToken,
-                    'Content-Type': 'application/json'
+            for (const range of dateRanges) {
+                const endDate = new Date().toISOString().split('T')[0];
+                const startDate = new Date(Date.now() - range.days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                
+                console.log(`🔍 Searching campaign in ${range.name}: ${startDate} to ${endDate}`);
+                
+                const reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&campaignId=${campaignId}&limit=1`;
+                
+                try {
+                    const reportResponse = await fetch(reportUrl, {
+                        headers: {
+                            'cwauth-token': authToken,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (reportResponse.ok) {
+                        const reportData = await reportResponse.json();
+                        
+                        if (reportData.rows && reportData.rows.length > 0) {
+                            const campaignRow = reportData.rows[0];
+                            console.log(`✅ Campaign found in ${range.name}:`, campaignRow);
+                            
+                            // Transform report data to campaign format
+                            campaignDetails = {
+                                id: campaignId,
+                                name: campaignRow.campaignName || campaignRow.name || `Campaign ${campaignId}`,
+                                status: campaignRow.status || 'ACTIVE',
+                                revenue: parseFloat(campaignRow.revenue || 0),
+                                cost: parseFloat(campaignRow.cost || 0),
+                                visits: parseInt(campaignRow.visits || 0),
+                                conversions: parseInt(campaignRow.conversions || 0),
+                                roas: 0,
+                                cpa: 0,
+                                cvr: 0,
+                                profit: 0,
+                                trafficSourceName: campaignRow.trafficSourceName || 'Unknown',
+                                costModel: campaignRow.costModel || 'CPC',
+                                createDate: campaignRow.createDate || null,
+                                dataRange: range.name
+                            };
+
+                            // Calculate metrics
+                            campaignDetails.roas = campaignDetails.cost > 0 ? (campaignDetails.revenue / campaignDetails.cost) : 0;
+                            campaignDetails.cpa = campaignDetails.conversions > 0 ? (campaignDetails.cost / campaignDetails.conversions) : 0;
+                            campaignDetails.cvr = campaignDetails.visits > 0 ? ((campaignDetails.conversions / campaignDetails.visits) * 100) : 0;
+                            campaignDetails.profit = campaignDetails.revenue - campaignDetails.cost;
+
+                            campaignFound = true;
+                            break;
+                        }
+                    }
+                } catch (rangeError) {
+                    console.log(`⚠️ Error searching ${range.name}:`, rangeError.message);
+                    continue;
                 }
-            });
-
-            if (!reportResponse.ok) {
-                const errorText = await reportResponse.text();
-                console.error('❌ Both bulk select and report API failed');
-                return res.status(404).json({
-                    success: false,
-                    error: `Campaign ${campaignId} not found or access denied`
-                });
             }
-
-            const reportData = await reportResponse.json();
             
-            if (!reportData.rows || reportData.rows.length === 0) {
+            if (!campaignFound) {
+                console.error('❌ Campaign not found in any date range');
                 return res.status(404).json({
                     success: false,
-                    error: `Campaign ${campaignId} not found in the last 30 days`
+                    error: `Campaign ${campaignId} not found in any date range (last 7 days to last year). Campaign may be deleted, archived, or ID is incorrect.`
                 });
             }
-
-            // Transform report data to campaign format
-            const campaignRow = reportData.rows[0];
-            const campaignDetails = {
-                id: campaignId,
-                name: campaignRow.campaignName || `Campaign ${campaignId}`,
-                status: 'ACTIVE',
-                revenue: parseFloat(campaignRow.revenue || 0),
-                cost: parseFloat(campaignRow.cost || 0),
-                visits: parseInt(campaignRow.visits || 0),
-                conversions: parseInt(campaignRow.conversions || 0),
-                roas: 0,
-                cpa: 0,
-                cvr: 0,
-                profit: 0
-            };
-
-            // Calculate metrics
-            campaignDetails.roas = campaignDetails.cost > 0 ? (campaignDetails.revenue / campaignDetails.cost) : 0;
-            campaignDetails.cpa = campaignDetails.conversions > 0 ? (campaignDetails.cost / campaignDetails.conversions) : 0;
-            campaignDetails.cvr = campaignDetails.visits > 0 ? ((campaignDetails.conversions / campaignDetails.visits) * 100) : 0;
-            campaignDetails.profit = campaignDetails.revenue - campaignDetails.cost;
 
             console.log('✅ Campaign details retrieved via report fallback');
             return res.json({
@@ -157,6 +182,8 @@ export default async function handler(req, res) {
                 debug_info: {
                     method: 'report_api_fallback',
                     campaignId: campaignId,
+                    found_in_range: campaignDetails.dataRange,
+                    bulk_select_failed: true,
                     timestamp: new Date().toISOString()
                 }
             });
