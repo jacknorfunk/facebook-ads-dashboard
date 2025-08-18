@@ -1,11 +1,20 @@
-// /api/voluum/campaignById.js - FIXED VERSION
-// This API fixes the traffic source detection issue
-
-import fetch from 'node-fetch';
+// /api/voluum/campaignById.js - Simple Vercel Compatible Version
 
 export default async function handler(req, res) {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
     if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+        return res.status(405).json({ 
+            success: false, 
+            error: 'Method not allowed. Use POST.' 
+        });
     }
 
     const { campaignId } = req.body;
@@ -13,32 +22,39 @@ export default async function handler(req, res) {
     if (!campaignId) {
         return res.status(400).json({ 
             success: false, 
-            error: 'Campaign ID is required' 
+            error: 'Campaign ID is required',
+            received: req.body
         });
     }
 
-    console.log(`🎯 FIXED CAMPAIGN API - Fetching details for: ${campaignId}`);
+    console.log(`🎯 Simple Campaign API - Fetching details for: ${campaignId}`);
 
     try {
-        // Get auth token from session/environment
-        const authToken = process.env.VOLUUM_AUTH_TOKEN || req.session?.volumAccessKey;
+        // Get auth token from environment variables
+        const authToken = process.env.VOLUUM_AUTH_TOKEN || process.env.VOLUME_KEY;
         
         if (!authToken) {
+            console.log('❌ No auth token found in environment variables');
             return res.status(401).json({ 
                 success: false, 
-                error: 'No Voluum authentication token available' 
+                error: 'No Voluum authentication token available',
+                envVars: {
+                    hasVOLUUM_AUTH_TOKEN: !!process.env.VOLUUM_AUTH_TOKEN,
+                    hasVOLUME_KEY: !!process.env.VOLUME_KEY
+                }
             });
         }
 
-        // Try multiple approaches to get campaign data
+        console.log('✅ Auth token found, making API request...');
+
+        // Try the bulk select endpoint first
         let campaignData = null;
         let dataSource = 'unknown';
 
-        // APPROACH 1: Official bulk select endpoint
         try {
-            console.log(`📡 Approach 1: Official bulk select endpoint`);
+            console.log('📡 Trying bulk select endpoint...');
             
-            const bulkSelectResponse = await fetch('https://api.voluum.com/campaign/bulk/select', {
+            const bulkResponse = await fetch('https://api.voluum.com/campaign/bulk/select', {
                 method: 'POST',
                 headers: {
                     'cwauth-token': authToken,
@@ -49,58 +65,100 @@ export default async function handler(req, res) {
                 })
             });
 
-            if (bulkSelectResponse.ok) {
-                const bulkData = await bulkSelectResponse.json();
-                console.log(`📊 Bulk select response:`, bulkData);
+            console.log(`📊 Bulk select response status: ${bulkResponse.status}`);
+
+            if (bulkResponse.ok) {
+                const bulkData = await bulkResponse.json();
+                console.log('📊 Bulk select data:', bulkData);
                 
-                if (bulkData && bulkData.length > 0) {
+                if (bulkData && Array.isArray(bulkData) && bulkData.length > 0) {
                     campaignData = bulkData[0];
                     dataSource = 'POST /bulk/campaign/select';
-                    console.log(`✅ Approach 1 SUCCESS: Campaign data retrieved via bulk select`);
+                    console.log('✅ Campaign data found via bulk select');
                 }
             } else {
-                console.log(`⚠️ Approach 1 failed: ${bulkSelectResponse.status} ${bulkSelectResponse.statusText}`);
+                const errorText = await bulkResponse.text();
+                console.log(`⚠️ Bulk select failed: ${bulkResponse.status} - ${errorText}`);
             }
-        } catch (error) {
-            console.log(`⚠️ Approach 1 error:`, error.message);
+        } catch (bulkError) {
+            console.log('⚠️ Bulk select error:', bulkError.message);
         }
 
-        // APPROACH 2: Progressive date range search if bulk select failed
+        // If bulk select failed, try to find the campaign in the existing campaigns list
         if (!campaignData) {
-            console.log(`📡 Approach 2: Progressive date range search`);
-            campaignData = await getViaProgressiveDateSearch(authToken, campaignId);
-            if (campaignData) {
-                dataSource = 'Progressive date range search';
-                console.log(`✅ Approach 2 SUCCESS: Campaign data found via date search`);
+            console.log('📡 Trying to find campaign in campaigns list...');
+            
+            try {
+                // Use the same approach as the working campaigns endpoint
+                const currentDate = new Date();
+                const last7Days = new Date(currentDate.getTime() - (7 * 24 * 60 * 60 * 1000));
+                
+                const startDate = last7Days.toISOString().split('T')[0];
+                const endDate = currentDate.toISOString().split('T')[0];
+                
+                const reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
+                
+                console.log(`📡 Fetching campaigns from: ${reportUrl}`);
+                
+                const reportResponse = await fetch(reportUrl, {
+                    headers: {
+                        'cwauth-token': authToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (reportResponse.ok) {
+                    const reportData = await reportResponse.json();
+                    console.log(`📊 Report data: ${reportData.rows?.length || 0} campaigns found`);
+                    
+                    if (reportData.rows && reportData.columns) {
+                        // Find the campaign in the report data
+                        const campaignRow = reportData.rows.find(row => {
+                            const campaignIdIndex = reportData.columns.indexOf('campaignId');
+                            return campaignIdIndex >= 0 && row[campaignIdIndex] === campaignId;
+                        });
+                        
+                        if (campaignRow) {
+                            console.log('✅ Campaign found in report data');
+                            
+                            // Convert row data to object
+                            campaignData = {};
+                            reportData.columns.forEach((column, index) => {
+                                campaignData[column] = campaignRow[index];
+                            });
+                            
+                            dataSource = 'Report API search';
+                        } else {
+                            console.log(`⚠️ Campaign ${campaignId} not found in report data`);
+                        }
+                    }
+                } else {
+                    const errorText = await reportResponse.text();
+                    console.log(`⚠️ Report API failed: ${reportResponse.status} - ${errorText}`);
+                }
+            } catch (reportError) {
+                console.log('⚠️ Report API error:', reportError.message);
             }
         }
 
-        // APPROACH 3: Campaign list search as last resort
         if (!campaignData) {
-            console.log(`📡 Approach 3: Campaign list search`);
-            campaignData = await getViaCampaignListSearch(authToken, campaignId);
-            if (campaignData) {
-                dataSource = 'Campaign list search';
-                console.log(`✅ Approach 3 SUCCESS: Campaign data found in campaign list`);
-            }
-        }
-
-        if (!campaignData) {
+            console.log(`❌ Campaign ${campaignId} not found in any data source`);
             return res.status(404).json({
                 success: false,
                 error: `Campaign ${campaignId} not found`,
-                debug_info: {
+                dataSource: 'No data source worked',
+                debug: {
                     campaignId: campaignId,
-                    attemptsUsed: ['bulk_select', 'progressive_date_search', 'campaign_list_search'],
+                    searchedMethods: ['bulk_select', 'report_api'],
                     timestamp: new Date().toISOString()
                 }
             });
         }
 
-        // FIXED: Process campaign data with proper traffic source detection
-        const processedCampaign = processCampaignWithFixedTrafficSource(campaignData);
-
-        console.log(`✅ FINAL SUCCESS: Campaign ${campaignId} processed with traffic source: ${processedCampaign.detectedTrafficSource}`);
+        // Process the campaign data
+        const processedCampaign = processCampaignData(campaignData);
+        
+        console.log('✅ Campaign data processed successfully');
 
         return res.json({
             success: true,
@@ -109,35 +167,34 @@ export default async function handler(req, res) {
             metadata: {
                 campaignId: campaignId,
                 lastUpdated: new Date().toISOString(),
-                apiVersion: 'fixed_traffic_source_v2'
+                apiVersion: 'simple_vercel_v1'
             }
         });
 
     } catch (error) {
-        console.error('❌ Fixed Campaign API error:', error);
+        console.error('❌ Campaign API error:', error);
         return res.status(500).json({
             success: false,
             error: error.message,
-            debug_info: {
+            debug: {
                 campaignId: campaignId,
-                error_stack: error.stack,
+                errorStack: error.stack,
                 timestamp: new Date().toISOString()
             }
         });
     }
 }
 
-// FIXED: Process campaign data with accurate traffic source detection
-function processCampaignWithFixedTrafficSource(rawCampaign) {
-    console.log(`🔍 Processing campaign with traffic source detection:`, rawCampaign.name);
+function processCampaignData(rawCampaign) {
+    console.log('🔍 Processing campaign data:', rawCampaign.campaignName || rawCampaign.name);
 
-    // FIXED: Enhanced traffic source detection
-    const detectedTrafficSource = detectTrafficSourceAccurate(rawCampaign.name);
+    // Enhanced traffic source detection
+    const detectedTrafficSource = detectTrafficSource(rawCampaign.campaignName || rawCampaign.name);
     
     const processed = {
-        id: rawCampaign.id || rawCampaign.campaignId,
-        name: rawCampaign.name || 'Unknown Campaign',
-        status: rawCampaign.status || 'UNKNOWN',
+        id: rawCampaign.campaignId || rawCampaign.id,
+        name: rawCampaign.campaignName || rawCampaign.name || 'Unknown Campaign',
+        status: rawCampaign.status || 'ACTIVE',
         costModel: rawCampaign.costModel || rawCampaign.cost_model || 'AUTO',
         created: rawCampaign.created || rawCampaign.createdAt || 'N/A',
         
@@ -147,16 +204,14 @@ function processCampaignWithFixedTrafficSource(rawCampaign) {
         revenue: parseFloat(rawCampaign.revenue || 0),
         cost: parseFloat(rawCampaign.cost || rawCampaign.spent || 0),
         
-        // FIXED: Proper traffic source detection
+        // Traffic source detection
         trafficSource: detectedTrafficSource,
         detectedTrafficSource: detectedTrafficSource,
-        
-        // Original traffic source for debugging
         originalTrafficSource: rawCampaign.trafficSource || 'not_set',
         
         // Debug info
         rawData: {
-            campaignName: rawCampaign.name,
+            campaignName: rawCampaign.campaignName || rawCampaign.name,
             detectionResult: detectedTrafficSource,
             originalSource: rawCampaign.trafficSource
         }
@@ -174,170 +229,41 @@ function processCampaignWithFixedTrafficSource(rawCampaign) {
     return processed;
 }
 
-// FIXED: Accurate traffic source detection based on campaign name
-function detectTrafficSourceAccurate(campaignName) {
+function detectTrafficSource(campaignName) {
     if (!campaignName || typeof campaignName !== 'string') {
-        console.log(`⚠️ Invalid campaign name for traffic source detection:`, campaignName);
+        console.log('⚠️ Invalid campaign name for traffic source detection:', campaignName);
         return 'unknown';
     }
 
     const name = campaignName.toLowerCase().trim();
     console.log(`🔍 Detecting traffic source for: "${name}"`);
 
-    // Priority-based detection (most specific first)
+    // Priority-based detection (TABOOLA FIRST)
     if (name.includes('taboola')) {
-        console.log(`✅ Detected: taboola (found "taboola" in name)`);
+        console.log('✅ Detected: taboola');
         return 'taboola';
     }
     
     if (name.includes('facebook') || name.includes('fb') || name.includes('meta')) {
-        console.log(`✅ Detected: facebook (found facebook/fb/meta in name)`);
+        console.log('✅ Detected: facebook');
         return 'facebook';
     }
     
     if (name.includes('newsbreak') || name.includes('nb')) {
-        console.log(`✅ Detected: newsbreak (found newsbreak/nb in name)`);
+        console.log('✅ Detected: newsbreak');
         return 'newsbreak';
     }
     
     if (name.includes('admaven')) {
-        console.log(`✅ Detected: admaven (found "admaven" in name)`);
+        console.log('✅ Detected: admaven');
         return 'admaven';
     }
     
     if (name.includes('google') || name.includes('gads') || name.includes('adwords')) {
-        console.log(`✅ Detected: google (found google/gads/adwords in name)`);
+        console.log('✅ Detected: google');
         return 'google';
-    }
-    
-    if (name.includes('bing') || name.includes('microsoft')) {
-        console.log(`✅ Detected: bing (found bing/microsoft in name)`);
-        return 'bing';
-    }
-    
-    if (name.includes('outbrain')) {
-        console.log(`✅ Detected: outbrain (found "outbrain" in name)`);
-        return 'outbrain';
-    }
-    
-    if (name.includes('yahoo')) {
-        console.log(`✅ Detected: yahoo (found "yahoo" in name)`);
-        return 'yahoo';
-    }
-
-    // Check for common traffic source patterns
-    if (name.includes('native')) {
-        console.log(`✅ Detected: native (found "native" pattern)`);
-        return 'native';
-    }
-    
-    if (name.includes('display')) {
-        console.log(`✅ Detected: display (found "display" pattern)`);
-        return 'display';
-    }
-    
-    if (name.includes('push')) {
-        console.log(`✅ Detected: push (found "push" pattern)`);
-        return 'push';
-    }
-    
-    if (name.includes('pop')) {
-        console.log(`✅ Detected: pop (found "pop" pattern)`);
-        return 'pop';
     }
 
     console.log(`⚠️ No traffic source detected for: "${name}" -> defaulting to "other"`);
     return 'other';
-}
-
-// Progressive date range search for campaigns
-async function getViaProgressiveDateSearch(authToken, campaignId) {
-    const dateRanges = [
-        { days: 7, label: '7 days' },
-        { days: 30, label: '30 days' },
-        { days: 90, label: '90 days' },
-        { days: 365, label: '1 year' }
-    ];
-
-    for (const range of dateRanges) {
-        try {
-            console.log(`🔍 Searching last ${range.label} for campaign ${campaignId}`);
-            
-            const endDate = new Date();
-            const startDate = new Date(endDate.getTime() - (range.days * 24 * 60 * 60 * 1000));
-            
-            const startDateStr = startDate.toISOString().split('T')[0];
-            const endDateStr = endDate.toISOString().split('T')[0];
-            
-            const reportUrl = `https://api.voluum.com/report?campaignId=${campaignId}&from=${startDateStr}T00:00:00Z&to=${endDateStr}T23:00:00Z&tz=America/New_York&groupBy=campaign&limit=1`;
-            
-            const response = await fetch(reportUrl, {
-                headers: {
-                    'cwauth-token': authToken,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                
-                if (data.rows && data.rows.length > 0) {
-                    // Convert report data to campaign format
-                    const campaignRow = data.rows[0];
-                    const campaignData = {};
-                    
-                    if (data.columns) {
-                        data.columns.forEach((column, index) => {
-                            campaignData[column] = campaignRow[index];
-                        });
-                    }
-                    
-                    // Ensure we have the campaign ID and name
-                    campaignData.id = campaignData.campaignId || campaignId;
-                    
-                    console.log(`✅ Found campaign data in ${range.label} range:`, campaignData);
-                    return campaignData;
-                }
-            }
-            
-        } catch (error) {
-            console.log(`⚠️ Error searching ${range.label}:`, error.message);
-        }
-    }
-
-    return null;
-}
-
-// Campaign list search as fallback
-async function getViaCampaignListSearch(authToken, campaignId) {
-    try {
-        console.log(`🔍 Searching campaign list for ${campaignId}`);
-        
-        const campaignListUrl = 'https://api.voluum.com/campaign';
-        
-        const response = await fetch(campaignListUrl, {
-            headers: {
-                'cwauth-token': authToken,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const campaigns = await response.json();
-            
-            if (Array.isArray(campaigns)) {
-                const foundCampaign = campaigns.find(c => c.id === campaignId);
-                
-                if (foundCampaign) {
-                    console.log(`✅ Found campaign in list:`, foundCampaign);
-                    return foundCampaign;
-                }
-            }
-        }
-        
-    } catch (error) {
-        console.log(`⚠️ Error searching campaign list:`, error.message);
-    }
-
-    return null;
 }
