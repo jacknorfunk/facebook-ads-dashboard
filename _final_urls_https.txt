@@ -1,0 +1,13 @@
+01 https://get.dollarperks.net/click/1
+02 https://get.dollarperks.net/click/2
+03 https://get.dollarperks.net/click/3
+04 https://get.dollarperks.net/click/4
+05 https://get.dollarperks.net/click/5
+06 https://get.dollarperks.net/click/6
+07 https://get.dollarperks.net/click/7
+08 https://get.dollarperks.net/click/8
+09 https://get.dollarperks.net/click/9
+10 https://get.dollarperks.net/click/10
+11 https://get.dollarperks.net/click/11
+12 https://get.dollarperks.net/click/12
+13 https://get.dollarperks.net/click/13
