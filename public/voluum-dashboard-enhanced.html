@@ -1610,6 +1610,30 @@
 
         // Make function globally available
         window.showCampaignOffers = showCampaignOffers;
-    </script>
-</body>
-</html>
+
+        (async function ensureAuth(){
+            try {
+                const res = await fetch('/api/auth-status', { credentials: 'include' });
+                if (!res.ok) { window.location.href = '/login.html'; }
+            } catch (e) {
+                window.location.href = '/login.html';
+            }
+        })();
+    (async function ensureAuth(){
+	try {
+		const res = await fetch('/api/auth-status', { credentials: 'include' });
+		if (!res.ok) { window.location.href = '/login.html'; }
+	} catch (e) { window.location.href = '/login.html'; }
+})();
+
+// Floating link to Creative Analysis Engine
+(function(){
+	const a = document.createElement('a');
+	a.href = '/creative-engine.html';
+	a.textContent = 'Creative Analysis Engine';
+	a.style = 'position:fixed; top:14px; right:14px; background:#111827; color:#93c5fd; padding:8px 12px; border-radius:8px; border:1px solid #1f2937; z-index:1000; font-size:12px;';
+	document.body.appendChild(a);
+})();
+</script>
+ </body>
+ </html>
