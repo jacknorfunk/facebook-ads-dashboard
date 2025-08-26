@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Login</title>
+	<style>
+		body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#0b0f15; color:#e6edf3; display:flex; align-items:center; justify-content:center; height:100vh; margin:0 }
+		.card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:28px; width:100%; max-width:360px }
+		h1 { margin:0 0 16px 0; font-size:20px }
+		label { display:block; margin:10px 0 6px; font-size:12px; color:#9ca3af }
+		input { width:100%; padding:10px 12px; background:#0b1220; border:1px solid #1f2937; border-radius:8px; color:#e6edf3 }
+		button { width:100%; padding:10px 12px; background:#2563eb; border:0; border-radius:8px; color:white; margin-top:14px; cursor:pointer }
+		.error { background:#1f2937; color:#fda4af; border:1px solid #b91c1c; padding:10px; border-radius:8px; display:none; margin-bottom:8px }
+	</style>
+</head>
+<body>
+	<div class="card">
+		<h1>Dashboard Login</h1>
+		<div id="error" class="error"></div>
+		<label for="password">Password</label>
+		<input id="password" type="password" placeholder="Enter password" />
+		<button id="loginBtn">Sign in</button>
+	</div>
+	<script>
+	const btn = document.getElementById('loginBtn');
+	const err = document.getElementById('error');
+	btn.addEventListener('click', async () => {
+		err.style.display='none';
+		const password = document.getElementById('password').value;
+		try {
+			const res = await fetch('/api/auth-login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
+			const data = await res.json();
+			if (!res.ok) { throw new Error(data.error || 'Login failed'); }
+			window.location.href = '/voluum-dashboard-enhanced.html';
+		} catch(e) {
+			err.textContent = e.message;
+			err.style.display = 'block';
+		}
+	});
+	</script>
+</body>
+</html>

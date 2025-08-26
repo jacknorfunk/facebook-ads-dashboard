@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Creative Analysis Engine</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+	<style>
+		.badge{ padding:2px 8px; border-radius:14px; font-size:12px }
+		.badge-green{ background:#dcfce7; color:#166534 }
+		.badge-red{ background:#fee2e2; color:#991b1b }
+		.badge-blue{ background:#dbeafe; color:#1e40af }
+		.sticky-header{ position:sticky; top:0; background:white; z-index:20 }
+	</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+	<div class="max-w-7xl mx-auto px-4 py-6">
+		<div class="flex items-center justify-between mb-4">
+			<div>
+				<h1 class="text-2xl font-bold">Creative Analysis Engine</h1>
+				<p class="text-gray-500">Taboola creative-level analysis, explanations, and recommendations</p>
+			</div>
+			<div class="flex items-center gap-2">
+				<a class="text-blue-600" href="/voluum-dashboard-enhanced.html">Back to Dashboard</a>
+			</div>
+		</div>
+
+		<!-- Filters -->
+		<div class="bg-white border rounded-lg p-4 mb-4">
+			<div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+				<select id="date" class="border rounded p-2">
+					<option value="last_7d">Last 7d</option>
+					<option value="last_14d">Last 14d</option>
+					<option value="last_30d" selected>Last 30d</option>
+				</select>
+				<input id="campaign" class="border rounded p-2" placeholder="Campaign ID"/>
+				<input id="site" class="border rounded p-2" placeholder="Site"/>
+				<input id="platform" class="border rounded p-2" placeholder="Platform"/>
+				<input id="country" class="border rounded p-2" placeholder="Country"/>
+				<div class="flex gap-2">
+					<button id="applyFilters" class="px-3 py-2 bg-blue-600 text-white rounded">Apply</button>
+					<button id="retryBtn" class="px-3 py-2 bg-gray-200 rounded hidden">Retry</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Error Card -->
+		<div id="errorCard" class="hidden border border-red-300 bg-red-50 text-red-800 rounded p-3 mb-4"></div>
+
+		<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+			<!-- Table -->
+			<div class="lg:col-span-2 bg-white border rounded-lg overflow-hidden">
+				<div class="sticky-header p-3 border-b flex items-center justify-between">
+					<div class="font-semibold">Creatives</div>
+					<div class="flex items-center gap-2 text-sm">
+						<span>Rank by:</span>
+						<select id="rank" class="border rounded p-1">
+							<option value="roas">ROAS</option>
+							<option value="conversions">Conversions</option>
+							<option value="ctr">CTR</option>
+							<option value="spend">Spend</option>
+						</select>
+					</div>
+				</div>
+				<table class="w-full text-sm">
+					<thead class="bg-gray-50">
+						<tr>
+							<th class="p-2 text-left">Item</th>
+							<th class="p-2 text-right">Spend</th>
+							<th class="p-2 text-right">CTR</th>
+							<th class="p-2 text-right">CPC</th>
+							<th class="p-2 text-right">Conv</th>
+							<th class="p-2 text-right">CPA</th>
+							<th class="p-2 text-right">ROAS</th>
+							<th class="p-2">Actions</th>
+						</tr>
+					</thead>
+					<tbody id="tableBody"></tbody>
+				</table>
+			</div>
+
+			<!-- Side Panel -->
+			<div class="space-y-4">
+				<div class="bg-white border rounded-lg p-3">
+					<div class="flex items-center justify-between mb-2">
+						<div class="font-semibold">Lifecycle Log</div>
+						<a class="text-xs text-blue-600" href="#" id="refreshLog">Refresh</a>
+					</div>
+					<div id="lifecycleList" class="space-y-2"></div>
+				</div>
+				<div class="bg-white border rounded-lg p-3">
+					<div class="font-semibold mb-2">Top Drivers</div>
+					<div id="driverChips" class="flex flex-wrap gap-2"></div>
+				</div>
+				<div class="bg-white border rounded-lg p-3">
+					<div class="font-semibold mb-2">Recommendations</div>
+					<div class="mb-2 text-xs text-gray-500" id="specInfo"></div>
+					<div>
+						<div class="font-medium mb-1">Headlines</div>
+						<ul id="recHeads" class="list-disc pl-5 space-y-1"></ul>
+					</div>
+					<div class="mt-3">
+						<div class="font-medium mb-1">Image Briefs</div>
+						<ul id="recImgs" class="list-disc pl-5 space-y-1"></ul>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+	async function ensureAuth(){
+		try{ const r=await fetch('/api/auth-status',{credentials:'include'}); if(!r.ok){ location.href='/login.html' } }catch{ location.href='/login.html' }
+	}
+	ensureAuth()
+
+	const state = { items: [], reasons: [], date:'last_30d', rank:'roas' }
+	const el = sel => document.querySelector(sel)
+	const fmt = n => n==null? '—' : (typeof n==='number'? (n>=1000? n.toLocaleString(undefined,{maximumFractionDigits:0}) : n.toLocaleString(undefined,{maximumFractionDigits:2})) : n)
+
+	async function loadAll(){
+		el('#errorCard').classList.add('hidden'); el('#retryBtn').classList.add('hidden')
+		const qs = new URLSearchParams({ date: state.date }).toString()
+		try{
+			const [itemsRes, analysisRes, logRes] = await Promise.all([
+				fetch(`/api/taboola/items?${qs}`),
+				fetch(`/api/analysis-engine?${qs}`),
+				fetch(`/api/lifecycle/actions?limit=20`)
+			])
+			if (!itemsRes.ok){ const err = await itemsRes.json(); throw new Error(`${err.error || 'Items error'}: ${JSON.stringify(err.details||{})}`) }
+			if (!analysisRes.ok){ const err = await analysisRes.json(); throw new Error(`${err.error || 'Analysis error'}: ${JSON.stringify(err.details||{})}`) }
+			const itemsJson = await itemsRes.json(); const analysis = await analysisRes.json(); const logs = await logRes.json()
+			state.items = itemsJson.items; state.reasons = analysis.reasons
+			renderTable(); renderDrivers(analysis.items); renderRecs(analysis); renderLog(logs)
+		} catch(e){
+			el('#errorCard').textContent = e.message; el('#errorCard').classList.remove('hidden'); el('#retryBtn').classList.remove('hidden')
+		}
+	}
+
+	function renderTable(){
+		const body = el('#tableBody'); body.innerHTML = ''
+		const ranked = [...state.items]
+		const sorter = {
+			roas: (a,b)=>(b.roas||-1)-(a.roas||-1),
+			conversions:(a,b)=> (b.conversions||0)-(a.conversions||0),
+			ctr:(a,b)=> (b.ctr||0)-(a.ctr||0),
+			spend:(a,b)=> (b.spend||0)-(a.spend||0)
+		}[state.rank]; ranked.sort(sorter)
+		ranked.forEach(it=>{
+			const tr = document.createElement('tr')
+			tr.innerHTML = `
+				<td class="p-2">
+					<div class="flex items-center gap-2">
+						<img src="${it.thumbnailUrl||''}" class="w-12 h-8 object-cover rounded border"/>
+						<div>
+							<div class="font-medium text-gray-800 line-clamp-1" title="${it.headline||''}">${it.headline||''}</div>
+							<div class="text-xs text-gray-500">${it.itemId}</div>
+						</div>
+					</div>
+				</td>
+				<td class="p-2 text-right">£${fmt(it.spend)}</td>
+				<td class="p-2 text-right">${fmt(it.ctr)}%</td>
+				<td class="p-2 text-right">£${fmt(it.cpc)}</td>
+				<td class="p-2 text-right">${fmt(it.conversions)}</td>
+				<td class="p-2 text-right">£${fmt(it.cpa)}</td>
+				<td class="p-2 text-right">${it.roas? fmt(it.roas)+'x':'—'}</td>
+				<td class="p-2">
+					<div class="flex gap-2">
+						<button class="px-2 py-1 border rounded text-xs" onclick='markAction("${it.itemId}","tested")'>Tested</button>
+						<button class="px-2 py-1 border rounded text-xs" onclick='markAction("${it.itemId}","scaled")'>Scaled</button>
+						<button class="px-2 py-1 border rounded text-xs" onclick='markAction("${it.itemId}","paused")'>Paused</button>
+					</div>
+				</td>
+			`
+			body.appendChild(tr)
+		})
+	}
+
+	function renderDrivers(items){
+		const chips = el('#driverChips'); chips.innerHTML = ''
+		const count = {}
+		items.forEach(i=> (i.drivers||[]).forEach(d=>{ count[d]=(count[d]||0)+1 }))
+		Object.entries(count).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([d,c])=>{
+			const span = document.createElement('span'); span.className='badge badge-blue'; span.textContent = `${d} (${c})`; chips.appendChild(span)
+		})
+	}
+
+	function renderRecs(analysis){
+		el('#specInfo').textContent = `Spec ${analysis.specSnapshot.version} • fetched ${new Date(analysis.specSnapshot.fetchedAt).toLocaleString()}`
+		const ulH = el('#recHeads'); ulH.innerHTML='';
+		analysis.recommendations.headlines.forEach(r=>{ const li=document.createElement('li'); li.textContent=r.headline; ulH.appendChild(li) })
+		const ulI = el('#recImgs'); ulI.innerHTML='';
+		analysis.recommendations.images.forEach(r=>{ const li=document.createElement('li'); li.textContent=r.prompt+ (r.why? ` — ${r.why}`:''); ulI.appendChild(li) })
+	}
+
+	async function markAction(creativeId, type){
+		try{
+			const reason = (state.reasons.find(r=> r.itemId===creativeId)||{}).reason || { short:type, detail:'' }
+			const res = await fetch('/api/lifecycle/action', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ creativeId, type, reasonShort: reason.short, reasonDetail: reason.detail, inputsJson: { date: state.date, rank: state.rank } }) })
+			if (!res.ok){ const err=await res.json(); throw new Error(err.error||'Action failed') }
+			loadLog()
+		} catch(e){ alert('Failed: '+e.message) }
+	}
+	window.markAction = markAction
+
+	async function loadLog(){
+		const res = await fetch('/api/lifecycle-actions?limit=20')
+		const list = await res.json()
+		const cont = el('#lifecycleList'); cont.innerHTML=''
+		list.forEach(a=>{
+			const div = document.createElement('div');
+			div.className='flex items-center justify-between border rounded p-2'
+			div.innerHTML = `<span class="badge ${a.type==='scaled'?'badge-green':a.type==='paused'?'badge-red':'badge-blue'}">${a.type}</span><span class="text-xs text-gray-500">${new Date(a.decidedAt).toLocaleString()}</span>`
+			cont.appendChild(div)
+		})
+	}
+	el('#refreshLog').addEventListener('click', (e)=>{ e.preventDefault(); loadLog() })
+
+	el('#applyFilters').addEventListener('click', ()=>{ state.date = el('#date').value; loadAll() })
+	el('#retryBtn').addEventListener('click', ()=> loadAll())
+	el('#rank').addEventListener('change', (e)=>{ state.rank = e.target.value; renderTable() })
+
+	loadAll()
+	</script>
+</body>
+</html>
