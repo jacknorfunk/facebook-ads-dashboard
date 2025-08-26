@@ -40,7 +40,8 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'User-Agent': 'Creative-Analysis-Engine/1.0'
       },
       body: JSON.stringify(tokenPayload)
     });
