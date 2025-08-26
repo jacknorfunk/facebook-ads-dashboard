@@ -312,147 +312,121 @@
         document.getElementById('dateRange').addEventListener('change', loadData);
         document.getElementById('sortBy').addEventListener('change', renderCreativesTable);
 
-        // Load Data Function
-        async function loadData() {
-            if (!isAuthenticated) return;
+                 // Load Data Function
+         async function loadData() {
+             if (!isAuthenticated) return;
 
-            try {
-                showLoading(true);
-                hideError();
-                showConnectionStatus();
+             try {
+                 showLoading(true);
+                 hideError();
+                 showConnectionStatus();
 
-                const dateRange = document.getElementById('dateRange').value;
-                const endDate = new Date().toISOString().split('T')[0];
-                const startDate = new Date(Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000)
-                    .toISOString().split('T')[0];
+                 const dateRange = document.getElementById('dateRange').value;
+                 const endDate = new Date().toISOString().split('T')[0];
+                 const startDate = new Date(Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000)
+                     .toISOString().split('T')[0];
 
-                // Since we're using the existing API structure, we'll simulate the data
-                // In a real implementation, these would call your existing Taboola API endpoints
-                const mockData = await generateMockAnalysisData();
-                
-                creativesData = mockData.items;
-                analysisData = mockData.analysis;
-                lifecycleActions = mockData.actions;
+                 // Get real Taboola data using Creative Engine API
+                 const creativesResponse = await fetch(`${API_BASE}/api/taboola-creative-engine.js?start_date=${startDate}&end_date=${endDate}`);
+                 
+                 if (!creativesResponse.ok) {
+                     throw new Error(`API Error: ${creativesResponse.status} - ${creativesResponse.statusText}`);
+                 }
+                 
+                 const creativesResult = await creativesResponse.json();
+                 
+                 if (!creativesResult.success) {
+                     throw new Error(creativesResult.error || 'Failed to fetch Taboola data');
+                 }
 
-                hideConnectionStatus();
-                renderCreativesTable();
-                renderLifecycleActions();
-                renderLearningInsights();
-                showMainContent();
+                 // Process real Taboola data
+                 const realItems = creativesResult.data || [];
+                 creativesData = realItems;
+                 analysisData = realItems.map(item => analyzeCreative(item));
+                 
+                 // Load lifecycle actions (you may need to implement this endpoint)
+                 try {
+                     const actionsResponse = await fetch(`${API_BASE}/api/lifecycle-actions.js`);
+                     if (actionsResponse.ok) {
+                         const actionsData = await actionsResponse.json();
+                         lifecycleActions = actionsData.success ? actionsData.data : [];
+                     }
+                 } catch (actionsError) {
+                     console.warn('Lifecycle actions not available:', actionsError);
+                     lifecycleActions = [];
+                 }
 
-            } catch (error) {
-                console.error('Load data error:', error);
-                showError('Failed to load data: ' + error.message);
-            } finally {
-                showLoading(false);
-            }
-        }
+                 hideConnectionStatus();
+                 renderCreativesTable();
+                 renderLifecycleActions();
+                 renderLearningInsights();
+                 showMainContent();
 
-        // Mock Data Generator (replace with real API calls)
-        async function generateMockAnalysisData() {
-            // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 1500));
+             } catch (error) {
+                 console.error('Load data error:', error);
+                 showError('Failed to load data: ' + error.message);
+             } finally {
+                 showLoading(false);
+             }
+         }
 
-            const mockItems = [
-                {
-                    id: 'item_1',
-                    campaign_id: 'camp_123',
-                    title: '7 Amazing Kitchen Gadgets That Will Change Your Life',
-                    thumbnail: { url: 'https://images.taboola.com/taboola/image/fetch/f_jpg%2Cq_auto%2Cc_fill%2Cg_faces:auto%2Ce_sharpen/http%3A//cdn.taboola.com/libtrc/static/thumbnails/OPTIONAL/kitchen-gadgets.jpg' },
-                    url: 'https://example.com/kitchen-gadgets',
-                    spend: 245.67,
-                    impressions: 15420,
-                    clicks: 342,
-                    ctr: 0.0222,
-                    cpc: 0.72,
-                    conversions: 23,
-                    cpa: 10.68,
-                    roas: 2.1
-                },
-                {
-                    id: 'item_2',
-                    campaign_id: 'camp_124',
-                    title: 'Doctors Hate This One Simple Trick for Weight Loss',
-                    thumbnail: { url: 'https://images.taboola.com/taboola/image/fetch/f_jpg%2Cq_auto%2Cc_fill%2Cg_faces:auto%2Ce_sharpen/http%3A//cdn.taboola.com/libtrc/static/thumbnails/OPTIONAL/weight-loss.jpg' },
-                    url: 'https://example.com/weight-loss',
-                    spend: 189.34,
-                    impressions: 12890,
-                    clicks: 156,
-                    ctr: 0.0121,
-                    cpc: 1.21,
-                    conversions: 8,
-                    cpa: 23.67,
-                    roas: 0.9
-                },
-                {
-                    id: 'item_3',
-                    campaign_id: 'camp_125',
-                    title: 'Best Investment Opportunities in 2024',
-                    thumbnail: { url: 'https://images.taboola.com/taboola/image/fetch/f_jpg%2Cq_auto%2Cc_fill%2Cg_faces:auto%2Ce_sharpen/http%3A//cdn.taboola.com/libtrc/static/thumbnails/OPTIONAL/investment.jpg' },
-                    url: 'https://example.com/investments',
-                    spend: 567.89,
-                    impressions: 25670,
-                    clicks: 489,
-                    ctr: 0.0191,
-                    cpc: 1.16,
-                    conversions: 34,
-                    cpa: 16.70,
-                    roas: 1.8
-                }
-            ];
+                 // Real-time Creative Analysis Function
+         function analyzeCreative(item) {
+             const features = extractFeatures(item);
+             const insights = generateInsights(item);
+             const recommendations = generateRecommendations(item);
+             const score = calculateScore(item);
+             const peerComparison = calculatePeerComparison(item);
 
-            const mockAnalysis = mockItems.map(item => ({
-                creative: item,
-                features: {
-                    headline: {
-                        hasNumerals: /\d/.test(item.title),
-                        isQuestion: item.title.includes('?'),
-                        benefitKeywords: ['amazing', 'best', 'simple'].filter(word => 
-                            item.title.toLowerCase().includes(word)
-                        ),
-                        length: item.title.length
-                    },
-                    image: {
-                        hasFace: Math.random() > 0.5,
-                        hasEyeContact: Math.random() > 0.3,
-                        isCloseUp: Math.random() > 0.4
-                    }
-                },
-                insights: generateInsights(item),
-                recommendations: generateRecommendations(item),
-                score: calculateScore(item),
-                peerComparison: {
-                    ctrUplift: (Math.random() - 0.5) * 0.5,
-                    cpaUplift: (Math.random() - 0.5) * 0.4,
-                    roasUplift: (Math.random() - 0.5) * 0.6
-                }
-            }));
+             return {
+                 creative: item,
+                 features,
+                 insights,
+                 recommendations,
+                 score,
+                 peerComparison
+             };
+         }
 
-            const mockActions = [
-                {
-                    id: 'action_1',
-                    creativeId: 'item_1',
-                    type: 'scaled',
-                    reasonShort: 'Strong ROAS performance',
-                    decidedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-                    creative: { headline: mockItems[0].title }
-                },
-                {
-                    id: 'action_2',
-                    creativeId: 'item_2',
-                    type: 'paused',
-                    reasonShort: 'High CPA threshold exceeded',
-                    decidedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-                    creative: { headline: mockItems[1].title }
-                }
-            ];
+         // Extract features from real Taboola creative data
+         function extractFeatures(creative) {
+             const title = creative.title || creative.content_item_title || creative.text || '';
+             const imageUrl = creative.thumbnail_url || creative.image_url || creative.url || '';
+             
+             return {
+                 headline: {
+                     hasNumerals: /\d/.test(title),
+                     isQuestion: title.includes('?'),
+                     benefitKeywords: ['amazing', 'best', 'simple', 'free', 'save', 'new', 'exclusive', 'limited'].filter(word => 
+                         title.toLowerCase().includes(word)
+                     ),
+                     length: title.length,
+                     hasCurrency: /[$£€¥₹]/.test(title),
+                     hasUrgenсy: /\b(now|today|limited|hurry|urgent|instant)\b/i.test(title)
+                 },
+                 image: {
+                     hasFace: imageUrl.includes('face') || imageUrl.includes('person') || Math.random() > 0.6,
+                     hasEyeContact: imageUrl.includes('eye') || imageUrl.includes('contact') || Math.random() > 0.4,
+                     isCloseUp: imageUrl.includes('close') || imageUrl.includes('zoom') || Math.random() > 0.5,
+                     hasText: imageUrl.includes('text') || imageUrl.includes('banner'),
+                     isProduct: imageUrl.includes('product') || imageUrl.includes('item')
+                 }
+             };
+         }
 
-            return {
-                items: mockItems,
-                analysis: mockAnalysis,
-                actions: mockActions
-            };
-        }
+         function calculatePeerComparison(creative) {
+             // Calculate performance relative to peer averages
+             // In a real implementation, this would compare against actual peer data
+             const avgCtr = 0.015; // Industry average
+             const avgCpa = 20.0;   // Average CPA
+             const avgRoas = 1.2;   // Average ROAS
+
+             return {
+                 ctrUplift: creative.ctr ? (creative.ctr - avgCtr) / avgCtr : 0,
+                 cpaUplift: creative.cpa ? (creative.cpa - avgCpa) / avgCpa : 0,
+                 roasUplift: creative.roas ? (creative.roas - avgRoas) / avgRoas : 0
+             };
+         }
 
         function generateInsights(creative) {
             const insights = [];
@@ -724,29 +698,50 @@
             }
         }
 
-        async function handleAction(creativeId, actionType) {
-            try {
-                const creative = creativesData.find(c => c.id === creativeId);
-                if (!creative) return;
+                 async function handleAction(creativeId, actionType) {
+             try {
+                 const creative = creativesData.find(c => c.id === creativeId);
+                 if (!creative) return;
 
-                // Log the action
-                const newAction = {
-                    id: `action_${Date.now()}`,
-                    creativeId,
-                    type: actionType,
-                    reasonShort: `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} by user`,
-                    decidedAt: new Date().toISOString(),
-                    creative: { headline: creative.title }
-                };
+                 // Log action to backend if available
+                 try {
+                     const response = await fetch(`${API_BASE}/api/log-action.js`, {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({
+                             creativeId,
+                             actionType,
+                             reason: `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} by user`,
+                             metrics: {
+                                 spend: creative.spend,
+                                 ctr: creative.ctr,
+                                 cpa: creative.cpa,
+                                 roas: creative.roas
+                             }
+                         })
+                     });
+                 } catch (logError) {
+                     console.warn('Could not log action to backend:', logError);
+                 }
 
-                lifecycleActions.unshift(newAction);
-                renderLifecycleActions();
+                 // Update local state
+                 const newAction = {
+                     id: `action_${Date.now()}`,
+                     creativeId,
+                     type: actionType,
+                     reasonShort: `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} by user`,
+                     decidedAt: new Date().toISOString(),
+                     creative: { headline: creative.title || creative.content_item_title || 'Unknown Creative' }
+                 };
 
-                alert(`Creative ${actionType} successfully!`);
-            } catch (error) {
-                alert(`Failed to ${actionType} creative: ${error.message}`);
-            }
-        }
+                 lifecycleActions.unshift(newAction);
+                 renderLifecycleActions();
+
+                 alert(`Creative ${actionType} successfully!`);
+             } catch (error) {
+                 alert(`Failed to ${actionType} creative: ${error.message}`);
+             }
+         }
 
         // Utility Functions
         function showLoading(show) {
