@@ -120,7 +120,7 @@ export default async function handler(req, res) {
             const startDate = last90Days.toISOString().split('T')[0];
             const endDate = currentDate.toISOString().split('T')[0];
             
-            const reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
+            const reportUrl = `https://api.voluum.com/report?from=${startDate}T00Z&to=${endDate}T00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
             
             const reportResponse = await fetch(reportUrl, {
                 headers: {

@@ -51,7 +51,7 @@ export default async function handler(req, res) {
         try {
             console.log(`🔍 Method 1: Direct campaign-specific request`);
             
-            const directUrl = `https://api.voluum.com/report?campaignId=${campaignId}&from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&limit=500`;
+            const directUrl = `https://api.voluum.com/report?campaignId=${campaignId}&from=${startDate}T00Z&to=${endDate}T00Z&tz=America/New_York&groupBy=offer&limit=500`;
             
             console.log(`📡 Direct URL: ${directUrl}`);
 
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
             console.log(`🔍 Method 2: Get all offers and filter manually`);
             
             try {
-                const allOffersUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&limit=1000`;
+                const allOffersUrl = `https://api.voluum.com/report?from=${startDate}T00Z&to=${endDate}T00Z&tz=America/New_York&groupBy=offer&limit=1000`;
                 
                 console.log(`📡 All offers URL: ${allOffersUrl}`);
 

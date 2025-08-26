@@ -32,6 +32,7 @@ export default async function handler(req, res) {
         const token = authData.token;
 
         // Step 2: Test last 7 days with both timezones
+        // Using Voluum's recommended simplified time format: T00Z
         const now = new Date();
         const endDate = now.toISOString().split('T')[0];
         const startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -46,7 +47,7 @@ export default async function handler(req, res) {
         // Test 1: UTC (old way)
         console.log('🕐 Testing UTC timezone...');
         try {
-            const utcUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=${columns}&tz=UTC&limit=50`;
+            const utcUrl = `https://api.voluum.com/report?from=${startDate}T00Z&to=${endDate}T00Z&groupBy=campaign&columns=${columns}&tz=UTC&limit=50`;
             const utcResponse = await fetch(utcUrl, {
                 headers: { 'cwauth-token': token, 'Content-Type': 'application/json' }
             });
@@ -81,7 +82,7 @@ export default async function handler(req, res) {
         // Test 2: Eastern Time (new way - should match Voluum)
         console.log('🕐 Testing Eastern Time timezone...');
         try {
-            const etUrl = `https://api.voluum.com/report?from=${startDate}&to=${endDate}&groupBy=campaign&columns=${columns}&tz=America/New_York&limit=50`;
+            const etUrl = `https://api.voluum.com/report?from=${startDate}T00Z&to=${endDate}T00Z&groupBy=campaign&columns=${columns}&tz=America/New_York&limit=50`;
             const etResponse = await fetch(etUrl, {
                 headers: { 'cwauth-token': token, 'Content-Type': 'application/json' }
             });

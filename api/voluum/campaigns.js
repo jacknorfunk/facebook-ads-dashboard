@@ -70,9 +70,9 @@ export default async function handler(req, res) {
         console.log('✅ Campaign session created successfully');
 
         // Step 2: Build report URL following official API structure
-        // Official example: ...?from=2017-02-20T00:00:00Z&to=2017-02-21T00:00:00Z&tz=Etc/GMT
-        // Following the pattern shown in developers.voluum.com
-        let reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
+        // Updated per Voluum dev response: minutes/seconds/milliseconds ignored, use simplified format
+        // Official example: from=2025-08-17T00Z&to=2025-08-18T00Z
+        let reportUrl = `https://api.voluum.com/report?from=${startDate}T00Z&to=${endDate}T00Z&tz=America/New_York&groupBy=campaign&limit=1000`;
         
         // Add filters as query parameters (following browser dev tools pattern)
         if (os && os !== '') {

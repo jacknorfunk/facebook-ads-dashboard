@@ -77,7 +77,7 @@ export default async function handler(req, res) {
         const startDateStr = startDate.toISOString().split('T')[0];
         const endDateStr = endDate.toISOString().split('T')[0];
         
-        const reportUrl = `https://api.voluum.com/report?from=${startDateStr}T00:00:00Z&to=${endDateStr}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
+        const reportUrl = `https://api.voluum.com/report?from=${startDateStr}T00Z&to=${endDateStr}T00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
         
         console.log(`🎯 Testing API URL:`, reportUrl);
 
