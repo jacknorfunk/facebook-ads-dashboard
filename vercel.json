@@ -3,22 +3,5 @@
     "api/*.js": {
       "runtime": "nodejs18.x"
     }
-  },
-  "rewrites": [
-    {
-      "source": "/creative-engine.html",
-      "destination": "/creative-engine.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/creative-engine.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
-    }
-  ]
+  }
 }
