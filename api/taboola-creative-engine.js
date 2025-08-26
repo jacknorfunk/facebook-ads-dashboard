@@ -10,8 +10,8 @@ export default async function handler(req, res) {
       return res.status(200).end();
     }
 
-    const CLIENT_ID = process.env.VOLUME_KEY_ID;
-    const CLIENT_SECRET = process.env.VOLUME_KEY;
+    const CLIENT_ID = process.env.TABOOLA_CLIENT_ID;
+    const CLIENT_SECRET = process.env.TABOOLA_CLIENT_SECRET;
     
     console.log('=== CREATIVE ANALYSIS ENGINE API CALLED ===');
     console.log('Method:', req.method);
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       return res.status(500).json({
         success: false,
         error: 'Taboola credentials not configured',
-        details: 'VOLUME_KEY_ID and VOLUME_KEY environment variables are required'
+        details: 'TABOOLA_CLIENT_ID and TABOOLA_CLIENT_SECRET environment variables are required'
       });
     }
 

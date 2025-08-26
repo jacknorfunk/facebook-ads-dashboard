@@ -9,8 +9,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const CLIENT_ID = process.env.VOLUME_KEY_ID;
-    const CLIENT_SECRET = process.env.VOLUME_KEY;
+    const CLIENT_ID = process.env.TABOOLA_CLIENT_ID;
+    const CLIENT_SECRET = process.env.TABOOLA_CLIENT_SECRET;
 
     // Check if credentials are set
     if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -18,8 +18,8 @@ export default async function handler(req, res) {
         success: false,
         error: 'Credentials not configured in Vercel',
         details: {
-          VOLUME_KEY_ID_set: !!CLIENT_ID,
-          VOLUME_KEY_set: !!CLIENT_SECRET
+          TABOOLA_CLIENT_ID_set: !!CLIENT_ID,
+          TABOOLA_CLIENT_SECRET_set: !!CLIENT_SECRET
         }
       });
     }
