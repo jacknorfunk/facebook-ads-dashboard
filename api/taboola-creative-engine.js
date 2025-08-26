@@ -47,7 +47,25 @@ export default async function handler(req, res) {
       body: tokenParams.toString()
     });
 
-    const tokenData = await tokenResponse.json();
+    let tokenData;
+    let responseText;
+    
+    try {
+      responseText = await tokenResponse.text();
+      tokenData = responseText ? JSON.parse(responseText) : {};
+    } catch (parseError) {
+      console.error('Failed to parse Taboola response:', parseError);
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid response from Taboola',
+        details: {
+          status: tokenResponse.status,
+          statusText: tokenResponse.statusText,
+          responseText: responseText || 'Empty response',
+          parseError: parseError.message
+        }
+      });
+    }
 
     if (!tokenResponse.ok) {
       console.error('Taboola auth error:', tokenData);
@@ -57,7 +75,8 @@ export default async function handler(req, res) {
         details: tokenData,
         debug: {
           status: tokenResponse.status,
-          statusText: tokenResponse.statusText
+          statusText: tokenResponse.statusText,
+          responseText: responseText
         }
       });
     }
@@ -74,7 +93,17 @@ export default async function handler(req, res) {
       }
     });
 
-    const accountsData = await accountsResponse.json();
+    let accountsData;
+    try {
+      const accountsText = await accountsResponse.text();
+      accountsData = accountsText ? JSON.parse(accountsText) : {};
+    } catch (parseError) {
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid accounts response from Taboola',
+        details: parseError.message
+      });
+    }
     console.log('Accounts response:', accountsData);
 
     if (!accountsResponse.ok || !accountsData.results || accountsData.results.length === 0) {
