@@ -261,14 +261,24 @@
             const password = document.getElementById('passwordInput').value;
             
             try {
-                // Check for specific password
-                if (password === 'creative_pw') {
+                // Validate password against Vercel environment variable
+                const response = await fetch(`${API_BASE}/api/validate-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
                     isAuthenticated = true;
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('mainDashboard').classList.remove('hidden');
                     await loadData();
                 } else {
-                    showAuthError('Invalid password. Please try again.');
+                    showAuthError(result.error || 'Invalid password. Please try again.');
                 }
             } catch (error) {
                 showAuthError('Authentication failed');
