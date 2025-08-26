@@ -25,22 +25,20 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get OAuth token from Taboola (following official docs)
+    // Get OAuth token from Taboola - try credentials in body approach
     const tokenUrl = 'https://backstage.taboola.com/backstage/oauth/token';
     
-    // Try Basic Authentication approach as per Taboola docs
-    const basicAuth = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
-    
     const tokenParams = new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
       grant_type: 'client_credentials'
     });
 
-    console.log('Requesting Taboola OAuth token with Basic Auth...');
+    console.log('Requesting Taboola OAuth token with credentials in body...');
     
     const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json'
       },
