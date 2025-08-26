@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taboola Creative Analysis Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js"></script>
+    <style>
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grade-A { @apply bg-green-100 text-green-800 border-green-200; }
+        .grade-B { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .grade-C { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        .grade-D { @apply bg-red-100 text-red-800 border-red-200; }
+        .performance-high { @apply bg-green-50 border-l-4 border-green-400; }
+        .performance-medium { @apply bg-yellow-50 border-l-4 border-yellow-400; }
+        .performance-low { @apply bg-red-50 border-l-4 border-red-400; }
+        .insight-chip { @apply inline-block px-2 py-1 text-xs rounded-full mr-1 mb-1; }
+        .insight-positive { @apply bg-green-100 text-green-800; }
+        .insight-negative { @apply bg-red-100 text-red-800; }
+        .insight-neutral { @apply bg-yellow-100 text-yellow-800; }
+        .recommendation-card { @apply bg-white border rounded-lg p-4 mb-3 hover:shadow-md transition-shadow; }
+        .action-btn { @apply px-3 py-1 text-xs rounded font-medium transition-colors; }
+        .btn-scale { @apply bg-green-600 text-white hover:bg-green-700; }
+        .btn-pause { @apply bg-red-600 text-white hover:bg-red-700; }
+        .btn-test { @apply bg-yellow-600 text-white hover:bg-yellow-700; }
+        .btn-details { @apply bg-gray-600 text-white hover:bg-gray-700; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Authentication Modal -->
+    <div id="authModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <div class="mx-auto h-12 w-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
+                    <span class="text-white text-2xl">🎯</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">Creative Analysis Engine</h2>
+                <p class="text-gray-600">Enter password to access Taboola insights</p>
+            </div>
+            
+            <form id="authForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input 
+                        type="password" 
+                        id="passwordInput"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter dashboard password"
+                        required
+                    >
+                </div>
+                <div id="authError" class="hidden text-red-600 text-sm"></div>
+                <button 
+                    type="submit" 
+                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                    Access Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="mainDashboard" class="hidden min-h-screen">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- Header -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900 mb-2">🎯 Creative Analysis Engine</h1>
+                        <p class="text-gray-600">AI-powered Taboola creative performance analysis and optimization</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button 
+                            id="toggleLifecycle"
+                            class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                        >
+                            Toggle Lifecycle Log
+                        </button>
+                        <button 
+                            id="refreshData"
+                            class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        >
+                            <span id="refreshIcon">🔄</span>
+                            Refresh Data
+                        </button>
+                        <button 
+                            id="logoutBtn"
+                            class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+                        >
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection Status -->
+            <div id="connectionStatus" class="mb-6 hidden">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <span class="text-yellow-600 mr-2">⚠️</span>
+                        <span class="text-yellow-800 font-medium">Testing Taboola API Connection...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Display -->
+            <div id="errorDisplay" class="mb-6 hidden">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <span class="text-red-600 mr-2">❌</span>
+                            <span class="text-red-800 font-medium">Connection Error</span>
+                        </div>
+                        <button id="retryConnection" class="text-red-600 hover:text-red-800 text-sm underline">
+                            Retry
+                        </button>
+                    </div>
+                    <p id="errorMessage" class="text-red-700 mt-2 text-sm"></p>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="bg-white rounded-lg shadow-sm border p-4 mb-6">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 mr-2">Date Range:</label>
+                        <select id="dateRange" class="border border-gray-300 rounded px-3 py-1 text-sm">
+                            <option value="7">Last 7 days</option>
+                            <option value="14">Last 14 days</option>
+                            <option value="30">Last 30 days</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 mr-2">Sort by:</label>
+                        <select id="sortBy" class="border border-gray-300 rounded px-3 py-1 text-sm">
+                            <option value="score">Analysis Score</option>
+                            <option value="spend">Spend</option>
+                            <option value="ctr">CTR</option>
+                            <option value="conversions">Conversions</option>
+                            <option value="roas">ROAS</option>
+                        </select>
+                    </div>
+                    <div id="specsInfo" class="ml-auto text-sm text-gray-500 hidden">
+                        Specs: <span id="specsVersion"></span> | <span id="specsDate"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="text-center py-12">
+                <div class="loading rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading creative analysis...</p>
+            </div>
+
+            <!-- Main Content -->
+            <div id="mainContent" class="hidden">
+                <div class="flex gap-6">
+                    <!-- Performance Table -->
+                    <div id="mainPanel" class="w-2/3">
+                        <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+                            <div class="px-6 py-4 border-b">
+                                <h2 class="text-lg font-semibold text-gray-900">
+                                    Creative Performance Analysis (<span id="itemCount">0</span> items)
+                                </h2>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creative</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insights</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metrics</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="creativesTable" class="bg-white divide-y divide-gray-200">
+                                        <!-- Dynamic content will be inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Recommendations Panel -->
+                        <div id="recommendationsPanel" class="mt-6 bg-white rounded-lg shadow-sm border hidden">
+                            <div class="px-6 py-4 border-b">
+                                <h3 class="text-lg font-semibold text-gray-900">
+                                    Recommendations for Creative <span id="selectedCreativeId"></span>
+                                </h3>
+                            </div>
+                            <div class="p-6">
+                                <div class="grid md:grid-cols-2 gap-6">
+                                    <!-- Headlines -->
+                                    <div>
+                                        <h4 class="font-medium text-gray-900 mb-3">Headline Variations</h4>
+                                        <div id="headlineRecommendations" class="space-y-2">
+                                            <!-- Dynamic content -->
+                                        </div>
+                                    </div>
+                                    <!-- Image Recommendations -->
+                                    <div>
+                                        <h4 class="font-medium text-gray-900 mb-3">Image Optimization</h4>
+                                        <div id="imageRecommendations" class="space-y-2">
+                                            <!-- Dynamic content -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lifecycle Log Panel -->
+                    <div id="lifecyclePanel" class="w-1/3">
+                        <div class="bg-white rounded-lg shadow-sm border">
+                            <div class="px-6 py-4 border-b">
+                                <h3 class="text-lg font-semibold text-gray-900">Lifecycle Log</h3>
+                            </div>
+                            <div class="p-4 max-h-96 overflow-y-auto">
+                                <div id="lifecycleActions" class="space-y-3">
+                                    <!-- Dynamic content -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Learning Insights -->
+                        <div class="mt-6 bg-white rounded-lg shadow-sm border">
+                            <div class="px-6 py-4 border-b">
+                                <h3 class="text-lg font-semibold text-gray-900">Learning Insights</h3>
+                            </div>
+                            <div class="p-4">
+                                <div id="learningInsights" class="space-y-3">
+                                    <!-- Dynamic content -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let isAuthenticated = false;
+        let creativesData = [];
+        let analysisData = [];
+        let lifecycleActions = [];
+        let selectedCreative = null;
+        let showLifecyclePanel = true;
+
+        // API Configuration - Using existing Vercel API endpoints
+        const API_BASE = window.location.origin;
+        
+        // Authentication
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('passwordInput').value;
+            
+            try {
+                // Simple password check - in production, this would be a proper API call
+                if (password) {
+                    isAuthenticated = true;
+                    document.getElementById('authModal').classList.add('hidden');
+                    document.getElementById('mainDashboard').classList.remove('hidden');
+                    await loadData();
+                } else {
+                    showAuthError('Please enter a password');
+                }
+            } catch (error) {
+                showAuthError('Authentication failed');
+            }
+        });
+
+        function showAuthError(message) {
+            const errorDiv = document.getElementById('authError');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            isAuthenticated = false;
+            document.getElementById('authModal').classList.remove('hidden');
+            document.getElementById('mainDashboard').classList.add('hidden');
+            document.getElementById('passwordInput').value = '';
+        });
+
+        // Toggle Lifecycle Panel
+        document.getElementById('toggleLifecycle').addEventListener('click', () => {
+            showLifecyclePanel = !showLifecyclePanel;
+            const panel = document.getElementById('lifecyclePanel');
+            const mainPanel = document.getElementById('mainPanel');
+            
+            if (showLifecyclePanel) {
+                panel.classList.remove('hidden');
+                mainPanel.className = 'w-2/3';
+            } else {
+                panel.classList.add('hidden');
+                mainPanel.className = 'w-full';
+            }
+        });
+
+        // Refresh Data
+        document.getElementById('refreshData').addEventListener('click', loadData);
+        document.getElementById('retryConnection').addEventListener('click', loadData);
+
+        // Date Range Change
+        document.getElementById('dateRange').addEventListener('change', loadData);
+        document.getElementById('sortBy').addEventListener('change', renderCreativesTable);
+
+        // Load Data Function
+        async function loadData() {
+            if (!isAuthenticated) return;
+
+            try {
+                showLoading(true);
+                hideError();
+                showConnectionStatus();
+
+                const dateRange = document.getElementById('dateRange').value;
+                const endDate = new Date().toISOString().split('T')[0];
+                const startDate = new Date(Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000)
+                    .toISOString().split('T')[0];
+
+                // Since we're using the existing API structure, we'll simulate the data
+                // In a real implementation, these would call your existing Taboola API endpoints
+                const mockData = await generateMockAnalysisData();
+                
+                creativesData = mockData.items;
+                analysisData = mockData.analysis;
+                lifecycleActions = mockData.actions;
+
+                hideConnectionStatus();
+                renderCreativesTable();
+                renderLifecycleActions();
+                renderLearningInsights();
+                showMainContent();
+
+            } catch (error) {
+                console.error('Load data error:', error);
+                showError('Failed to load data: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Mock Data Generator (replace with real API calls)
+        async function generateMockAnalysisData() {
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            const mockItems = [
+                {
+                    id: 'item_1',
+                    campaign_id: 'camp_123',
+                    title: '7 Amazing Kitchen Gadgets That Will Change Your Life',
+                    thumbnail: { url: 'https://images.taboola.com/taboola/image/fetch/f_jpg%2Cq_auto%2Cc_fill%2Cg_faces:auto%2Ce_sharpen/http%3A//cdn.taboola.com/libtrc/static/thumbnails/OPTIONAL/kitchen-gadgets.jpg' },
+                    url: 'https://example.com/kitchen-gadgets',
+                    spend: 245.67,
+                    impressions: 15420,
+                    clicks: 342,
+                    ctr: 0.0222,
+                    cpc: 0.72,
+                    conversions: 23,
+                    cpa: 10.68,
+                    roas: 2.1
+                },
+                {
+                    id: 'item_2',
+                    campaign_id: 'camp_124',
+                    title: 'Doctors Hate This One Simple Trick for Weight Loss',
+                    thumbnail: { url: 'https://images.taboola.com/taboola/image/fetch/f_jpg%2Cq_auto%2Cc_fill%2Cg_faces:auto%2Ce_sharpen/http%3A//cdn.taboola.com/libtrc/static/thumbnails/OPTIONAL/weight-loss.jpg' },
+                    url: 'https://example.com/weight-loss',
+                    spend: 189.34,
+                    impressions: 12890,
+                    clicks: 156,
+                    ctr: 0.0121,
+                    cpc: 1.21,
+                    conversions: 8,
+                    cpa: 23.67,
+                    roas: 0.9
+                },
+                {
+                    id: 'item_3',
+                    campaign_id: 'camp_125',
+                    title: 'Best Investment Opportunities in 2024',
+                    thumbnail: { url: 'https://images.taboola.com/taboola/image/fetch/f_jpg%2Cq_auto%2Cc_fill%2Cg_faces:auto%2Ce_sharpen/http%3A//cdn.taboola.com/libtrc/static/thumbnails/OPTIONAL/investment.jpg' },
+                    url: 'https://example.com/investments',
+                    spend: 567.89,
+                    impressions: 25670,
+                    clicks: 489,
+                    ctr: 0.0191,
+                    cpc: 1.16,
+                    conversions: 34,
+                    cpa: 16.70,
+                    roas: 1.8
+                }
+            ];
+
+            const mockAnalysis = mockItems.map(item => ({
+                creative: item,
+                features: {
+                    headline: {
+                        hasNumerals: /\d/.test(item.title),
+                        isQuestion: item.title.includes('?'),
+                        benefitKeywords: ['amazing', 'best', 'simple'].filter(word => 
+                            item.title.toLowerCase().includes(word)
+                        ),
+                        length: item.title.length
+                    },
+                    image: {
+                        hasFace: Math.random() > 0.5,
+                        hasEyeContact: Math.random() > 0.3,
+                        isCloseUp: Math.random() > 0.4
+                    }
+                },
+                insights: generateInsights(item),
+                recommendations: generateRecommendations(item),
+                score: calculateScore(item),
+                peerComparison: {
+                    ctrUplift: (Math.random() - 0.5) * 0.5,
+                    cpaUplift: (Math.random() - 0.5) * 0.4,
+                    roasUplift: (Math.random() - 0.5) * 0.6
+                }
+            }));
+
+            const mockActions = [
+                {
+                    id: 'action_1',
+                    creativeId: 'item_1',
+                    type: 'scaled',
+                    reasonShort: 'Strong ROAS performance',
+                    decidedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+                    creative: { headline: mockItems[0].title }
+                },
+                {
+                    id: 'action_2',
+                    creativeId: 'item_2',
+                    type: 'paused',
+                    reasonShort: 'High CPA threshold exceeded',
+                    decidedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+                    creative: { headline: mockItems[1].title }
+                }
+            ];
+
+            return {
+                items: mockItems,
+                analysis: mockAnalysis,
+                actions: mockActions
+            };
+        }
+
+        function generateInsights(creative) {
+            const insights = [];
+            
+            if (creative.roas > 1.5) {
+                insights.push({
+                    type: 'positive',
+                    feature: 'High ROAS Performance',
+                    impact: `+${((creative.roas - 1) * 100).toFixed(0)}% ROAS`,
+                    confidence: 85,
+                    evidence: `ROAS of ${creative.roas}x above baseline`
+                });
+            }
+            
+            if (creative.ctr > 0.02) {
+                insights.push({
+                    type: 'positive',
+                    feature: 'Strong CTR',
+                    impact: `${(creative.ctr * 100).toFixed(2)}% CTR`,
+                    confidence: 90,
+                    evidence: 'Above industry average'
+                });
+            }
+            
+            if (creative.cpa > 20) {
+                insights.push({
+                    type: 'negative',
+                    feature: 'High CPA',
+                    impact: `$${creative.cpa.toFixed(2)} CPA`,
+                    confidence: 75,
+                    evidence: 'Above target threshold'
+                });
+            }
+            
+            return insights;
+        }
+
+        function generateRecommendations(creative) {
+            const recommendations = [];
+            
+            // Headline recommendations
+            if (!creative.title.match(/\d/)) {
+                recommendations.push({
+                    type: 'headline',
+                    content: `7 ${creative.title}`,
+                    reason: 'Adding numbers can increase CTR by 15-25%',
+                    confidence: 85
+                });
+            }
+            
+            if (!creative.title.includes('?')) {
+                recommendations.push({
+                    type: 'headline',
+                    content: `How to ${creative.title}?`,
+                    reason: 'Question format increases engagement',
+                    confidence: 75
+                });
+            }
+            
+            // Image recommendations
+            recommendations.push({
+                type: 'image',
+                content: 'Use image with clear face and direct eye contact (16:9, ~1200×674px)',
+                reason: 'Images with faces typically see 20-30% higher CTR',
+                confidence: 90
+            });
+            
+            recommendations.push({
+                type: 'image',
+                content: 'Increase image contrast for better visibility in feed',
+                reason: 'High contrast images perform better in social feeds',
+                confidence: 75
+            });
+            
+            return recommendations;
+        }
+
+        function calculateScore(creative) {
+            let score = 50; // Base score
+            
+            // Performance metrics
+            if (creative.ctr > 0.01) score += 15;
+            if (creative.ctr > 0.02) score += 10;
+            if (creative.conversions > 10) score += 10;
+            if (creative.cpa && creative.cpa < 20) score += 5;
+            if (creative.roas && creative.roas > 1.5) score += 10;
+            
+            return Math.max(0, Math.min(100, score));
+        }
+
+        // Render Functions
+        function renderCreativesTable() {
+            const sortBy = document.getElementById('sortBy').value;
+            const sortedData = [...analysisData].sort((a, b) => {
+                switch (sortBy) {
+                    case 'score': return b.score - a.score;
+                    case 'spend': return b.creative.spend - a.creative.spend;
+                    case 'ctr': return b.creative.ctr - a.creative.ctr;
+                    case 'conversions': return b.creative.conversions - a.creative.conversions;
+                    case 'roas': return (b.creative.roas || 0) - (a.creative.roas || 0);
+                    default: return 0;
+                }
+            });
+
+            const tbody = document.getElementById('creativesTable');
+            tbody.innerHTML = sortedData.map(result => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-16 w-16">
+                                <img src="${result.creative.thumbnail.url}" 
+                                     alt="Creative thumbnail" 
+                                     class="h-16 w-16 rounded-lg object-cover"
+                                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMSAyMUg0M1Y0M0gyMVYyMVoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'" />
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900 max-w-xs truncate">
+                                    ${result.creative.title}
+                                </div>
+                                <div class="text-sm text-gray-500">
+                                    Campaign: ${result.creative.campaign_id}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-wrap gap-1 mb-2">
+                            ${getInsightChips(result.features)}
+                        </div>
+                        <div class="space-y-1">
+                            ${result.insights.slice(0, 2).map(insight => `
+                                <div class="text-xs px-2 py-1 rounded insight-chip insight-${insight.type}">
+                                    ${insight.feature}: ${insight.impact}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-900">
+                        <div class="space-y-1">
+                            <div>Spend: $${result.creative.spend.toFixed(2)}</div>
+                            <div>CTR: ${(result.creative.ctr * 100).toFixed(2)}%</div>
+                            <div>Conv: ${result.creative.conversions}</div>
+                            <div>CPA: $${result.creative.cpa?.toFixed(2) || 'N/A'}</div>
+                            ${result.creative.roas ? `<div>ROAS: ${result.creative.roas.toFixed(2)}x</div>` : ''}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            <div class="text-2xl font-bold ${getScoreColor(result.score)}">
+                                ${result.score}
+                            </div>
+                            <div class="ml-2 text-xs text-gray-500">/100</div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex space-x-2">
+                            <button onclick="handleAction('${result.creative.id}', 'scaled')" 
+                                    class="action-btn btn-scale">Scale</button>
+                            <button onclick="handleAction('${result.creative.id}', 'paused')" 
+                                    class="action-btn btn-pause">Pause</button>
+                            <button onclick="showRecommendations('${result.creative.id}')" 
+                                    class="action-btn btn-details">Details</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('itemCount').textContent = sortedData.length;
+        }
+
+        function getInsightChips(features) {
+            const chips = [];
+            if (features.headline.hasNumerals) chips.push('<span class="insight-chip bg-blue-100 text-blue-800">Numbers</span>');
+            if (features.image.hasFace) chips.push('<span class="insight-chip bg-green-100 text-green-800">Face</span>');
+            if (features.image.hasEyeContact) chips.push('<span class="insight-chip bg-purple-100 text-purple-800">Eye Contact</span>');
+            if (features.headline.isQuestion) chips.push('<span class="insight-chip bg-yellow-100 text-yellow-800">Question</span>');
+            if (features.headline.benefitKeywords.length > 0) chips.push('<span class="insight-chip bg-indigo-100 text-indigo-800">Benefits</span>');
+            return chips.join('');
+        }
+
+        function getScoreColor(score) {
+            if (score >= 80) return 'text-green-600';
+            if (score >= 60) return 'text-yellow-600';
+            return 'text-red-600';
+        }
+
+        function renderLifecycleActions() {
+            const container = document.getElementById('lifecycleActions');
+            container.innerHTML = lifecycleActions.map(action => `
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0 w-2 h-2 rounded-full mt-2 ${getActionColor(action.type)}"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-gray-900">${action.reasonShort}</div>
+                        <div class="text-xs text-gray-500 truncate">${action.creative.headline}</div>
+                        <div class="text-xs text-gray-400">${new Date(action.decidedAt).toLocaleString()}</div>
+                    </div>
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getActionBadgeClass(action.type)}">
+                        ${action.type}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function getActionColor(type) {
+            switch (type) {
+                case 'scaled': return 'bg-green-500';
+                case 'paused': return 'bg-red-500';
+                case 'tested': return 'bg-yellow-500';
+                default: return 'bg-gray-500';
+            }
+        }
+
+        function getActionBadgeClass(type) {
+            switch (type) {
+                case 'scaled': return 'bg-green-100 text-green-800';
+                case 'paused': return 'bg-red-100 text-red-800';
+                case 'tested': return 'bg-yellow-100 text-yellow-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function renderLearningInsights() {
+            const container = document.getElementById('learningInsights');
+            const insights = [
+                { pattern: 'Face + Eye Contact → Higher CTR', confidence: 85, evidence: '12/15 successful scales had faces' },
+                { pattern: 'Numerical Headlines → Better Performance', confidence: 78, evidence: '9/12 top performers used numbers' },
+                { pattern: 'High CPA → Pause Decision Accuracy', confidence: 92, evidence: '18 creatives with CPA > $25 correctly paused' }
+            ];
+
+            container.innerHTML = insights.map(insight => `
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div class="text-sm font-medium text-blue-900">${insight.pattern}</div>
+                    <div class="text-xs text-blue-700 mt-1">Confidence: ${insight.confidence}%</div>
+                    <div class="text-xs text-blue-600 mt-1">${insight.evidence}</div>
+                </div>
+            `).join('');
+        }
+
+        function showRecommendations(creativeId) {
+            selectedCreative = creativeId;
+            const result = analysisData.find(r => r.creative.id === creativeId);
+            
+            if (result) {
+                document.getElementById('selectedCreativeId').textContent = creativeId;
+                
+                // Render headline recommendations
+                const headlineContainer = document.getElementById('headlineRecommendations');
+                const headlineRecs = result.recommendations.filter(r => r.type === 'headline').slice(0, 6);
+                headlineContainer.innerHTML = headlineRecs.map(rec => `
+                    <div class="recommendation-card">
+                        <div class="font-medium text-sm">${rec.content}</div>
+                        <div class="text-xs text-gray-600 mt-1">${rec.reason}</div>
+                        <div class="text-xs text-blue-600 mt-1">Confidence: ${rec.confidence}%</div>
+                    </div>
+                `).join('');
+
+                // Render image recommendations
+                const imageContainer = document.getElementById('imageRecommendations');
+                const imageRecs = result.recommendations.filter(r => r.type === 'image').slice(0, 4);
+                imageContainer.innerHTML = imageRecs.map(rec => `
+                    <div class="recommendation-card">
+                        <div class="font-medium text-sm">${rec.content}</div>
+                        <div class="text-xs text-gray-600 mt-1">${rec.reason}</div>
+                        <div class="text-xs text-blue-600 mt-1">Confidence: ${rec.confidence}%</div>
+                    </div>
+                `).join('');
+
+                document.getElementById('recommendationsPanel').classList.remove('hidden');
+            }
+        }
+
+        async function handleAction(creativeId, actionType) {
+            try {
+                const creative = creativesData.find(c => c.id === creativeId);
+                if (!creative) return;
+
+                // Log the action
+                const newAction = {
+                    id: `action_${Date.now()}`,
+                    creativeId,
+                    type: actionType,
+                    reasonShort: `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} by user`,
+                    decidedAt: new Date().toISOString(),
+                    creative: { headline: creative.title }
+                };
+
+                lifecycleActions.unshift(newAction);
+                renderLifecycleActions();
+
+                alert(`Creative ${actionType} successfully!`);
+            } catch (error) {
+                alert(`Failed to ${actionType} creative: ${error.message}`);
+            }
+        }
+
+        // Utility Functions
+        function showLoading(show) {
+            document.getElementById('loadingState').classList.toggle('hidden', !show);
+            if (show) {
+                document.getElementById('refreshIcon').classList.add('loading');
+            } else {
+                document.getElementById('refreshIcon').classList.remove('loading');
+            }
+        }
+
+        function showMainContent() {
+            document.getElementById('mainContent').classList.remove('hidden');
+        }
+
+        function showConnectionStatus() {
+            document.getElementById('connectionStatus').classList.remove('hidden');
+        }
+
+        function hideConnectionStatus() {
+            document.getElementById('connectionStatus').classList.add('hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorDisplay').classList.remove('hidden');
+            showLoading(false);
+        }
+
+        function hideError() {
+            document.getElementById('errorDisplay').classList.add('hidden');
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            // Focus on password input
+            document.getElementById('passwordInput').focus();
+        });
+    </script>
+</body>
+</html>
