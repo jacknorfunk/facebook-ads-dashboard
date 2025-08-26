@@ -49,8 +49,8 @@
  		const date = req.query.date || 'last_30d'
  		const [specRes, itemsRes, summaryRes] = await Promise.all([
  			fetch(`${base}/api/specs`).then(r=>r.json()),
- 			fetch(`${base}/api/taboola/items?date=${encodeURIComponent(date)}`).then(async r=>({ ok:r.ok, status:r.status, json: await r.json()})),
- 			fetch(`${base}/api/taboola/summary?date=${encodeURIComponent(date)}`).then(r=>r.json())
+ 			fetch(`${base}/api/taboola/items?date=${encodeURIComponent(date)}&accountId=1789535`).then(async r=>({ ok:r.ok, status:r.status, json: await r.json()})),
+ 			fetch(`${base}/api/taboola/summary?date=${encodeURIComponent(date)}&accountId=1789535`).then(r=>r.json())
  		])
  		if (!itemsRes.ok) {
  			return res.status(itemsRes.status).json(itemsRes.json)

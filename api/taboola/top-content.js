@@ -6,11 +6,12 @@
  	res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
  	res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
  	if (req.method === 'OPTIONS') return res.status(200).end()
-	const ACCOUNT_ID = process.env.TABOOLA_ACCOUNT_ID
+	const queryAccountId = (req.query.accountId && String(req.query.accountId)) || undefined
+	const ACCOUNT_ID = queryAccountId || process.env.TABOOLA_ACCOUNT_ID || '1789535'
 	const CLIENT_ID = process.env.TABOOLA_CLIENT_ID
 	const CLIENT_SECRET = process.env.TABOOLA_CLIENT_SECRET
-	if (!ACCOUNT_ID || !CLIENT_ID || !CLIENT_SECRET) {
-		return res.status(500).json({ error: 'Missing Taboola credentials' })
+	if (!CLIENT_ID || !CLIENT_SECRET) {
+		return res.status(500).json({ error: 'Missing Taboola CLIENT_ID/CLIENT_SECRET' })
 	}
 
 	try {
@@ -54,7 +55,7 @@
 			spend: (a,b) => b.spend - a.spend
 		}[String(rank).toLowerCase()] || ((a,b)=> (b.roas||-1)-(a.roas||-1))
 		items.sort(sorter)
-		return res.json({ items: items.slice(0, 100), meta: { start: startStr, end: endStr, rank } })
+		return res.json({ items: items.slice(0, 100), meta: { start: startStr, end: endStr, rank, accountId: ACCOUNT_ID } })
 	} catch (e) {
 		console.error('taboola/top-content error', e)
 		return res.status(500).json({ error: e.message })

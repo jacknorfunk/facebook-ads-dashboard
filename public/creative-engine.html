@@ -121,7 +121,7 @@
 
 	async function loadAll(){
 		el('#errorCard').classList.add('hidden'); el('#retryBtn').classList.add('hidden')
-		const qs = new URLSearchParams({ date: state.date }).toString()
+		const qs = new URLSearchParams({ date: state.date, accountId: '1789535' }).toString()
 		try{
 			const [itemsRes, analysisRes, logRes] = await Promise.all([
 				fetch(`/api/taboola/items?${qs}`),
