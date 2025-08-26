@@ -25,25 +25,25 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get OAuth token from Taboola - following official documentation
-    const tokenUrl = 'https://backstage.taboola.com/backstage/api/1.0/token';
+    // Try traditional OAuth endpoint with form encoding
+    const tokenUrl = 'https://backstage.taboola.com/backstage/oauth/token';
     
-    const tokenPayload = {
+    const tokenParams = new URLSearchParams({
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
       grant_type: 'client_credentials'
-    };
+    });
 
-    console.log('Requesting Taboola OAuth token using official API endpoint...');
+    console.log('Trying traditional OAuth endpoint with form encoding...');
     
     const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json',
         'User-Agent': 'Creative-Analysis-Engine/1.0'
       },
-      body: JSON.stringify(tokenPayload)
+      body: tokenParams.toString()
     });
 
     let tokenData;
