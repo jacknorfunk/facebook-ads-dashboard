@@ -261,14 +261,14 @@
             const password = document.getElementById('passwordInput').value;
             
             try {
-                // Simple password check - in production, this would be a proper API call
-                if (password) {
+                // Check for specific password
+                if (password === 'creative_pw') {
                     isAuthenticated = true;
                     document.getElementById('authModal').classList.add('hidden');
                     document.getElementById('mainDashboard').classList.remove('hidden');
                     await loadData();
                 } else {
-                    showAuthError('Please enter a password');
+                    showAuthError('Invalid password. Please try again.');
                 }
             } catch (error) {
                 showAuthError('Authentication failed');
@@ -327,17 +327,21 @@
                      .toISOString().split('T')[0];
 
                  // Get real Taboola data using Creative Engine API
-                 const creativesResponse = await fetch(`${API_BASE}/api/taboola-creative-engine.js?start_date=${startDate}&end_date=${endDate}`);
-                 
-                 if (!creativesResponse.ok) {
-                     throw new Error(`API Error: ${creativesResponse.status} - ${creativesResponse.statusText}`);
-                 }
-                 
-                 const creativesResult = await creativesResponse.json();
-                 
-                 if (!creativesResult.success) {
-                     throw new Error(creativesResult.error || 'Failed to fetch Taboola data');
-                 }
+                                 const creativesResponse = await fetch(`${API_BASE}/api/taboola-creative-engine.js?start_date=${startDate}&end_date=${endDate}`);
+                
+                if (!creativesResponse.ok) {
+                    const errorText = await creativesResponse.text();
+                    throw new Error(`API Error: ${creativesResponse.status} - ${errorText}`);
+                }
+                
+                const creativesResult = await creativesResponse.json();
+                
+                if (!creativesResult.success) {
+                    const errorMsg = creativesResult.error || 'Failed to fetch Taboola data';
+                    const errorDetails = creativesResult.details ? 
+                        `\n\nDetails: ${JSON.stringify(creativesResult.details, null, 2)}` : '';
+                    throw new Error(errorMsg + errorDetails);
+                }
 
                  // Process real Taboola data
                  const realItems = creativesResult.data || [];
