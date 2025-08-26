@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   try {
     const { password } = req.body;
-    const correctPassword = process.env.DASHBOARD_PASSWORD;
+    const correctPassword = process.env.creative_pw;
 
     console.log('Password validation attempt');
     console.log('Environment password set:', !!correctPassword);
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     if (!correctPassword) {
       return res.status(500).json({
         success: false,
-        error: 'DASHBOARD_PASSWORD not configured in Vercel environment variables'
+        error: 'creative_pw not configured in Vercel environment variables'
       });
     }
 
