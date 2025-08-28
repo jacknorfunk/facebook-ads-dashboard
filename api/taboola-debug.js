@@ -10,6 +10,18 @@ export default async function handler(req, res) {
       return res.status(200).end();
     }
 
+    const send = (payload, status = 200) => {
+      const accept = (req.headers.accept || '').toLowerCase();
+      const wantsJson = (req.query && (req.query.format === 'json' || req.query.json === '1')) || accept.includes('application/json');
+      if (wantsJson) {
+        return res.status(status).json(payload);
+      }
+      const pretty = JSON.stringify(payload, null, 2);
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Taboola Debug</title><style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0b0f15;color:#e6edf3;margin:0;padding:16px} .card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:18px;max-width:980px} pre{background:#0b1220;color:#e6edf3;border:1px solid #1f2937;border-radius:10px;padding:14px;overflow:auto;font-size:12px} a{color:#93c5fd}</style></head><body><div class="card"><h1 style="margin:0 0 10px 0;font-size:18px">Taboola Debug</h1><p style="margin:0 0 12px 0">Append <code>?format=json</code> to get raw JSON.</p><pre>${pretty.replace(/[&<>]/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[s]))}</pre></div></body></html>`;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(status).send(html);
+    };
+
     console.log('=== TABOOLA DEBUG API CALLED ===');
 
     // Check environment variables
@@ -39,7 +51,7 @@ export default async function handler(req, res) {
 
     // If any env vars are missing, return early
     if (!CLIENT_ID || !CLIENT_SECRET || !ACCOUNT_ID) {
-      return res.json({
+      return send({
         status: 'error',
         message: 'Missing required environment variables',
         env_check: envCheck,
@@ -75,7 +87,7 @@ export default async function handler(req, res) {
     console.log('Token response:', tokenData);
 
     if (!tokenResponse.ok) {
-      return res.json({
+      return send({
         status: 'auth_error',
         message: 'Taboola authentication failed',
         env_check: envCheck,
@@ -94,7 +106,7 @@ export default async function handler(req, res) {
           'Check API permissions',
           'Contact Taboola support if needed'
         ]
-      });
+      }, tokenResponse.status);
     }
 
     // Test basic API call with token
@@ -114,7 +126,7 @@ export default async function handler(req, res) {
     console.log('API response status:', apiResponse.status);
 
     if (!apiResponse.ok) {
-      return res.json({
+      return send({
         status: 'api_error',
         message: 'Taboola API call failed',
         env_check: envCheck,
@@ -133,11 +145,11 @@ export default async function handler(req, res) {
           'Check account permissions in Taboola dashboard',
           'Ensure API access is enabled for this account'
         ]
-      });
+      }, apiResponse.status);
     }
 
     // Success!
-    return res.json({
+    return send({
       status: 'success',
       message: 'Taboola connection working correctly',
       env_check: envCheck,
