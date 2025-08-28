@@ -135,7 +135,7 @@ export default async function handler(req, res) {
         if (campaignOfferIds.length > 0) {
             // If we have specific offer IDs from campaign config, use only those
             console.log(`🎯 Using campaign-specific offer IDs: ${campaignOfferIds.length} offers`);
-            reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
+            reportUrl = `https://api.voluum.com/report?from=${startDate}T00Z&to=${endDate}T00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
         } else {
             // If no campaign config available, try to get campaign structure from different API
             console.log(`🔍 No offers found in campaign config, trying alternative method...`);
@@ -184,7 +184,7 @@ export default async function handler(req, res) {
                 console.error('❌ Error with bulk campaign API:', bulkError.message);
             }
             
-            reportUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
+            reportUrl = `https://api.voluum.com/report?from=${startDate}T00Z&to=${endDate}T00Z&tz=America/New_York&groupBy=offer&campaignId=${campaignId}&limit=1000`;
         }
         
         console.log(`🎯 Fetching offers using official API structure:`, reportUrl);

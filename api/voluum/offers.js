@@ -129,7 +129,7 @@ async function getCampaignSpecificOffers(authToken, startDate, endDate, campaign
 
     // Method 1: Direct campaign-specific request
     try {
-        const directUrl = `https://api.voluum.com/report?campaignId=${campaignId}&from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&limit=1000`;
+        const directUrl = `https://api.voluum.com/report?campaignId=${campaignId}&from=${startDate}T00Z&to=${endDate}T00Z&tz=America/New_York&groupBy=offer&limit=1000`;
         
         console.log(`📡 Direct campaign-specific URL: ${directUrl}`);
 
@@ -164,7 +164,7 @@ async function getCampaignSpecificOffers(authToken, startDate, endDate, campaign
 
     // Method 2: Alternative parameter order
     try {
-        const altUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&campaignId=${campaignId}&tz=America/New_York&groupBy=offer&limit=1000`;
+        const altUrl = `https://api.voluum.com/report?from=${startDate}T00Z&to=${endDate}T00Z&campaignId=${campaignId}&tz=America/New_York&groupBy=offer&limit=1000`;
         
         console.log(`📡 Alternative parameter order URL: ${altUrl}`);
 
@@ -206,7 +206,7 @@ async function getOffersWithManualValidation(authToken, startDate, endDate, camp
 
     try {
         // Get all offers in date range
-        const allOffersUrl = `https://api.voluum.com/report?from=${startDate}T00:00:00Z&to=${endDate}T23:00:00Z&tz=America/New_York&groupBy=offer&limit=1000`;
+        const allOffersUrl = `https://api.voluum.com/report?from=${startDate}T00Z&to=${endDate}T00Z&tz=America/New_York&groupBy=offer&limit=1000`;
         
         console.log(`📡 Getting all offers for manual filtering: ${allOffersUrl}`);
 
