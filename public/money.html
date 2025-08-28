@@ -1,338 +1,451 @@
-// AdsByMoney API Client for Conversion Tracking
-// This client helps you test conversion data retrieval and check for real-time availability
-
-class AdsByMoneyAPI {
-  constructor(apiToken) {
-    this.apiToken = apiToken;
-    this.baseUrl = 'https://api.adsbymoney.com/api/v1/publisher_dashboard';
-    this.headers = {
-      'Content-Type': 'application/json'
-    };
-  }
-
-  // Helper method to make API requests
-  async makeRequest(endpoint, payload) {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    const requestPayload = {
-      api_token: this.apiToken,
-      ...payload
-    };
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify(requestPayload)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error(`Error making request to ${endpoint}:`, error);
-      throw error;
-    }
-  }
-
-  // Get conversions with various time ranges to test real-time availability
-  async getConversions(startDate, endDate, conversionStages = []) {
-    const payload = {
-      start_at: startDate,
-      end_at: endDate
-    };
-
-    if (conversionStages.length > 0) {
-      payload.conversion_stages = conversionStages;
-    }
-
-    return await this.makeRequest('/conversions', payload);
-  }
-
-  // Test conversion data availability across different time ranges
-  async testConversionLatency() {
-    const results = {
-      realTimeTest: null,
-      todayTest: null,
-      yesterdayTest: null,
-      last7DaysTest: null,
-      conversionLatencyAnalysis: []
-    };
-
-    try {
-      const now = new Date();
-      const today = now.toISOString().split('T')[0];
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-      console.log('🔍 Testing conversion data availability...');
-
-      // Test 1: Real-time (today only)
-      console.log('Testing today\'s conversions for real-time data...');
-      try {
-        results.todayTest = await this.getConversions(today, today);
-        console.log(`✅ Today's data: ${results.todayTest.data?.length || 0} conversions found`);
-      } catch (error) {
-        console.log('❌ Today\'s data failed:', error.message);
-        results.todayTest = { error: error.message };
-      }
-
-      // Test 2: Yesterday's data
-      console.log('Testing yesterday\'s conversions...');
-      try {
-        results.yesterdayTest = await this.getConversions(yesterday, yesterday);
-        console.log(`✅ Yesterday's data: ${results.yesterdayTest.data?.length || 0} conversions found`);
-      } catch (error) {
-        console.log('❌ Yesterday\'s data failed:', error.message);
-        results.yesterdayTest = { error: error.message };
-      }
-
-      // Test 3: Last 7 days
-      console.log('Testing last 7 days of conversions...');
-      try {
-        results.last7DaysTest = await this.getConversions(sevenDaysAgo, today);
-        console.log(`✅ Last 7 days: ${results.last7DaysTest.data?.length || 0} conversions found`);
-      } catch (error) {
-        console.log('❌ Last 7 days failed:', error.message);
-        results.last7DaysTest = { error: error.message };
-      }
-
-      // Analyze conversion timing if we have data
-      this.analyzeConversionLatency(results);
-
-    } catch (error) {
-      console.error('Error in conversion latency test:', error);
-    }
-
-    return results;
-  }
-
-  // Analyze conversion data to determine latency patterns
-  analyzeConversionLatency(results) {
-    const allConversions = [];
-    
-    // Collect all conversion data
-    [results.todayTest, results.yesterdayTest, results.last7DaysTest].forEach(result => {
-      if (result?.data) {
-        allConversions.push(...result.data);
-      }
-    });
-
-    if (allConversions.length === 0) {
-      console.log('📊 No conversion data available for latency analysis');
-      return;
-    }
-
-    console.log('\n📊 Conversion Latency Analysis:');
-    console.log(`Total conversions analyzed: ${allConversions.length}`);
-
-    // Group by date to see distribution
-    const conversionsByDate = {};
-    allConversions.forEach(conversion => {
-      const date = conversion.date;
-      if (!conversionsByDate[date]) {
-        conversionsByDate[date] = [];
-      }
-      conversionsByDate[date].push(conversion);
-    });
-
-    // Analyze dates
-    const dates = Object.keys(conversionsByDate).sort();
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    console.log('\nConversion data by date:');
-    dates.forEach(date => {
-      const count = conversionsByDate[date].length;
-      const isToday = date === today;
-      const isYesterday = date === yesterday;
-      
-      let dateLabel = date;
-      if (isToday) dateLabel += ' (TODAY)';
-      if (isYesterday) dateLabel += ' (YESTERDAY)';
-      
-      console.log(`  ${dateLabel}: ${count} conversions`);
-      
-      // Show conversion stages for recent dates
-      if (isToday || isYesterday) {
-        const stages = {};
-        conversionsByDate[date].forEach(conv => {
-          stages[conv.conversion_stage] = (stages[conv.conversion_stage] || 0) + 1;
-        });
-        Object.entries(stages).forEach(([stage, count]) => {
-          console.log(`    ${stage}: ${count}`);
-        });
-      }
-    });
-
-    // Check for real-time availability
-    const todayConversions = conversionsByDate[today]?.length || 0;
-    const yesterdayConversions = conversionsByDate[yesterday]?.length || 0;
-
-    console.log('\n⚡ Real-time Assessment:');
-    if (todayConversions > 0) {
-      console.log(`✅ TODAY'S DATA AVAILABLE: ${todayConversions} conversions`);
-      console.log('   This suggests conversions may be available faster than 24 hours!');
-    } else {
-      console.log('❌ No today\'s data - likely still has 24-hour delay');
-    }
-
-    if (yesterdayConversions > 0) {
-      console.log(`✅ Yesterday's data: ${yesterdayConversions} conversions`);
-    }
-
-    return {
-      totalConversions: allConversions.length,
-      conversionsByDate,
-      todayConversions,
-      yesterdayConversions,
-      realTimeAvailable: todayConversions > 0
-    };
-  }
-
-  // Test all conversion stages to see which are available faster
-  async testConversionStages() {
-    const stages = ["lead", "qualified_lead", "sale", "advanced_action"];
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const results = {};
-
-    console.log('🎯 Testing individual conversion stages...');
-
-    for (const stage of stages) {
-      console.log(`Testing stage: ${stage}`);
-      try {
-        // Test today's data for this stage
-        const todayData = await this.getConversions(today, today, [stage]);
-        const yesterdayData = await this.getConversions(yesterday, yesterday, [stage]);
-        
-        results[stage] = {
-          today: todayData.data?.length || 0,
-          yesterday: yesterdayData.data?.length || 0,
-          todayData: todayData.data || [],
-          yesterdayData: yesterdayData.data || []
-        };
-
-        console.log(`  ${stage}: Today=${results[stage].today}, Yesterday=${results[stage].yesterday}`);
-      } catch (error) {
-        console.log(`  ${stage}: Error - ${error.message}`);
-        results[stage] = { error: error.message };
-      }
-    }
-
-    return results;
-  }
-
-  // Get campaigns data for comparison
-  async getCampaigns(startDate, endDate) {
-    return await this.makeRequest('/campaigns', {
-      start_at: startDate,
-      end_at: endDate
-    });
-  }
-
-  // Compare campaigns vs conversions timing
-  async compareDataLatency() {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    console.log('⚖️  Comparing data latency between campaigns and conversions...');
-
-    try {
-      // Test campaigns data
-      const todayCampaigns = await this.getCampaigns(today, today);
-      const yesterdayCampaigns = await this.getCampaigns(yesterday, yesterday);
-
-      // Test conversions data
-      const todayConversions = await this.getConversions(today, today);
-      const yesterdayConversions = await this.getConversions(yesterday, yesterday);
-
-      const comparison = {
-        campaigns: {
-          today: todayCampaigns.data?.length || 0,
-          yesterday: yesterdayCampaigns.data?.length || 0
-        },
-        conversions: {
-          today: todayConversions.data?.length || 0,
-          yesterday: yesterdayConversions.data?.length || 0
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdsByMoney API Conversion Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
-      };
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+        }
+        .warning {
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 AdsByMoney API Conversion Test</h1>
+        <p>This page tests your AdsByMoney API to check if conversions are available faster than the documented 24-hour delay.</p>
+        
+        <div class="test-section">
+            <h3>📊 Quick Conversion Test</h3>
+            <p>Tests today's, yesterday's, and last 3 days' conversions to check real-time availability.</p>
+            <button onclick="runQuickTest()" id="quickTestBtn">Run Quick Test</button>
+            <div id="quickTestResults" class="results" style="display:none;"></div>
+        </div>
 
-      console.log('Campaigns data availability:');
-      console.log(`  Today: ${comparison.campaigns.today} campaigns`);
-      console.log(`  Yesterday: ${comparison.campaigns.yesterday} campaigns`);
+        <div class="test-section">
+            <h3>🎯 Conversion Stages Test</h3>
+            <p>Tests individual conversion stages (lead, qualified_lead, sale, advanced_action) for today's data.</p>
+            <button onclick="runStagesTest()" id="stagesTestBtn">Test Conversion Stages</button>
+            <div id="stagesTestResults" class="results" style="display:none;"></div>
+        </div>
 
-      console.log('Conversions data availability:');
-      console.log(`  Today: ${comparison.conversions.today} conversions`);
-      console.log(`  Yesterday: ${comparison.conversions.yesterday} conversions`);
+        <div class="test-section">
+            <h3>⚡ Real-time Analysis</h3>
+            <p>Comprehensive analysis of conversion latency and data availability patterns.</p>
+            <button onclick="runFullAnalysis()" id="fullAnalysisBtn">Run Full Analysis</button>
+            <div id="fullAnalysisResults" class="results" style="display:none;"></div>
+        </div>
 
-      // Analysis
-      if (comparison.campaigns.today > 0 && comparison.conversions.today === 0) {
-        console.log('📈 Campaign data appears to be more real-time than conversion data');
-      } else if (comparison.conversions.today > 0) {
-        console.log('⚡ Conversion data appears to be available in real-time!');
-      }
+        <div class="test-section">
+            <h3>⚖️ Compare with Campaigns Data</h3>
+            <p>Compare conversion data timing with campaigns data to see if there are differences in latency.</p>
+            <button onclick="runComparisonTest()" id="comparisonTestBtn">Compare Data Sources</button>
+            <div id="comparisonResults" class="results" style="display:none;"></div>
+        </div>
+    </div>
 
-      return comparison;
-    } catch (error) {
-      console.error('Error comparing data latency:', error);
-      throw error;
-    }
-  }
-}
+    <script>
+        // AdsByMoney API Configuration
+        const API_TOKEN = "acbf8ea4-8655-4cfa-8206-587f7f8bdbb8";
+        const BASE_URL = "https://api.adsbymoney.com/api/v1/publisher_dashboard";
 
-// Usage Example
-const API_TOKEN = "acbf8ea4-8655-4cfa-8206-587f7f8bdbb8";
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+            return `[${timestamp}] ${prefix} ${message}`;
+        }
 
-async function runConversionTests() {
-  const api = new AdsByMoneyAPI(API_TOKEN);
-  
-  console.log('🚀 Starting AdsByMoney API Conversion Tests...\n');
-  
-  try {
-    // Test 1: Overall conversion latency
-    console.log('=== TEST 1: Conversion Latency Analysis ===');
-    const latencyResults = await api.testConversionLatency();
-    
-    // Test 2: Individual conversion stages
-    console.log('\n=== TEST 2: Conversion Stages Analysis ===');
-    const stageResults = await api.testConversionStages();
-    
-    // Test 3: Compare with campaigns data
-    console.log('\n=== TEST 3: Data Latency Comparison ===');
-    const comparisonResults = await api.compareDataLatency();
-    
-    // Summary
-    console.log('\n=== SUMMARY ===');
-    const hasRealTimeConversions = latencyResults.todayTest?.data?.length > 0;
-    
-    if (hasRealTimeConversions) {
-      console.log('✅ GOOD NEWS: Conversion data appears to be available faster than 24 hours!');
-      console.log('   You can likely get conversions with minimal delay through the API.');
-    } else {
-      console.log('❌ Conversion data still appears to have the 24-hour delay mentioned.');
-      console.log('   Consider checking the other endpoints or contacting AdsByMoney support.');
-    }
-    
-    return {
-      latencyResults,
-      stageResults,
-      comparisonResults,
-      realTimeAvailable: hasRealTimeConversions
-    };
-    
-  } catch (error) {
-    console.error('Test failed:', error);
-    throw error;
-  }
-}
+        function showResults(elementId, content) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent = content;
+        }
 
-// Run the tests
-// Uncomment the line below to execute the tests when running this code:
-// runConversionTests();
+        function appendResults(elementId, content) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent += content;
+        }
 
-// Export for use in other modules
-// module.exports = { AdsByMoneyAPI, runConversionTests };
+        // API call function
+        async function makeAPICall(endpoint, payload) {
+            const requestPayload = {
+                api_token: API_TOKEN,
+                ...payload
+            };
+
+            const response = await fetch(`${BASE_URL}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestPayload)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`${response.status} ${response.statusText}: ${errorText}`);
+            }
+
+            return await response.json();
+        }
+
+        // Quick conversion test
+        async function runQuickTest() {
+            const btn = document.getElementById('quickTestBtn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            
+            const today = new Date().toISOString().split('T')[0];
+            const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            
+            let results = log(`Starting conversion test...\nToday: ${today}\nYesterday: ${yesterday}\nThree days ago: ${threeDaysAgo}\n\n`);
+
+            try {
+                // Test today's conversions
+                results += log('Testing TODAY\'S conversions...');
+                try {
+                    const todayData = await makeAPICall('/conversions', {
+                        start_at: today,
+                        end_at: today
+                    });
+                    
+                    const todayCount = todayData.data?.length || 0;
+                    results += log(`Today's conversions: ${todayCount} found`, todayCount > 0 ? 'success' : 'info');
+                    
+                    if (todayCount > 0) {
+                        results += log('🎉 REAL-TIME DATA AVAILABLE! Conversions are faster than 24 hours!', 'success');
+                        results += log(`Sample conversion: ${JSON.stringify(todayData.data[0], null, 2)}`);
+                    }
+                } catch (error) {
+                    results += log(`Today's test failed: ${error.message}`, 'error');
+                }
+
+                results += '\n';
+
+                // Test yesterday's conversions
+                results += log('Testing YESTERDAY\'S conversions...');
+                try {
+                    const yesterdayData = await makeAPICall('/conversions', {
+                        start_at: yesterday,
+                        end_at: yesterday
+                    });
+                    
+                    const yesterdayCount = yesterdayData.data?.length || 0;
+                    results += log(`Yesterday's conversions: ${yesterdayCount} found`, yesterdayCount > 0 ? 'success' : 'info');
+                    
+                    if (yesterdayCount > 0 && yesterdayData.data[0]) {
+                        results += log(`Sample conversion: ${JSON.stringify(yesterdayData.data[0], null, 2)}`);
+                    }
+                } catch (error) {
+                    results += log(`Yesterday's test failed: ${error.message}`, 'error');
+                }
+
+                results += '\n';
+
+                // Test last 3 days
+                results += log('Testing LAST 3 DAYS conversions...');
+                try {
+                    const rangeData = await makeAPICall('/conversions', {
+                        start_at: threeDaysAgo,
+                        end_at: today
+                    });
+                    
+                    const rangeCount = rangeData.data?.length || 0;
+                    results += log(`Last 3 days conversions: ${rangeCount} found`, rangeCount > 0 ? 'success' : 'info');
+                    
+                    if (rangeCount > 0) {
+                        // Analyze by date
+                        const byDate = {};
+                        rangeData.data.forEach(conv => {
+                            byDate[conv.date] = (byDate[conv.date] || 0) + 1;
+                        });
+                        
+                        results += log('Conversions by date:');
+                        Object.entries(byDate).sort().forEach(([date, count]) => {
+                            const label = date === today ? ' (TODAY)' : date === yesterday ? ' (YESTERDAY)' : '';
+                            results += log(`  ${date}${label}: ${count} conversions`);
+                        });
+                    }
+                } catch (error) {
+                    results += log(`Range test failed: ${error.message}`, 'error');
+                }
+
+                results += '\n' + log('=== CONCLUSION ===', 'info');
+                results += log('If you see conversions for TODAY, then the API provides faster access than the 24-hour delay!');
+                results += log('If you only see conversions for yesterday or older, then the 24-hour delay still applies.');
+
+            } catch (error) {
+                results += log(`Test failed: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Run Quick Test';
+            }
+
+            showResults('quickTestResults', results);
+        }
+
+        // Conversion stages test
+        async function runStagesTest() {
+            const btn = document.getElementById('stagesTestBtn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            
+            const stages = ["lead", "qualified_lead", "sale", "advanced_action"];
+            const today = new Date().toISOString().split('T')[0];
+            
+            let results = log('Testing specific conversion stages for today...\n');
+
+            try {
+                for (const stage of stages) {
+                    try {
+                        const data = await makeAPICall('/conversions', {
+                            start_at: today,
+                            end_at: today,
+                            conversion_stages: [stage]
+                        });
+                        
+                        const count = data.data?.length || 0;
+                        results += log(`${stage}: ${count} conversions today`, count > 0 ? 'success' : 'info');
+                        
+                        if (count > 0 && data.data[0]) {
+                            results += log(`  Sample: Campaign "${data.data[0].campaign_name}", ID: ${data.data[0].conversion_id}`);
+                        }
+                    } catch (error) {
+                        results += log(`${stage}: Error - ${error.message}`, 'error');
+                    }
+                }
+            } catch (error) {
+                results += log(`Stages test failed: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Test Conversion Stages';
+            }
+
+            showResults('stagesTestResults', results);
+        }
+
+        // Full analysis
+        async function runFullAnalysis() {
+            const btn = document.getElementById('fullAnalysisBtn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            
+            let results = log('Starting comprehensive conversion analysis...\n');
+
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+                // Get last 7 days of data
+                results += log('Fetching last 7 days of conversion data...');
+                const data = await makeAPICall('/conversions', {
+                    start_at: sevenDaysAgo,
+                    end_at: today
+                });
+
+                const conversions = data.data || [];
+                results += log(`Total conversions found: ${conversions.length}`, conversions.length > 0 ? 'success' : 'warning');
+
+                if (conversions.length === 0) {
+                    results += log('No conversion data available for analysis', 'warning');
+                } else {
+                    // Analyze by date
+                    const byDate = {};
+                    conversions.forEach(conv => {
+                        if (!byDate[conv.date]) {
+                            byDate[conv.date] = [];
+                        }
+                        byDate[conv.date].push(conv);
+                    });
+
+                    results += log('\nConversions by date:');
+                    const dates = Object.keys(byDate).sort();
+                    dates.forEach(date => {
+                        const count = byDate[date].length;
+                        const isToday = date === today;
+                        const isYesterday = date === yesterday;
+                        
+                        let dateLabel = date;
+                        if (isToday) dateLabel += ' (TODAY)';
+                        if (isYesterday) dateLabel += ' (YESTERDAY)';
+                        
+                        results += log(`  ${dateLabel}: ${count} conversions`);
+                        
+                        // Show stages for recent dates
+                        if (isToday || isYesterday) {
+                            const stages = {};
+                            byDate[date].forEach(conv => {
+                                stages[conv.conversion_stage] = (stages[conv.conversion_stage] || 0) + 1;
+                            });
+                            Object.entries(stages).forEach(([stage, stageCount]) => {
+                                results += log(`    ${stage}: ${stageCount}`);
+                            });
+                        }
+                    });
+
+                    // Real-time assessment
+                    const todayCount = byDate[today]?.length || 0;
+                    const yesterdayCount = byDate[yesterday]?.length || 0;
+
+                    results += log('\n⚡ Real-time Assessment:');
+                    if (todayCount > 0) {
+                        results += log(`✅ TODAY'S DATA AVAILABLE: ${todayCount} conversions`, 'success');
+                        results += log('This suggests conversions are available faster than 24 hours!', 'success');
+                    } else {
+                        results += log('❌ No today\'s data - likely still has 24-hour delay', 'warning');
+                    }
+
+                    if (yesterdayCount > 0) {
+                        results += log(`✅ Yesterday's data: ${yesterdayCount} conversions`, 'success');
+                    }
+                }
+
+            } catch (error) {
+                results += log(`Analysis failed: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Run Full Analysis';
+            }
+
+            showResults('fullAnalysisResults', results);
+        }
+
+        // Compare with campaigns data
+        async function runComparisonTest() {
+            const btn = document.getElementById('comparisonTestBtn');
+            btn.disabled = true;
+            btn.textContent = 'Running...';
+            
+            const today = new Date().toISOString().split('T')[0];
+            const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            
+            let results = log('Comparing data latency between campaigns and conversions...\n');
+
+            try {
+                // Test campaigns data
+                results += log('Testing campaigns data availability...');
+                try {
+                    const todayCampaigns = await makeAPICall('/campaigns', {
+                        start_at: today,
+                        end_at: today
+                    });
+                    const yesterdayCampaigns = await makeAPICall('/campaigns', {
+                        start_at: yesterday,
+                        end_at: yesterday
+                    });
+
+                    const campaignsTodayCount = todayCampaigns.data?.length || 0;
+                    const campaignsYesterdayCount = yesterdayCampaigns.data?.length || 0;
+
+                    results += log(`Campaigns data:`);
+                    results += log(`  Today: ${campaignsTodayCount} campaigns`);
+                    results += log(`  Yesterday: ${campaignsYesterdayCount} campaigns`);
+
+                    // Test conversions data
+                    results += log('\nTesting conversions data availability...');
+                    const todayConversions = await makeAPICall('/conversions', {
+                        start_at: today,
+                        end_at: today
+                    });
+                    const yesterdayConversions = await makeAPICall('/conversions', {
+                        start_at: yesterday,
+                        end_at: yesterday
+                    });
+
+                    const conversionsTodayCount = todayConversions.data?.length || 0;
+                    const conversionsYesterdayCount = yesterdayConversions.data?.length || 0;
+
+                    results += log(`Conversions data:`);
+                    results += log(`  Today: ${conversionsTodayCount} conversions`);
+                    results += log(`  Yesterday: ${conversionsYesterdayCount} conversions`);
+
+                    // Analysis
+                    results += log('\n📈 Analysis:');
+                    if (campaignsTodayCount > 0 && conversionsTodayCount === 0) {
+                        results += log('Campaign data appears to be more real-time than conversion data', 'warning');
+                    } else if (conversionsTodayCount > 0) {
+                        results += log('Conversion data appears to be available in real-time!', 'success');
+                    } else if (campaignsTodayCount === 0 && conversionsTodayCount === 0) {
+                        results += log('Both datasets appear to have delays or no current activity', 'info');
+                    }
+
+                } catch (error) {
+                    results += log(`Comparison test failed: ${error.message}`, 'error');
+                }
+
+            } catch (error) {
+                results += log(`Test failed: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Compare Data Sources';
+            }
+
+            showResults('comparisonResults', results);
+        }
+    </script>
+</body>
+</html>
